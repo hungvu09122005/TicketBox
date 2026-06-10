@@ -9,7 +9,7 @@ Tài liệu này trình bày chi tiết về kiến trúc lưu trữ dữ liệu
 Hệ thống phân rã dữ liệu thành các kho lưu trữ chuyên biệt tùy thuộc vào đặc tính kỹ thuật và workload của từng module nghiệp vụ:
 
 * **PostgreSQL:** Đóng vai trò là trung tâm dữ liệu ACID, chịu trách nhiệm lưu trữ các giao dịch tài chính, thông tin phân quyền RBAC, dữ liệu vé và thông tin người dùng.
-* **Redis:** Bộ nhớ đệm phân tán (Cache-aside) lưu trữ thông tin phòng chờ, cấu hình vé, rate limit counter và phân phối Distributed Lock để chống oversell.
+* **Redis:** Dùng cho Cache-aside (giảm tải đọc concert), Rate Limiting (chống bot), quản lý session và Distributed Lock ở tầng ứng dụng nhằm giảm tranh chấp tài nguyên. Redis không lưu dữ liệu quyết định (ví dụ: sold_quantity); tính nhất quán của luồng mua vé vẫn được đảm bảo bởi transaction và row-level lock trong PostgreSQL.
 * **Object Storage (MinIO/S3):** Lưu trữ các tệp tin phi cấu trúc có dung lượng lớn như file SVG sơ đồ ghế (Seat map), file CSV danh sách khách VIP và file PDF Press Kit của nghệ sĩ.
 * **Mobile Local Storage (SQLite):** Cơ sở dữ liệu nhúng tại thiết bị của nhân sự soát vé, phục vụ lưu kho vé offline và ghi nhận log check-in cục bộ trước khi đồng bộ.
 
