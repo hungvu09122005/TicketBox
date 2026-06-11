@@ -169,7 +169,7 @@ Audience Web
 Thiết kế:
 
 - Khi user tạo order, backend kiểm tra ticket availability và per-user limit trong transaction.
-- Có thể dùng row-level lock trên `ticket_types` hoặc optimistic locking với version.
+- Hệ thống chọn **pessimistic row-level lock** trên `ticket_types` bằng `SELECT ... FOR UPDATE` trong một PostgreSQL transaction ngắn. Optimistic locking đã được xem xét nhưng không chọn cho luồng mở bán do tỷ lệ conflict và retry có thể cao khi nhiều người cùng tranh một lượng vé nhỏ.
 - Chỉ khi payment thành công, Ticket Module mới phát hành QR e-ticket.
 - Callback payment phải idempotent để tránh phát hành vé hai lần.
 - Notification gửi qua queue để không làm chậm checkout.

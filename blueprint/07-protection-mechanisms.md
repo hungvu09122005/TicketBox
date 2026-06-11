@@ -9,7 +9,7 @@ Tài liệu này đặc tả chi tiết các cơ chế kỹ thuật và giải p
 Để bảo vệ Backend API khỏi các cuộc tấn công DDoS, bot quét vé, và tình trạng người dùng bấm F5 liên tục khi mở bán, hệ thống cấu hình rate limit phân tầng tại lớp **API Gateway** và sử dụng **Redis** làm bộ lưu trữ trạng thái.
 
 ### 1.1. Giải thuật áp dụng
-Hệ thống sử dụng giải thuật **Sliding Window Counter** (Cửa sổ trượt) thông qua Redis để có độ chính xác cao và tiết kiệm tài nguyên. Mỗi cặp `IP + Endpoint` hoặc `User ID + Endpoint` sẽ là một key trong Redis với giá trị là danh sách các timestamp của request.
+Hệ thống sử dụng **Sliding Window Log** trên Redis Sorted Set cho prototype: mỗi cặp `IP + Endpoint` hoặc `User ID + Endpoint` là một key, còn score là timestamp request. Cách này dễ minh họa và có độ chính xác tốt; ở production có thể chuyển sang Sliding Window Counter hoặc token bucket để giảm bộ nhớ.
 
 ### 1.2. Bảng cấu hình Rate Limiting chi tiết
 Hệ thống phân chia giới hạn theo tính chất của từng API:
@@ -22,24 +22,26 @@ Hệ thống phân chia giới hạn theo tính chất của từng API:
 | **Đồng bộ offline** | `POST /checkin/sync` | Theo Device ID + Staff ID | 10 requests / 1 phút | Tải trọng đồng bộ gói tin lớn, cần hạn chế tần suất gọi API sync liên tục. |
 | **Tác vụ Admin** | `POST /csv-imports`<br>`POST /ai/artist-bio`| Theo Staff ID | 3 requests / 1 phút | Giới hạn tần suất tải file CSV và PDF để tránh quá tải bộ nhớ. |
 
-### 1.3. Cơ chế Phòng chờ ảo (Virtual Waiting Room) chống quá tải DB
+> Các ngưỡng trên là **giá trị khởi tạo cho prototype**, không phải cam kết production. Chúng cần được hiệu chỉnh dựa trên load test, kích thước connection pool, latency database và hành vi người dùng thực tế.
+
+### 1.3. Cơ chế Phòng chờ ảo (Virtual Waiting Room) — phương án nâng cao
 
 Đối với các concert có tải đỉnh cực lớn (ví dụ: 80.000 user truy cập đồng thời trong 5 phút đầu mở bán vé Chị Đẹp Đạp Gió Rẽ Sóng), việc chỉ áp dụng Rate Limiting là chưa đủ. Nếu 10.000 request vượt qua lớp lọc rate limit và gửi đồng thời lệnh tạo đơn hàng `POST /orders`, database PostgreSQL sẽ bị cạn kiệt connection pool do hàng đợi khóa dòng bi quan `FOR UPDATE` bị kéo dài.
 
-Để giải quyết triệt để, hệ thống tích hợp cơ chế **Phòng chờ ảo (Virtual Waiting Room)**:
+Để san phẳng tải trước khi request đi vào PostgreSQL, Blueprint đề xuất **Phòng chờ ảo (Virtual Waiting Room)** như một phương án nâng cao. Prototype có thể chỉ triển khai rate limiting và mô phỏng queue token; bản production cần load test, chống giả mạo token và cơ chế phục hồi khi Redis/worker lỗi.
 
 1. **Phân luồng lưu lượng (Traffic throttling)**:
-   - Khi hệ thống đo lường số lượng request tạo order (`POST /orders`) vượt quá ngưỡng an toàn của cơ sở dữ liệu (ví dụ: > 200 requests/giây), API Gateway sẽ tự động kích hoạt chế độ phòng chờ.
+   - Khi lưu lượng `POST /orders` vượt ngưỡng vận hành đã được xác định bằng load test, API Gateway kích hoạt chế độ phòng chờ. Con số như `200 requests/giây` chỉ là ví dụ cấu hình ban đầu, không phải ngưỡng cố định.
    - Các request đến sau sẽ không được xử lý trực tiếp mà được đưa vào hàng đợi chờ trên Redis (Sorted Set `waiting_room:queue` với score là timestamp của request).
 2. **Trải nghiệm hàng chờ (Queue UX)**:
    - Client nhận phản hồi HTTP `202 Accepted` kèm một `queue_token` và thông tin hàng chờ.
    - Client hiển thị màn hình phòng chờ với thời gian chờ ước lượng và số thứ tự chờ (được tính bằng hàm `ZRANK` trên Redis).
    - Client định kỳ mỗi 5-10 giây gọi API `GET /orders/queue-status` để kiểm tra trạng thái token.
 3. **Giải phóng hàng chờ (Queue release)**:
-   - Một tác vụ nền (cron job/worker) chạy định kỳ mỗi 2 giây giải phóng một lượng nhỏ token hợp lệ (ví dụ: 100 token/lần giải phóng) từ Redis Sorted Set và chuyển chúng sang trạng thái "Được phép thanh toán" (`waiting_room:active_tokens`).
+   - Worker giải phóng token theo từng batch nhỏ từ Redis Sorted Set sang trạng thái "Được phép tạo order" (`waiting_room:active_tokens`). Kích thước batch và chu kỳ release phải được hiệu chỉnh theo capacity thực tế của Backend/PostgreSQL; các giá trị `100 token/2 giây` chỉ mang tính minh họa.
    - Khi client kiểm tra trạng thái token thấy đã chuyển sang "Được phép thanh toán", client sẽ tự động gửi request tạo đơn hàng thực sự lên backend. Lúc này backend sẽ xử lý transaction trừ vé bình thường.
 4. **Bảo vệ hệ thống (Load flattening)**:
-   - Nhờ cơ chế phòng chờ này, đỉnh tải 80.000 truy cập được san phẳng thành một dòng chảy lưu lượng ổn định (ví dụ: 50 req/s), bảo vệ an toàn cho cơ sở dữ liệu PostgreSQL và đảm bảo tính công bằng tuyệt đối giữa các khán giả thật (người vào trước mua trước).
+   - Phòng chờ giúp san phẳng đỉnh tải thành lưu lượng gần với capacity đã kiểm thử của hệ thống. Cơ chế FIFO theo thời điểm cấp token cải thiện tính công bằng, nhưng không thể cam kết công bằng tuyệt đối do độ trễ mạng, retry, client mất kết nối và các trường hợp token hết hạn.
 
 ---
 
@@ -94,8 +96,8 @@ COMMIT;
 ```
 
 ### 3.2. Đánh giá Trade-off
-* **Ưu điểm:** Đảm bảo tính nhất quán tuyệt đối về dữ liệu (ACID). Không bao giờ xảy ra oversell.
-* **Nhược điểm:** Khi số lượng request đồng thời quá lớn, cơ chế hàng đợi khóa dòng của PostgreSQL sẽ gây tăng nhẹ thời gian phản hồi (latency). Tuy nhiên, vì thời gian xử lý transaction cực kỳ ngắn (chỉ đọc-ghi 2 bảng dữ liệu), PostgreSQL vẫn có thể đáp ứng tốt hàng nghìn transaction/giây trên phần cứng tiêu chuẩn.
+* **Ưu điểm:** PostgreSQL transaction và row-level lock cung cấp cơ chế nhất quán mạnh tại điểm cập nhật tồn vé. Thiết kế nhằm ngăn oversell khi transaction, constraint và xử lý timeout/rollback được triển khai đúng.
+* **Nhược điểm:** Khi nhiều request cùng tranh một `ticket_type`, lock contention có thể tăng latency và làm cạn connection pool. Transaction phải được giữ ngắn, request cần được lọc trước bằng rate limiting/waiting room, và throughput thực tế phải được xác nhận bằng load test trên hạ tầng triển khai.
 
 ---
 

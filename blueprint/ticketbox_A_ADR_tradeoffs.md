@@ -394,7 +394,7 @@ Một số loại vé có số lượng rất ít, trong khi hàng chục nghìn
 
 Chọn:
 
-> **PostgreSQL transaction + row-level lock/optimistic version cho quyết định cuối cùng; Redis chỉ hỗ trợ cache/rate limit/lock ngắn hạn nếu cần.**
+> **PostgreSQL transaction kết hợp pessimistic row-level lock (`SELECT ... FOR UPDATE`) là cơ chế quyết định cuối cùng; Redis chỉ hỗ trợ cache, rate limit, waiting room, idempotency và short-lived coordination.**
 
 ## Lý do chọn
 
@@ -515,46 +515,57 @@ PDF/CSV/SVG là file, không phải dữ liệu quan hệ chính. Lưu chúng tr
 
 ---
 
-# ADR-11: Chọn JWT + RBAC thay vì Session-only hoặc ABAC phức tạp
+# ADR-11: Chọn JWT + Backend RBAC Guard thay vì Session-only hoặc ABAC phức tạp
 
 ## Bối cảnh
 
-TicketBox có nhiều nhóm người dùng với quyền khác nhau: khán giả, ban tổ chức, nhân sự soát vé, admin hệ thống. Cần kiểm soát quyền ở Web, Admin, Mobile và API.
+TicketBox có Audience Web, Admin Web và Mobile Check-in App. Hệ thống cần xác thực thống nhất trên nhiều client, đồng thời quyền có thể thay đổi khi Admin cập nhật role/permission.
 
 ## Các phương án xem xét
 
 | Phương án | Ưu điểm | Nhược điểm |
 |---|---|---|
-| Session-based auth | Dễ quản lý revoke | Cần session store khi scale |
-| JWT + RBAC | Stateless, dễ dùng cho web/mobile | Revoke token cần strategy |
-| ABAC | Linh hoạt theo nhiều thuộc tính | Phức tạp, quá mức với đồ án |
+| Session-based auth | Revoke session trực tiếp, đơn giản cho web truyền thống | Cần session store khi scale; mobile tích hợp kém thuận tiện hơn |
+| JWT chứa toàn bộ permissions | Ít lookup ở server | Token lớn; quyền dễ bị stale đến khi token hết hạn |
+| JWT claim tối thiểu + RBAC Guard/Redis cache | Phù hợp web/mobile, permission cập nhật nhanh hơn | Tăng một lookup cache và cần quản lý version/invalidation |
+| ABAC | Linh hoạt theo nhiều thuộc tính | Rule engine và audit phức tạp, quá mức cho phạm vi đồ án |
 
 ## Quyết định
 
 Chọn:
 
-> **JWT cho authentication và RBAC cho authorization.**
+> **JWT cho authentication; Backend RBAC Guard + permission cache + ownership check cho authorization. JWT chỉ chứa `user_id`, role cơ bản, `permission_version`, `jti` và thời hạn — không chứa toàn bộ permission.**
 
 ## Lý do chọn
 
 | Lý do | Giải thích |
 |---|---|
-| Phù hợp web/mobile | Mobile app dùng token dễ hơn session cookie truyền thống. |
-| Stateless backend | Dễ scale backend API ngang. |
-| Role rõ ràng | Audience, Organizer, Check-in Staff, System Admin. |
-| Dễ trình bày | RBAC matrix phù hợp yêu cầu Blueprint. |
+| Phù hợp web và mobile | Cùng một access-token flow cho Audience/Admin/Mobile. |
+| Backend dễ scale ngang | Không cần giữ session trong memory của một instance. |
+| Giảm stale permission | Admin đổi quyền thì tăng `permission_version` và invalidate Redis cache. |
+| Role của TicketBox rõ ràng | Audience, Organizer, Check-in Staff, System Admin phù hợp RBAC. |
+| Bảo vệ dữ liệu cá nhân | Ownership check đảm bảo user chỉ đọc order/ticket của mình. |
+
+## Vì sao không nhét toàn bộ permission vào JWT?
+
+Permission có thể bị thay đổi trong khi token còn hạn. Nếu toàn bộ permission nằm trong JWT, token cũ vẫn tiếp tục mang quyền cũ. Thiết kế hiện tại dùng token ngắn hạn và tra permission từ Redis/PostgreSQL theo `permission_version`, nên thay đổi quyền phản ánh nhanh và token nhỏ hơn.
+
+## Row Level Security
+
+PostgreSQL RLS là lớp defense-in-depth có thể bổ sung, nhưng không bắt buộc trong prototype. Nếu triển khai, Backend phải đặt user context theo từng transaction/connection; không dùng `auth.uid()` vì đây không phải hàm PostgreSQL tiêu chuẩn của kiến trúc này.
 
 ## Đánh đổi
 
 | Được | Mất |
 |---|---|
-| Dễ scale API | Cần xử lý token expiration/refresh |
-| Dễ áp dụng cho nhiều client | Revoke ngay lập tức khó hơn session |
-| RBAC dễ hiểu | Kém linh hoạt hơn ABAC |
+| Phù hợp nhiều client, Backend gần stateless | Cần refresh/revocation strategy |
+| Quyền cập nhật nhanh hơn JWT chứa full permissions | Mỗi request cần Redis lookup hoặc DB fallback |
+| RBAC dễ audit và trình bày | Kém linh hoạt hơn ABAC |
+| Ownership check rõ ràng | Repository/service phải áp dụng scope nhất quán |
 
 ## Vì sao tối ưu hơn cho TicketBox?
 
-Quyền của TicketBox khá rõ theo vai trò. RBAC đủ đáp ứng, không cần ABAC phức tạp. JWT phù hợp vì hệ thống có cả web và mobile.
+TicketBox có số role hữu hạn và ranh giới chức năng rõ. JWT claim tối thiểu kết hợp Backend RBAC Guard cân bằng giữa khả năng scale, tính cập nhật của permission và độ phức tạp vừa sức với team 3 người.
 
 ---
 

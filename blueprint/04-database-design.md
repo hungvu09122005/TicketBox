@@ -9,7 +9,7 @@ Tài liệu này trình bày chi tiết về kiến trúc lưu trữ dữ liệu
 Hệ thống phân rã dữ liệu thành các kho lưu trữ chuyên biệt tùy thuộc vào đặc tính kỹ thuật và workload của từng module nghiệp vụ:
 
 * **PostgreSQL:** Đóng vai trò là trung tâm dữ liệu ACID, chịu trách nhiệm lưu trữ các giao dịch tài chính, thông tin phân quyền RBAC, dữ liệu vé và thông tin người dùng.
-* **Redis:** Dùng cho Cache-aside (giảm tải đọc concert), Rate Limiting (chống bot), quản lý session và Distributed Lock ở tầng ứng dụng nhằm giảm tranh chấp tài nguyên. Redis không lưu dữ liệu quyết định (ví dụ: sold_quantity); tính nhất quán của luồng mua vé vẫn được đảm bảo bởi transaction và row-level lock trong PostgreSQL.
+* **Redis:** Dùng cho Cache-aside (giảm tải đọc concert), Rate Limiting, waiting room, idempotency tạm thời và short-lived coordination ở tầng ứng dụng. Redis không lưu dữ liệu quyết định như `sold_quantity` và không quyết định cuối cùng việc còn vé hay không. Khi tạo order, Backend luôn kiểm tra lại tồn vé trong PostgreSQL transaction bằng pessimistic row-level lock trước khi commit.
 * **Object Storage (MinIO/S3):** Lưu trữ các tệp tin phi cấu trúc có dung lượng lớn như file SVG sơ đồ ghế (Seat map), file CSV danh sách khách VIP và file PDF Press Kit của nghệ sĩ.
 * **Mobile Local Storage (SQLite):** Cơ sở dữ liệu nhúng tại thiết bị của nhân sự soát vé, phục vụ lưu kho vé offline và ghi nhận log check-in cục bộ trước khi đồng bộ.
 
@@ -31,7 +31,7 @@ flowchart TB
 
     subgraph Phân_Lớp_Lưu_Trữ_Dữ_Liệu ["Hạ Tầng Lưu Trữ & Cache"]
         DB[(PostgreSQL\nSource of Truth)]:::storage
-        REDIS[(Redis Cache\nDistributed Lock)]:::storage
+        REDIS[(Redis\nCache / Rate Limit / Waiting Room\nShort-lived Coordination)]:::storage
         STORAGE[(Object Storage\nS3 / MinIO)]:::storage
     end
 
@@ -40,7 +40,7 @@ flowchart TB
     LOCAL -->|Đồng bộ Check-in Logs định kỳ| API
     
     API ==>|Transactions / ACID| DB
-    API -->|Cache-aside / Distributed Lock| REDIS
+    API -->|Cache-aside / Rate limit / Short-lived coordination| REDIS
     API -->|Lưu trữ PDF, CSV, SVG| STORAGE
 ```
 ---
@@ -163,7 +163,7 @@ stateDiagram-v2
 
 Để bảo vệ tính toàn vẹn của dữ liệu trong các tình huống chịu tải cao, hệ thống kích hoạt các ràng buộc cứng ở lớp database:
 
-*  **`tickets.qr_token` (UNIQUE):** Ngăn chặn tuyệt đối việc trùng lặp mã vé hoặc tạo vé giả mạo.
+*  **`tickets.qr_token` (UNIQUE):** Ngăn tạo hai bản ghi vé có cùng QR token. Việc chống vé giả còn cần token khó đoán, chữ ký/xác thực QR và kiểm tra trạng thái vé tại Backend.
 *  **`payments.idempotency_key` (UNIQUE):** Chống xử lý trùng giao dịch thanh toán khi người dùng nhấn nút F5 liên tục.
 *  **`ticket_types.sold_quantity <= ticket_types.total_quantity` (CHECK):** Ràng buộc tầng cứng ngăn chặn hiện tượng bán vượt số lượng vé quy định (Oversell).
 *  **`checkin_logs.ticket_id` & `checkin_logs.scanned_at` (COMPOSITE INDEX):** Tối ưu hóa tốc độ truy vấn kiểm tra trùng lặp lượt quét vé ở tốc độ mili-giây.

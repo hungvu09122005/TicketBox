@@ -65,11 +65,11 @@ C4Context
 | Admin Web App | React/Next.js | Quản lý concert, vé, PDF, CSV, dashboard. |
 | Check-in Mobile App | React Native/Expo | Quét QR, offline storage, sync check-in. |
 | API Gateway/Load Balancer | Nginx/Cloud LB/API Gateway | Điều phối request, hỗ trợ rate limiting. |
-| Backend API | NestJS/Spring Boot | REST API, auth, business logic, orchestration. |
+| Backend API | NestJS | REST API, auth, business logic, orchestration. |
 | PostgreSQL | SQL Database | Source of truth cho dữ liệu chính. |
-| Redis | In-memory Store | Cache, rate limit, availability cache, lock/idempotency hỗ trợ. |
-| Message Queue | BullMQ/RabbitMQ/Kafka | Lưu job/event bất đồng bộ. |
-| Queue Worker | Node/Java Worker | Xử lý CSV, AI, notification, reminder. |
+| Redis | In-memory Store | Cache, rate limit, waiting room, idempotency và short-lived coordination. |
+| Message Queue | BullMQ trên Redis | Lưu job bất đồng bộ cho CSV, AI, notification và reminder. |
+| Queue Worker | NestJS/Node.js Worker | Consume và xử lý BullMQ jobs. |
 | Object Storage | S3/local storage | Lưu PDF, CSV, SVG seat map, ảnh. |
 | Scheduler | Cron/Worker Scheduler | Tạo reminder job trước concert 24 giờ. |
 
@@ -96,12 +96,12 @@ C4Container
         Container(localStore, "Mobile Local Storage", "SQLite/AsyncStorage", "Lưu vé đã sync và check-in offline")
 
         Container(gateway, "API Gateway / Load Balancer", "Nginx/Cloud LB", "Điều phối request, rate limit entrypoint")
-        Container(api, "Backend API", "NestJS/Spring Boot", "REST API, auth, business logic")
+        Container(api, "Backend API", "NestJS", "REST API, auth, business logic")
 
         ContainerDb(db, "PostgreSQL", "SQL Database", "User, concert, seat zone, order, payment, ticket, check-in")
-        ContainerDb(redis, "Redis", "Cache/In-memory Store", "Cache, rate limit, availability, lock/idempotency")
-        Container(queue, "Message Queue", "BullMQ/RabbitMQ/Kafka", "CSV, AI, notification, reminder jobs")
-        Container(worker, "Queue Worker", "Node/Java Worker", "Xử lý job nền")
+        ContainerDb(redis, "Redis", "Cache/In-memory Store", "Cache, rate limit, waiting room, idempotency, short-lived coordination")
+        Container(queue, "Message Queue", "BullMQ trên Redis", "CSV, AI, notification, reminder jobs")
+        Container(worker, "Queue Worker", "NestJS/Node.js", "Consume và xử lý BullMQ jobs")
         Container(scheduler, "Scheduler", "Cron/Worker", "Tạo reminder job trước concert 24 giờ")
         Container(storage, "Object Storage", "S3/local", "Lưu PDF, CSV, SVG seat map, ảnh")
     }
@@ -118,12 +118,12 @@ C4Container
 
     Rel(gateway, api, "Forward request", "HTTP/REST")
     Rel(api, db, "Đọc/ghi dữ liệu chính", "SQL")
-    Rel(api, redis, "Cache, rate limit, lock", "Redis protocol")
-    Rel(api, queue, "Publish job/event", "AMQP/Redis/Kafka")
+    Rel(api, redis, "Cache, rate limit, waiting room, idempotency", "Redis protocol")
+    Rel(api, queue, "Publish job", "BullMQ/Redis")
     Rel(api, storage, "Upload/read PDF, CSV, SVG", "SDK/API")
 
     Rel(scheduler, queue, "Tạo reminder job", "Scheduled event")
-    Rel(worker, queue, "Consume job", "AMQP/Redis/Kafka")
+    Rel(worker, queue, "Consume job", "BullMQ/Redis")
     Rel(worker, db, "Cập nhật kết quả job", "SQL")
     Rel(worker, storage, "Đọc file PDF/CSV/SVG", "SDK/API")
     Rel(worker, ai, "Gọi AI generate bio", "HTTPS/API")

@@ -48,8 +48,8 @@ Mục tiêu thiết kế:
 | Backend API | Xử lý nghiệp vụ chính: Auth, Concert, Seat Map, Order, Payment, Ticket, Check-in, CSV, AI, Notification. |
 | PostgreSQL | Lưu dữ liệu chính cần consistency: user, concert, ticket type, order, payment, ticket, check-in log. |
 | Redis | Cache concert, cache availability ngắn hạn, rate limiting, hỗ trợ lock/idempotency. |
-| Message Queue | Tách tác vụ nền khỏi request chính: CSV Import, AI Bio, notification, reminder. |
-| Queue Worker | Xử lý job bất đồng bộ. |
+| Message Queue (BullMQ trên Redis) | Tách tác vụ nền khỏi request chính: CSV Import, AI Bio, notification, reminder. |
+| Queue Worker (NestJS/Node.js) | Xử lý job bất đồng bộ từ BullMQ. |
 | Object Storage | Lưu PDF, CSV, ảnh, SVG seat map, file liên quan. |
 | External Services | Payment Gateway, AI Service, Email/App Notification Service. |
 
@@ -167,8 +167,8 @@ Các tác vụ chậm hoặc không cần phản hồi tức thì được đưa
 | Backend API | Xử lý nghiệp vụ chính | REST, SQL, Redis, Queue |
 | PostgreSQL | Source of truth | SQL |
 | Redis | Cache/rate limit/lock/idempotency hỗ trợ | Redis protocol |
-| Message Queue | Lưu job/event bất đồng bộ | AMQP/Redis Stream/Kafka tùy chọn |
-| Queue Worker | Xử lý CSV, AI, notification, reminder | Consume queue, cập nhật DB |
+| Message Queue (BullMQ) | Lưu job/event bất đồng bộ | Redis/BullMQ |
+| Queue Worker (NestJS/Node.js) | Xử lý CSV, AI, notification, reminder | Consume BullMQ jobs, cập nhật DB |
 | Object Storage | Lưu PDF, CSV, SVG, ảnh, QR nếu cần | SDK/API |
 | Payment Gateway | Xử lý thanh toán | HTTPS qua Payment Adapter |
 | AI Service | Generate Artist Bio | HTTPS qua AI Adapter |

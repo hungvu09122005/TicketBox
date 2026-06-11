@@ -28,7 +28,7 @@ Các luồng nghiệp vụ tương tác qua các thành phần công nghệ sau:
 3. **Check-in Mobile App**: Ứng dụng di động (iOS/Android) dành cho nhân viên kiểm soát vé tại sân vận động.
 4. **Backend API**: Hệ thống API Core xử lý nghiệp vụ chính của TicketBox.
 5. **PostgreSQL Database**: Bộ lưu trữ dữ liệu quan hệ chính (Concerts, Orders, Tickets, Users, Roles).
-6. **Redis Cache & Lock**: Bộ nhớ đệm dữ liệu (availability), lưu trữ session, rate limiting và khóa phân tán (Distributed Lock/Idempotency Key).
+6. **Redis**: Bộ nhớ đệm availability, rate limiting, waiting room, idempotency tạm thời và short-lived coordination. PostgreSQL transaction vẫn là cơ chế quyết định cuối cùng khi giữ/trừ vé.
 7. **Message Queue (BullMQ)**: Hàng đợi xử lý tác vụ ngầm chạy trên nền Redis.
 8. **Queue Worker**: Bộ xử lý bất đồng bộ các tác vụ ngầm (gửi mail, parse CSV, gọi AI).
 9. **Object Storage**: Bộ lưu trữ tệp tin (ảnh concert, file PDF nghệ sĩ, file CSV khách VIP).
@@ -95,8 +95,8 @@ Các luồng nghiệp vụ tương tác qua các thành phần công nghệ sau:
 
 #### B. Quyết định thiết kế (Design Decisions)
 * **Giải pháp lựa chọn (What):** Sử dụng **Pessimistic Locking (Khóa bi quan)** bằng câu lệnh `SELECT ... FOR UPDATE` trong Database Transaction của PostgreSQL khi thực hiện trừ vé.
-* **Lý do lựa chọn (Why):** Vé concert có tính cạnh tranh cực kỳ cao khi mở bán. Khóa bi quan đảm bảo tính nhất quán dữ liệu tuyệt đối tại tầng Database, loại bỏ hoàn toàn rủi ro bán vượt số lượng (oversell).
-* **Đánh đổi / Rủi ro (Trade-offs):** Gây hiện tượng nghẽn dòng (lock contention) tại Database khi có hàng vạn request đồng thời. Tuy nhiên, do transaction trừ vé cực kỳ ngắn (chỉ đọc-ghi 2 bảng dữ liệu), PostgreSQL vẫn có khả năng đáp ứng tốt hàng nghìn transaction/giây trên phần cứng tiêu chuẩn.
+* **Lý do lựa chọn (Why):** Vé concert có mức cạnh tranh rất cao khi mở bán. Khóa bi quan cho phép serialize việc cập nhật cùng một `ticket_type` tại PostgreSQL, qua đó ngăn oversell khi transaction, constraint và xử lý lỗi được triển khai đúng.
+* **Đánh đổi / Rủi ro (Trade-offs):** Có thể gây lock contention và tăng latency khi nhiều request cùng tranh một hạng vé. Vì vậy transaction phải ngắn, connection pool phải được giới hạn hợp lý, đồng thời rate limiting/waiting room cần lọc tải trước database. Throughput thực tế phụ thuộc hạ tầng, index, pool và độ dài transaction; nhóm sẽ xác nhận bằng load test thay vì cam kết một con số cố định.
 * **Giải pháp thay thế bị loại bỏ (Alternatives):** 
   - *Optimistic Locking (Khóa lạc quan) với trường version:* Bị loại bỏ vì khi hàng ngàn người tranh mua một số lượng vé nhỏ, tỷ lệ xung đột phiên bản quá cao dẫn đến hàng loạt transaction bị rollback vô ích, làm giảm tỷ lệ mua vé thành công của người dùng thực tế.
 
