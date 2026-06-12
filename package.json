@@ -1,0 +1,33 @@
+{
+  "name": "ticketbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "High-load concert ticketing system — modular monolith",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter @ticketbox/api dev",
+    "dev:audience-web": "pnpm --filter @ticketbox/audience-web dev",
+    "dev:admin-web": "pnpm --filter @ticketbox/admin-web dev",
+    "dev:mobile": "pnpm --filter @ticketbox/checkin-mobile start",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d",
+    "infra:down": "docker compose -f infra/docker-compose.yml down",
+    "migration:run": "pnpm --filter @ticketbox/api migration:run",
+    "migration:revert": "pnpm --filter @ticketbox/api migration:revert"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "bcrypt",
+      "msgpackr-extract"
+    ]
+  }
+}
