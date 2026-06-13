@@ -8,6 +8,7 @@ import { AiBioRepository } from './ai-bio.repository';
 import { AiBioProcessor } from './processors/ai-bio.processor';
 import { OpenAIAdapter } from './adapters/openai.adapter';
 import { AI_TEXT_GENERATION_PORT } from '../../common/ports/ai-text-generation.port';
+import { StorageModule } from '../storage/storage.module';
 
 /**
  * AiBioModule — PDF upload → AI generation → draft → publish pipeline.
@@ -22,6 +23,7 @@ import { AI_TEXT_GENERATION_PORT } from '../../common/ports/ai-text-generation.p
   imports: [
     TypeOrmModule.forFeature([AiBioRequest]),
     BullModule.registerQueue({ name: 'ai-bio' }),
+    StorageModule,
   ],
   controllers: [AiBioController],
   providers: [

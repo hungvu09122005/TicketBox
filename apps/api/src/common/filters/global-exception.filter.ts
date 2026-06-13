@@ -1,70 +1,46 @@
-import {
-  ExceptionFilter,
-  Catch,
-  ArgumentsHost,
-  HttpException,
-  HttpStatus,
-  Logger,
-} from '@nestjs/common';
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 
-interface ErrorResponse {
-  statusCode: number;
-  error: string;
-  message: string | string[];
-  timestamp: string;
-  path: string;
-}
-
-/**
- * Global exception filter — transforms all unhandled exceptions into
- * a consistent JSON structure. Logs 5xx errors with stack traces.
- * Never leaks internal error details to clients.
- */
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
-  catch(exception: unknown, host: ArgumentsHost): void {
+  catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
+    
+    // Support custom req.id attached by middleware or pino-http
+    const requestId = request['id'] || request.headers['x-request-id'] || 'unknown';
 
-    let statusCode: number;
-    let message: string | string[];
-    let error: string;
+    const status =
+      exception instanceof HttpException
+        ? exception.getStatus()
+        : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    if (exception instanceof HttpException) {
-      statusCode = exception.getStatus();
-      const exResponse = exception.getResponse();
-      if (typeof exResponse === 'object' && exResponse !== null) {
-        const r = exResponse as Record<string, unknown>;
-        message = (r['message'] as string | string[]) ?? exception.message;
-        error = (r['error'] as string) ?? exception.name;
-      } else {
-        message = exception.message;
-        error = exception.name;
-      }
-    } else {
-      statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
-      message = 'Internal server error';
-      error = 'InternalServerError';
+    const exceptionResponse =
+      exception instanceof HttpException
+        ? exception.getResponse()
+        : { message: 'Internal server error' };
 
-      // Log unexpected errors with full stack
-      this.logger.error(
-        `Unhandled exception on ${request.method} ${request.url}`,
-        exception instanceof Error ? exception.stack : String(exception),
-      );
+    let message = 'Internal server error';
+    if (typeof exceptionResponse === 'string') {
+      message = exceptionResponse;
+    } else if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+      message = (exceptionResponse as any).message || (exceptionResponse as any).error || message;
     }
 
-    const body: ErrorResponse = {
-      statusCode,
-      error,
-      message,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-    };
+    if (status === HttpStatus.INTERNAL_SERVER_ERROR) {
+      this.logger.error(`[${requestId}] ${request.method} ${request.url}`, exception instanceof Error ? exception.stack : exception);
+    }
 
-    response.status(statusCode).json(body);
+    response.status(status).json({
+      success: false,
+      statusCode: status,
+      message,
+      path: request.url,
+      timestamp: new Date().toISOString(),
+      requestId,
+    });
   }
 }

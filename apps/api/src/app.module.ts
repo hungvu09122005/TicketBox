@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { BullModule } from '@nestjs/bull';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule } from '@nestjs/throttler';
 import * as redisStore from 'cache-manager-ioredis';
+import { LoggerModule } from 'nestjs-pino';
 import configuration from './config/configuration';
 import { DatabaseModule } from './database/database.module';
 
@@ -22,20 +23,14 @@ import { CsvImportModule } from './modules/csv-import/csv-import.module';
 import { AiBioModule } from './modules/ai-bio/ai-bio.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ReportingModule } from './modules/reporting/reporting.module';
+import { HealthModule } from './modules/health/health.module';
+import { StorageModule } from './modules/storage/storage.module';
+
+// Middlewares
+import { RequestIdMiddleware } from './common/middlewares/request-id.middleware';
 
 /**
  * AppModule — root module registering all infrastructure and domain modules.
- *
- * Infrastructure (registered once here):
- *   - ConfigModule (global) — environment variables
- *   - DatabaseModule — PostgreSQL via TypeORM
- *   - BullModule.forRoot — Redis connection shared by all queues
- *   - CacheModule (global) — Redis cache shared by RBAC guard + services
- *   - ThrottlerModule — rate limiting (per-endpoint policy configured in controllers)
- *
- * Module dependency is enforced by NestJS DI:
- *   - Modules only expose their Service in exports[]
- *   - No module imports another module's Repository or Entity directly
  */
 @Module({
   imports: [
@@ -44,6 +39,18 @@ import { ReportingModule } from './modules/reporting/reporting.module';
       isGlobal: true,
       load: [configuration],
       envFilePath: ['.env', '../../.env'],
+    }),
+
+    LoggerModule.forRoot({
+      pinoHttp: {
+        customProps: (req, res) => ({
+          context: 'HTTP',
+        }),
+        transport:
+          process.env.NODE_ENV !== 'production'
+            ? { target: 'pino-pretty', options: { singleLine: true } }
+            : undefined,
+      },
     }),
 
     DatabaseModule,
@@ -75,6 +82,8 @@ import { ReportingModule } from './modules/reporting/reporting.module';
     ]),
 
     // ── Domain Modules ─────────────────────────────────────────────────────
+    HealthModule,
+    StorageModule,
     AuthModule,
     UsersModule,
     ArtistsModule,
@@ -91,4 +100,10 @@ import { ReportingModule } from './modules/reporting/reporting.module';
     ReportingModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}
+
+
