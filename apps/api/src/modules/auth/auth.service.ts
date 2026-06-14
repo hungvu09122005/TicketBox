@@ -1,7 +1,10 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -20,6 +23,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -49,15 +53,65 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string) {
-    // TODO Phase 1: verify refresh token signature + check revocation list
-    throw new Error('Not implemented');
+    try {
+      const payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: this.config.get<string>('app.jwt.refreshSecret'),
+      });
+
+      const isRevoked = await this.cacheManager.get(`revoked_token:${payload.jti}`);
+      if (isRevoked) {
+        throw new UnauthorizedException('Token has been revoked.');
+      }
+
+      const user = await this.usersService.findById(payload.sub);
+      if (!user || !user.isActive) {
+        throw new UnauthorizedException('Account is inactive or not found.');
+      }
+
+      // Revoke the old refresh token to prevent reuse (Token Rotation)
+      // Calculate remaining TTL
+      const exp = payload.exp * 1000;
+      const ttl = Math.max(0, exp - Date.now());
+      if (ttl > 0) {
+        await this.cacheManager.set(`revoked_token:${payload.jti}`, true, ttl);
+      }
+
+      return this.issueTokens(user.id, user.email, user.permissionVersion, user.roles);
+    } catch (error) {
+      throw new UnauthorizedException('Invalid or expired refresh token.');
+    }
+  }
+
+  async revoke(refreshToken: string) {
+    try {
+      const payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: this.config.get<string>('app.jwt.refreshSecret'),
+        ignoreExpiration: true,
+      });
+
+      const exp = payload.exp * 1000;
+      const ttl = Math.max(0, exp - Date.now());
+
+      if (ttl > 0) {
+        await this.cacheManager.set(`revoked_token:${payload.jti}`, true, ttl);
+      }
+      return { success: true, message: 'Token successfully revoked' };
+    } catch (error) {
+      // If token is completely invalid, we don't throw, just return success
+      return { success: true, message: 'Token successfully revoked' };
+    }
   }
 
   private issueTokens(userId: string, email: string, permissionVersion: number, roles: string[]) {
-    const payload = { sub: userId, email, permissionVersion, roles };
+    const accessJti = uuidv4();
+    const refreshJti = uuidv4();
+
+    const accessPayload = { sub: userId, email, permissionVersion, roles, jti: accessJti };
+    const refreshPayload = { sub: userId, email, permissionVersion, roles, jti: refreshJti };
+
     return {
-      accessToken: this.jwtService.sign(payload),
-      refreshToken: this.jwtService.sign(payload, {
+      accessToken: this.jwtService.sign(accessPayload),
+      refreshToken: this.jwtService.sign(refreshPayload, {
         secret: this.config.get<string>('app.jwt.refreshSecret'),
         expiresIn: this.config.get<string>('app.jwt.refreshExpiresIn'),
       }),
