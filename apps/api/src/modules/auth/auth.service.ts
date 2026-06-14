@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, Inject } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, Inject, Logger } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { JwtService } from '@nestjs/jwt';
@@ -19,6 +19,8 @@ import { RegisterDto } from './dto/register.dto';
  */
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
@@ -78,6 +80,10 @@ export class AuthService {
 
       return this.issueTokens(user.id, user.email, user.permissionVersion, user.roles);
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      this.logger.warn(`Refresh token validation failed: ${(error as Error).message}`);
       throw new UnauthorizedException('Invalid or expired refresh token.');
     }
   }
@@ -98,6 +104,7 @@ export class AuthService {
       return { success: true, message: 'Token successfully revoked' };
     } catch (error) {
       // If token is completely invalid, we don't throw, just return success
+      this.logger.debug(`Ignored error during token revocation: ${(error as Error).message}`);
       return { success: true, message: 'Token successfully revoked' };
     }
   }
