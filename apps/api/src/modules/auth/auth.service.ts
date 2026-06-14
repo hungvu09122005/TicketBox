@@ -33,17 +33,19 @@ export class AuthService {
       passwordHash,
     });
 
-    return this.issueTokens(user.id, user.email, user.permissionVersion);
+    return this.issueTokens(user.id, user.email, user.permissionVersion, user.roles);
   }
 
   async login(dto: LoginDto) {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) throw new UnauthorizedException('Invalid credentials.');
 
+    if (!user.isActive) throw new UnauthorizedException('Account is inactive.');
+
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('Invalid credentials.');
 
-    return this.issueTokens(user.id, user.email, user.permissionVersion);
+    return this.issueTokens(user.id, user.email, user.permissionVersion, user.roles);
   }
 
   async refresh(refreshToken: string) {
@@ -51,8 +53,8 @@ export class AuthService {
     throw new Error('Not implemented');
   }
 
-  private issueTokens(userId: string, email: string, permissionVersion: number) {
-    const payload = { sub: userId, email, permissionVersion };
+  private issueTokens(userId: string, email: string, permissionVersion: number, roles: string[]) {
+    const payload = { sub: userId, email, permissionVersion, roles };
     return {
       accessToken: this.jwtService.sign(payload),
       refreshToken: this.jwtService.sign(payload, {
