@@ -25,7 +25,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -66,7 +66,7 @@ export class AuthService {
       }
 
       const user = await this.usersService.findById(payload.sub);
-      if (!user || !user.isActive) {
+      if (!user?.isActive) {
         throw new UnauthorizedException('Account is inactive or not found.');
       }
 
