@@ -14,9 +14,15 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         username: config.get<string>('app.database.username'),
         password: config.get<string>('app.database.password'),
         database: config.get<string>('app.database.name'),
-        synchronize: false, // Always false in all environments — use migrations
+
+        extra: {
+          min: config.get<number>('app.database.poolMin'),
+          max: config.get<number>('app.database.poolMax'),
+        },
+
+        synchronize: false,
         logging: config.get<string>('app.nodeEnv') === 'development',
-        autoLoadEntities: true, // Entities registered via TypeOrmModule.forFeature()
+        autoLoadEntities: true,
         migrationsTableName: 'typeorm_migrations',
       }),
     }),
