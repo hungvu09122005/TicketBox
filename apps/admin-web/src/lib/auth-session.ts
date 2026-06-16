@@ -2,7 +2,7 @@ export const ADMIN_ACCESS_TOKEN_KEY = 'admin_access_token';
 export const ADMIN_REFRESH_TOKEN_KEY = 'admin_refresh_token';
 
 export const getStoredAdminAccessToken = (): string | null => {
-  if (typeof window === 'undefined') return null;
+  if (typeof globalThis.window === 'undefined') return null;
   return localStorage.getItem(ADMIN_ACCESS_TOKEN_KEY);
 };
 
@@ -11,7 +11,7 @@ export const hasStoredAdminAccessToken = (): boolean => {
 };
 
 export const getStoredAdminRefreshToken = (): string | null => {
-  if (typeof window === 'undefined') return null;
+  if (typeof globalThis.window === 'undefined') return null;
   return localStorage.getItem(ADMIN_REFRESH_TOKEN_KEY);
 };
 
@@ -20,7 +20,7 @@ export const hasStoredAdminSession = (): boolean => {
 };
 
 export const setStoredAdminTokens = (accessToken: string, refreshToken?: string): void => {
-  if (typeof window === 'undefined') return;
+  if (typeof globalThis.window === 'undefined') return;
 
   localStorage.setItem(ADMIN_ACCESS_TOKEN_KEY, accessToken);
 
@@ -30,7 +30,7 @@ export const setStoredAdminTokens = (accessToken: string, refreshToken?: string)
 };
 
 export const clearStoredAdminTokens = (): void => {
-  if (typeof window === 'undefined') return;
+  if (typeof globalThis.window === 'undefined') return;
 
   localStorage.removeItem(ADMIN_ACCESS_TOKEN_KEY);
   localStorage.removeItem(ADMIN_REFRESH_TOKEN_KEY);

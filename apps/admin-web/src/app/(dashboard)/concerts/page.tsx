@@ -6,6 +6,17 @@ import { Plus, MagnifyingGlass, Funnel, DotsThree, CheckCircle, XCircle } from '
 import { concertService } from '@/lib/services/concert.service';
 import { Concert } from '@/lib/types';
 
+function getStatusClasses(status: string) {
+  switch (status) {
+    case 'PUBLISHED':
+      return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+    case 'CANCELLED':
+      return 'bg-red-100 text-red-800 border border-red-200';
+    default:
+      return 'bg-border/50 text-muted border border-border';
+  }
+}
+
 export default function ConcertsPage() {
   const [concerts, setConcerts] = useState<Concert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -113,11 +124,7 @@ export default function ConcertsPage() {
                       {new Date(concert.startsAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        concert.status === 'PUBLISHED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
-                        concert.status === 'CANCELLED' ? 'bg-red-100 text-red-800 border border-red-200' :
-                        'bg-border/50 text-muted border border-border'
-                      }`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(concert.status)}`}>
                         {concert.status}
                       </span>
                     </td>

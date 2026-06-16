@@ -24,7 +24,7 @@ const concertSchema = z.object({
 
 type ConcertFormValues = z.infer<typeof concertSchema>;
 
-export default function EditConcertPage({ params }: { params: Promise<{ id: string }> }) {
+export default function EditConcertPage({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
   const router = useRouter();
   const { id } = use(params);
   

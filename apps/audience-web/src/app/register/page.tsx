@@ -1,11 +1,11 @@
-"use client";
+/* eslint-disable @next/next/no-img-element */"use client";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Ticket, ArrowRight } from "@phosphor-icons/react/dist/ssr";
 import { motion } from "motion/react";
 import { authService } from "@/lib/services/auth.service";
@@ -23,7 +23,7 @@ const registerSchema = z.object({
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -118,8 +118,9 @@ export default function RegisterPage() {
                 </div>
               )}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-950">Họ và tên</label>
+                <label htmlFor="fullName" className="text-sm font-medium text-zinc-950">Họ và tên</label>
                 <input
+                  id="fullName"
                   {...register("fullName")}
                   type="text"
                   placeholder="Nguyễn Văn A"
@@ -130,8 +131,9 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-950">Email</label>
+                <label htmlFor="email" className="text-sm font-medium text-zinc-950">Email</label>
                 <input
+                  id="email"
                   {...register("email")}
                   type="email"
                   placeholder="name@example.com"
@@ -142,8 +144,9 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-950">Mật khẩu</label>
+                <label htmlFor="password" className="text-sm font-medium text-zinc-950">Mật khẩu</label>
                 <input
+                  id="password"
                   {...register("password")}
                   type="password"
                   placeholder="••••••••"
@@ -154,8 +157,9 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-950">Xác nhận mật khẩu</label>
+                <label htmlFor="confirmPassword" className="text-sm font-medium text-zinc-950">Xác nhận mật khẩu</label>
                 <input
+                  id="confirmPassword"
                   {...register("confirmPassword")}
                   type="password"
                   placeholder="••••••••"
@@ -191,5 +195,13 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white flex items-center justify-center">Loading...</div>}>
+      <RegisterForm />
+    </Suspense>
   );
 }

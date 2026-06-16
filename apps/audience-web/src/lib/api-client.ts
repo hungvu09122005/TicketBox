@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import {
   clearStoredTokens,
   getStoredAccessToken,
@@ -24,7 +24,7 @@ const refreshClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
+  if (typeof globalThis.window !== 'undefined') {
     const token = getStoredAccessToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -33,59 +33,64 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
+
+const handleUnauthorized = async (error: AxiosError, originalRequest: CustomAxiosRequestConfig) => {
+  const refreshToken = getStoredRefreshToken();
+  const requestUrl = String(originalRequest.url ?? '');
+
+  if (
+    refreshToken &&
+    !requestUrl.includes('/auth/login') &&
+    !requestUrl.includes('/auth/register') &&
+    !requestUrl.includes('/auth/refresh')
+  ) {
+    originalRequest._retry = true;
+
+    try {
+      const refreshResponse = await refreshClient.post('/auth/refresh', { refreshToken });
+      const { accessToken, refreshToken: nextRefreshToken } = refreshResponse.data.data as {
+        accessToken: string;
+        refreshToken: string;
+      };
+
+      setStoredTokens(accessToken, nextRefreshToken);
+      originalRequest.headers = originalRequest.headers ?? {};
+      originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+      return apiClient(originalRequest);
+    } catch (refreshError) {
+      return redirectToLogin(refreshError);
+    }
+  }
+
+  return redirectToLogin(error);
+};
+
+const redirectToLogin = (error: AxiosError | unknown) => {
+  clearStoredTokens();
+  useAuthStore.getState().logout();
+  if (typeof globalThis.window !== 'undefined') {
+    globalThis.window.location.assign('/login');
+  }
+  return Promise.reject(error);
+};
+
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error) => {
+  async (error: AxiosError) => {
     const status = error?.response?.status;
     const originalRequest = error?.config;
 
-    if (status === 401 && originalRequest && !originalRequest._retry) {
-      const refreshToken = getStoredRefreshToken();
-      const requestUrl = String(originalRequest.url ?? '');
-
-      if (
-        refreshToken &&
-        !requestUrl.includes('/auth/login') &&
-        !requestUrl.includes('/auth/register') &&
-        !requestUrl.includes('/auth/refresh')
-      ) {
-        originalRequest._retry = true;
-
-        try {
-          const refreshResponse = await refreshClient.post('/auth/refresh', {
-            refreshToken,
-          });
-
-          const { accessToken, refreshToken: nextRefreshToken } = refreshResponse.data.data as {
-            accessToken: string;
-            refreshToken: string;
-          };
-
-          setStoredTokens(accessToken, nextRefreshToken);
-          originalRequest.headers = originalRequest.headers ?? {};
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          return apiClient(originalRequest);
-        } catch (refreshError) {
-          clearStoredTokens();
-          useAuthStore.getState().logout();
-          if (typeof window !== 'undefined') {
-            window.location.assign('/login');
-          }
-          return Promise.reject(refreshError);
-        }
-      }
-
-      clearStoredTokens();
-      useAuthStore.getState().logout();
-      if (typeof window !== 'undefined') {
-        window.location.assign('/login');
-      }
+    if (status === 401 && originalRequest && !(originalRequest as CustomAxiosRequestConfig)._retry) {
+      return handleUnauthorized(error, originalRequest as CustomAxiosRequestConfig);
     }
 
-    if (status === 403 && typeof window !== 'undefined') {
-      const pathname = window.location.pathname;
+    if (status === 403 && typeof globalThis.window !== 'undefined') {
+      const pathname = globalThis.window.location.pathname;
       if (pathname !== '/forbidden') {
-        window.location.assign('/forbidden');
+        globalThis.window.location.assign('/forbidden');
       }
     }
 

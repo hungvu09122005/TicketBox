@@ -1,11 +1,11 @@
-"use client";
+/* eslint-disable @next/next/no-img-element */"use client";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Ticket, ArrowRight } from "@phosphor-icons/react/dist/ssr";
 import { motion } from "motion/react";
 import { authService } from "@/lib/services/auth.service";
@@ -19,7 +19,7 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const login = useAuthStore((state) => state.login);
@@ -52,9 +52,9 @@ export default function LoginPage() {
     } catch (error: unknown) {
       const message =
         typeof error === "object" &&
-        error !== null &&
-        "response" in error &&
-        typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === "string"
+          error !== null &&
+          "response" in error &&
+          typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === "string"
           ? (error as { response?: { data?: { message?: string } } }).response!.data!.message!
           : "Đăng nhập thất bại. Vui lòng thử lại.";
       logout();
@@ -74,7 +74,7 @@ export default function LoginPage() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
         </div>
-        
+
         <div className="relative z-10 w-full max-w-lg">
           <Link href="/" className="inline-flex items-center gap-2 text-white mb-12 hover:opacity-80 transition-opacity">
             <Ticket weight="fill" className="w-8 h-8 text-emerald-500" />
@@ -100,7 +100,7 @@ export default function LoginPage() {
             <span className="font-bold text-2xl tracking-tight">TicketBox</span>
           </Link>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
@@ -125,9 +125,8 @@ export default function LoginPage() {
                   {...register("email")}
                   type="email"
                   placeholder="name@example.com"
-                  className={`w-full h-12 px-4 rounded-xl bg-white border ${
-                    errors.email ? "border-red-500 focus:ring-red-500/20" : "border-zinc-200 focus:border-emerald-500 focus:ring-emerald-500/20"
-                  } text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-4 transition-all`}
+                  className={`w-full h-12 px-4 rounded-xl bg-white border ${errors.email ? "border-red-500 focus:ring-red-500/20" : "border-zinc-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                    } text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-4 transition-all`}
                 />
                 {errors.email && (
                   <p className="text-sm text-red-500">{errors.email.message}</p>
@@ -146,9 +145,8 @@ export default function LoginPage() {
                   {...register("password")}
                   type="password"
                   placeholder="••••••••"
-                  className={`w-full h-12 px-4 rounded-xl bg-white border ${
-                    errors.password ? "border-red-500 focus:ring-red-500/20" : "border-zinc-200 focus:border-emerald-500 focus:ring-emerald-500/20"
-                  } text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-4 transition-all`}
+                  className={`w-full h-12 px-4 rounded-xl bg-white border ${errors.password ? "border-red-500 focus:ring-red-500/20" : "border-zinc-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                    } text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-4 transition-all`}
                 />
                 {errors.password && (
                   <p className="text-sm text-red-500">{errors.password.message}</p>
@@ -182,4 +180,11 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
+      export default function LoginPage() {
+  return (
+      <Suspense fallback={<div className="min-h-screen bg-white flex items-center justify-center">Loading...</div>}>
+        <LoginForm />
+      </Suspense>
+      );
 }

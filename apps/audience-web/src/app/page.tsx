@@ -1,4 +1,4 @@
-"use client";
+/* eslint-disable @next/next/no-img-element */"use client";
 
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
@@ -28,7 +28,7 @@ export default function Home() {
               >
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs font-medium uppercase tracking-wide mb-8">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Đang diễn ra
+                  <span>Đang diễn ra</span>
                 </div>
 
                 <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white tracking-tighter leading-[1.1] mb-6">

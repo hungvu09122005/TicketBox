@@ -1,4 +1,4 @@
-"use client";
+/* eslint-disable @next/next/no-img-element */"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -29,7 +29,7 @@ function formatSchedule(concert: PublicConcert) {
   return `${dateFormatter.format(start)} • ${timeFormatter.format(start)} - ${timeFormatter.format(end)}`;
 }
 
-function ConcertCard({ concert, index }: { concert: PublicConcert; index: number }) {
+function ConcertCard({ concert, index }: Readonly<{ concert: PublicConcert; index: number }>) {
   const hasBanner = Boolean(concert.bannerUrl);
 
   return (
