@@ -10,7 +10,8 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
 import { ConcertsService } from './concerts.service';
-import { Multer } from 'multer';
+import { CreateConcertDto } from './dto/create-concert.dto';
+import { UpdateConcertDto } from './dto/update-concert.dto';
 
 @ApiTags('concerts')
 @ApiBearerAuth()
@@ -23,6 +24,12 @@ export class ConcertsController {
   //@RequirePermissions(Permission.CONCERT_READ)
   findAll() {
     return this.concertsService.findPublished();
+  }
+
+  @Get('organizer/me')
+  @RequirePermissions(Permission.CONCERT_READ)
+  findMyConcerts(@CurrentUser() user: AuthenticatedUser) {
+    return this.concertsService.findOrganizerConcerts(user.sub);
   }
 
   @Get(':id')
@@ -71,7 +78,7 @@ export class ConcertsController {
     return { message: 'Not implemented — Phase 2' };
   }
 
-  @Delete(':id')
+  @Post(':id/cancel')
   @RequirePermissions(Permission.CONCERT_UPDATE)
   cancel(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return { message: 'Not implemented — Phase 2' };
