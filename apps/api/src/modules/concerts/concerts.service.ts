@@ -6,6 +6,8 @@ import { ConcertsRepository } from './concerts.repository';
 import { Concert, ConcertStatus } from './entities/concert.entity';
 import { CreateConcertDto } from './dto/create-concert.dto';
 import { UpdateConcertDto } from './dto/update-concert.dto';
+import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../common/ports/object-storage.port';
+import { PublicConcertDto } from './dto/public-concert.dto';
 
 /**
  * ConcertsService — application service layer.
@@ -24,6 +26,34 @@ export class ConcertsService {
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
     private readonly config: ConfigService,
   ) { }
+
+  private async toPublicDto(concert: Concert): Promise<PublicConcertDto> {
+    const bannerUrl = concert.bannerObjectKey
+      ? await this.storage.getPresignedUrl(concert.bannerObjectKey, 3600)
+      : null;
+
+    const artistAvatarUrl = concert.artist?.avatarObjectKey
+      ? await this.storage.getPresignedUrl(concert.artist.avatarObjectKey, 3600)
+      : null;
+
+    return {
+      id: concert.id,
+      name: concert.name,
+      description: concert.description ?? null,
+      startsAt: concert.startsAt.toISOString(),
+      endsAt: concert.endsAt.toISOString(),
+      saleStartsAt: concert.saleStartsAt?.toISOString() ?? null,
+      saleEndsAt: concert.saleEndsAt?.toISOString() ?? null,
+      venue: concert.venue ?? null,
+      status: concert.status,
+      bannerUrl,
+      artist: {
+        id: concert.artist.id,
+        name: concert.artist.name,
+        avatarUrl: artistAvatarUrl,
+      },
+    };
+  }
 
   async findPublished(): Promise<PublicConcertDto[]> {
     const cacheKey = 'concerts:published:list';
@@ -52,7 +82,7 @@ export class ConcertsService {
   }
 
   /** Used by OrdersModule — validates concert is published and sale window is open. */
-  async assertPublishedAndSaleOpen(concertId: string): Promise<ConcertEntity> {
+  async assertPublishedAndSaleOpen(concertId: string): Promise<Concert> {
     const concert = await this.concertsRepository.findById(concertId);
     if (!concert || concert.status !== ConcertStatus.PUBLISHED) {
       throw new NotFoundException('Concert not available for purchase.');

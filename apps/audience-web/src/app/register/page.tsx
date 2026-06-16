@@ -4,13 +4,17 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Ticket, ArrowRight } from "@phosphor-icons/react/dist/ssr";
 import { motion } from "motion/react";
+import { authService } from "@/lib/services/auth.service";
+import { useAuthStore } from "@/lib/auth-store";
 
 const registerSchema = z.object({
   fullName: z.string().min(2, { message: "Họ tên quá ngắn" }),
   email: z.string().email({ message: "Email không hợp lệ" }),
-  password: z.string().min(6, { message: "Mật khẩu phải có ít nhất 6 ký tự" }),
+  password: z.string().min(8, { message: "Mật khẩu phải có ít nhất 8 ký tự" }),
   confirmPassword: z.string()
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Mật khẩu xác nhận không khớp",
@@ -20,6 +24,9 @@ const registerSchema = z.object({
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
+  const router = useRouter();
+  const login = useAuthStore((state) => state.login);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -29,8 +36,30 @@ export default function RegisterPage() {
   });
 
   const onSubmit = async (data: RegisterFormValues) => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log("Register data:", data);
+    setSubmitError(null);
+    try {
+      const tokens = await authService.register({
+        name: data.fullName,
+        email: data.email,
+        password: data.password,
+      });
+
+      login({ email: data.email, name: data.fullName }, tokens.accessToken);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("refresh_token", tokens.refreshToken);
+      }
+
+      router.replace("/concerts");
+    } catch (error: unknown) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === "string"
+          ? (error as { response?: { data?: { message?: string } } }).response!.data!.message!
+          : "Đăng ký thất bại. Vui lòng thử lại.";
+      setSubmitError(message);
+    }
   };
 
   return (
@@ -81,6 +110,11 @@ export default function RegisterPage() {
             </p>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+              {submitError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {submitError}
+                </div>
+              )}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-zinc-950">Họ và tên</label>
                 <input

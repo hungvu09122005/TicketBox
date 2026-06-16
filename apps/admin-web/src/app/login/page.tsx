@@ -3,7 +3,11 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Logo } from "@/components/Logo";
+import { authService } from "@/lib/services/auth.service";
+import { useAuthStore } from "@/lib/auth-store";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Email không hợp lệ" }),
@@ -13,6 +17,9 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function AdminLoginPage() {
+  const router = useRouter();
+  const login = useAuthStore((state) => state.login);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -22,8 +29,24 @@ export default function AdminLoginPage() {
   });
 
   const onSubmit = async (data: LoginFormValues) => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log("Admin Login data:", data);
+    setSubmitError(null);
+    try {
+      const tokens = await authService.login(data);
+      login({ email: data.email }, tokens.accessToken);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("admin_refresh_token", tokens.refreshToken);
+      }
+      router.replace("/concerts");
+    } catch (error: unknown) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === "string"
+          ? (error as { response?: { data?: { message?: string } } }).response!.data!.message!
+          : "Đăng nhập thất bại. Vui lòng thử lại.";
+      setSubmitError(message);
+    }
   };
 
   return (
@@ -36,6 +59,11 @@ export default function AdminLoginPage() {
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            {submitError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {submitError}
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-primary mb-1.5">
                 Email
