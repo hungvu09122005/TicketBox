@@ -14,18 +14,19 @@ export interface Venue {
 
 export interface Concert {
   id: string;
-  title: string;
+  name: string;
   description: string;
   artistId: string;
-  venueId: string;
-  startTime: string;
-  endTime: string;
-  status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED';
+  startsAt: string;
+  endsAt: string;
+  saleStartsAt?: string | null;
+  saleEndsAt?: string | null;
+  venue?: string | null;
+  status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
   bannerUrl?: string;
   createdAt: string;
   updatedAt: string;
   
   // Relations
   artist?: Artist;
-  venue?: Venue;
 }

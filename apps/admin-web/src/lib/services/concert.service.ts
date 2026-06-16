@@ -1,9 +1,9 @@
 import { apiClient } from '../api-client';
-import { Concert, Artist, Venue } from '../types';
+import { Concert, Artist } from '../types';
 
 export const concertService = {
   getConcerts: async (): Promise<Concert[]> => {
-    const response = await apiClient.get('/concerts');
+    const response = await apiClient.get('/concerts/organizer/me');
     return response.data;
   },
   
@@ -17,14 +17,16 @@ export const concertService = {
     return response.data;
   },
   
-  updateConcert: async (id: string, data: Partial<Concert>): Promise<Concert> => {
-    const response = await apiClient.put(`/concerts/${id}`, data);
-    return response.data;
+  updateConcert: async (id: string, data: Partial<Concert>): Promise<void> => {
+    await apiClient.patch(`/concerts/${id}`, data);
   },
   
-  updateStatus: async (id: string, status: 'PUBLISHED' | 'CANCELLED'): Promise<Concert> => {
-    const response = await apiClient.patch(`/concerts/${id}/status`, { status });
-    return response.data;
+  publishConcert: async (id: string): Promise<void> => {
+    await apiClient.post(`/concerts/${id}/publish`);
+  },
+
+  cancelConcert: async (id: string): Promise<void> => {
+    await apiClient.post(`/concerts/${id}/cancel`);
   },
 
   // Metadata loaders for form
@@ -33,8 +35,4 @@ export const concertService = {
     return response.data;
   },
 
-  getVenues: async (): Promise<Venue[]> => {
-    const response = await apiClient.get('/venues');
-    return response.data;
-  }
 };

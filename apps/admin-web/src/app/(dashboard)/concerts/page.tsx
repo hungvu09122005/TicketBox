@@ -26,7 +26,11 @@ export default function ConcertsPage() {
 
   const handleUpdateStatus = async (id: string, newStatus: 'PUBLISHED' | 'CANCELLED') => {
     try {
-      await concertService.updateStatus(id, newStatus);
+      if (newStatus === 'PUBLISHED') {
+        await concertService.publishConcert(id);
+      } else {
+        await concertService.cancelConcert(id);
+      }
       setConcerts(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c));
     } catch (err: unknown) {
       const msg =
@@ -103,10 +107,10 @@ export default function ConcertsPage() {
               ) : (
                 concerts.map(concert => (
                   <tr key={concert.id} className="hover:bg-primary/5 transition-colors group">
-                    <td className="px-6 py-4 font-medium text-primary">{concert.title}</td>
+                    <td className="px-6 py-4 font-medium text-primary">{concert.name}</td>
                     <td className="px-6 py-4 text-muted">{concert.artist?.name || 'Unknown'}</td>
                     <td className="px-6 py-4 text-muted">
-                      {new Date(concert.startTime).toLocaleDateString()}
+                      {new Date(concert.startsAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

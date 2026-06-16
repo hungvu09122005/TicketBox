@@ -28,7 +28,11 @@ export class ConcertsRepository {
   }
 
   findByOrganizer(organizerId: string): Promise<Concert[]> {
-    return this.repo.find({ where: { organizerId } });
+    return this.repo.find({
+      where: { organizerId },
+      relations: ['artist'],
+      order: { startsAt: 'ASC' },
+    });
   }
 
   create(data: Partial<Concert>): Promise<Concert> {

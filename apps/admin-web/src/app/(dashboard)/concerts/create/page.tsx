@@ -8,15 +8,18 @@ import { z } from 'zod';
 import Link from 'next/link';
 import { ArrowLeft, SpinnerGap } from '@phosphor-icons/react';
 import { concertService } from '@/lib/services/concert.service';
-import { Artist, Venue } from '@/lib/types';
+import { Artist } from '@/lib/types';
+import { extractApiMessages } from '@/lib/api-errors';
 
 const concertSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
+  name: z.string().min(1, 'Title is required'),
   description: z.string().min(1, 'Description is required'),
   artistId: z.string().min(1, 'Please select an artist'),
-  venueId: z.string().min(1, 'Please select a venue'),
-  startTime: z.string().min(1, 'Start time is required'),
-  endTime: z.string().min(1, 'End time is required'),
+  venue: z.string().min(1, 'Please enter a venue'),
+  startsAt: z.string().min(1, 'Start time is required'),
+  endsAt: z.string().min(1, 'End time is required'),
+  saleStartsAt: z.string().min(1, 'Sale start time is required'),
+  saleEndsAt: z.string().min(1, 'Sale end time is required'),
 });
 
 type ConcertFormValues = z.infer<typeof concertSchema>;
@@ -24,9 +27,8 @@ type ConcertFormValues = z.infer<typeof concertSchema>;
 export default function CreateConcertPage() {
   const router = useRouter();
   const [artists, setArtists] = useState<Artist[]>([]);
-  const [venues, setVenues] = useState<Venue[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
+  const [serverErrors, setServerErrors] = useState<string[] | null>(null);
 
   const {
     register,
@@ -39,12 +41,8 @@ export default function CreateConcertPage() {
   useEffect(() => {
     async function loadMeta() {
       try {
-        const [aData, vData] = await Promise.all([
-          concertService.getArtists(),
-          concertService.getVenues()
-        ]);
+        const aData = await concertService.getArtists();
         setArtists(aData);
-        setVenues(vData);
       } catch (err) {
         console.error('Failed to load form metadata. Please ensure backend is running.', err);
       }
@@ -54,22 +52,14 @@ export default function CreateConcertPage() {
 
   const onSubmit = async (data: ConcertFormValues) => {
     setIsSubmitting(true);
-    setServerError(null);
+    setServerErrors(null);
     try {
       await concertService.createConcert({
         ...data,
-        status: 'DRAFT'
       });
       router.push('/concerts');
     } catch (err: unknown) {
-      const message =
-        typeof err === 'object' &&
-        err !== null &&
-        'response' in err &&
-        typeof (err as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
-          ? (err as { response?: { data?: { message?: string } } }).response!.data!.message!
-          : 'An unexpected error occurred while saving.';
-      setServerError(message);
+      setServerErrors(extractApiMessages(err, 'An unexpected error occurred while saving.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -90,9 +80,14 @@ export default function CreateConcertPage() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 bg-surface border border-border rounded-xl p-6 md:p-8 shadow-sm">
-        {serverError && (
-          <div className="p-4 text-sm font-medium text-red-800 bg-red-50 border border-red-200 rounded-lg">
-            <strong>Backend Error:</strong> {serverError}
+        {serverErrors && (
+          <div className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800">
+            <strong>Backend Error:</strong>
+            <ul className="list-disc space-y-1 pl-5 font-normal">
+              {serverErrors.map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
           </div>
         )}
 
@@ -100,13 +95,13 @@ export default function CreateConcertPage() {
           <div>
             <label className="block text-sm font-medium text-primary mb-1.5">Concert Title</label>
             <input 
-              {...register('title')}
+              {...register('name')}
               className={`w-full rounded-lg border py-2.5 px-3 text-sm bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary ${
-                errors.title ? 'border-red-500' : 'border-border focus:border-primary'
+                errors.name ? 'border-red-500' : 'border-border focus:border-primary'
               }`}
               placeholder="e.g. The Eras Tour"
             />
-            {errors.title && <p className="mt-1.5 text-xs text-red-600">{errors.title.message}</p>}
+            {errors.name && <p className="mt-1.5 text-xs text-red-600">{errors.name.message}</p>}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -128,18 +123,14 @@ export default function CreateConcertPage() {
 
             <div>
               <label className="block text-sm font-medium text-primary mb-1.5">Venue</label>
-              <select 
-                {...register('venueId')}
+              <input 
+                {...register('venue')}
                 className={`w-full rounded-lg border py-2.5 px-3 text-sm bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary ${
-                  errors.venueId ? 'border-red-500' : 'border-border focus:border-primary'
+                  errors.venue ? 'border-red-500' : 'border-border focus:border-primary'
                 }`}
-              >
-                <option value="">Select Venue</option>
-                {venues.map(v => (
-                  <option key={v.id} value={v.id}>{v.name} ({v.capacity} seats)</option>
-                ))}
-              </select>
-              {errors.venueId && <p className="mt-1.5 text-xs text-red-600">{errors.venueId.message}</p>}
+                placeholder="e.g. Wembley Stadium"
+              />
+              {errors.venue && <p className="mt-1.5 text-xs text-red-600">{errors.venue.message}</p>}
             </div>
           </div>
 
@@ -148,24 +139,50 @@ export default function CreateConcertPage() {
               <label className="block text-sm font-medium text-primary mb-1.5">Start Time</label>
               <input 
                 type="datetime-local"
-                {...register('startTime')}
+                {...register('startsAt')}
                 className={`w-full rounded-lg border py-2.5 px-3 text-sm bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary ${
-                  errors.startTime ? 'border-red-500' : 'border-border focus:border-primary'
+                  errors.startsAt ? 'border-red-500' : 'border-border focus:border-primary'
                 }`}
               />
-              {errors.startTime && <p className="mt-1.5 text-xs text-red-600">{errors.startTime.message}</p>}
+              {errors.startsAt && <p className="mt-1.5 text-xs text-red-600">{errors.startsAt.message}</p>}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-primary mb-1.5">End Time</label>
               <input 
                 type="datetime-local"
-                {...register('endTime')}
+                {...register('endsAt')}
                 className={`w-full rounded-lg border py-2.5 px-3 text-sm bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary ${
-                  errors.endTime ? 'border-red-500' : 'border-border focus:border-primary'
+                  errors.endsAt ? 'border-red-500' : 'border-border focus:border-primary'
                 }`}
               />
-              {errors.endTime && <p className="mt-1.5 text-xs text-red-600">{errors.endTime.message}</p>}
+              {errors.endsAt && <p className="mt-1.5 text-xs text-red-600">{errors.endsAt.message}</p>}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-sm font-medium text-primary mb-1.5">Sale Starts At</label>
+              <input 
+                type="datetime-local"
+                {...register('saleStartsAt')}
+                className={`w-full rounded-lg border py-2.5 px-3 text-sm bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary ${
+                  errors.saleStartsAt ? 'border-red-500' : 'border-border focus:border-primary'
+                }`}
+              />
+              {errors.saleStartsAt && <p className="mt-1.5 text-xs text-red-600">{errors.saleStartsAt.message}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-primary mb-1.5">Sale Ends At</label>
+              <input 
+                type="datetime-local"
+                {...register('saleEndsAt')}
+                className={`w-full rounded-lg border py-2.5 px-3 text-sm bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary ${
+                  errors.saleEndsAt ? 'border-red-500' : 'border-border focus:border-primary'
+                }`}
+              />
+              {errors.saleEndsAt && <p className="mt-1.5 text-xs text-red-600">{errors.saleEndsAt.message}</p>}
             </div>
           </div>
 
