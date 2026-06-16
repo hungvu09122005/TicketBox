@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  UnauthorizedException,
   Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -56,7 +57,13 @@ export class RbacGuard implements CanActivate {
 
     if (!userPermissions) {
       // Cache miss — load from PostgreSQL and map to permissions
-      userPermissions = await this.loadPermissionsFromDb(user.sub);
+      const { permissions, permissionVersion } = await this.loadUserAndPermissionsFromDb(user.sub);
+      
+      if (permissionVersion > user.permissionVersion) {
+        throw new UnauthorizedException('Token permissions expired. Please login again.');
+      }
+
+      userPermissions = permissions;
       // Cache for ~5 minutes; immediate invalidation happens on RBAC change via cache.del()
       await this.cache.set(cacheKey, userPermissions, 300_000);
     }
@@ -71,12 +78,12 @@ export class RbacGuard implements CanActivate {
     return true;
   }
 
-  private async loadPermissionsFromDb(userId: string): Promise<string[]> {
-    const rows = await this.dataSource.query<{ roles: string }[]>(
-      `SELECT roles FROM users WHERE id = $1`,
+  private async loadUserAndPermissionsFromDb(userId: string): Promise<{ permissions: string[], permissionVersion: number }> {
+    const rows = await this.dataSource.query<{ roles: string, permission_version: number }[]>(
+      `SELECT roles, permission_version FROM users WHERE id = $1`,
       [userId],
     );
-    if (!rows || rows.length === 0) return [];
+    if (!rows || rows.length === 0) return { permissions: [], permissionVersion: 0 };
     
     // Parse roles if it's a string, otherwise it's an array/object depending on TypeORM
     const rolesData = rows[0].roles;
@@ -117,6 +124,6 @@ export class RbacGuard implements CanActivate {
       }
     }
 
-    return Array.from(permissions);
+    return { permissions: Array.from(permissions), permissionVersion: rows[0].permission_version };
   }
 }

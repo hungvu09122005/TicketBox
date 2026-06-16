@@ -9,7 +9,7 @@ import { TicketsService } from './tickets.service';
 
 @ApiTags('tickets')
 @ApiBearerAuth()
-@Controller('api/v1/tickets')
+@Controller('tickets')
 @UseGuards(JwtAuthGuard, RbacGuard)
 export class TicketsController {
   constructor(private readonly ticketsService: TicketsService) {}
@@ -17,7 +17,6 @@ export class TicketsController {
   @Get('me')
   @RequirePermissions(Permission.TICKET_VIEW_OWN)
   findMine(@CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 3
-    return [];
+    return this.ticketsService.findMine(user.sub);
   }
 }

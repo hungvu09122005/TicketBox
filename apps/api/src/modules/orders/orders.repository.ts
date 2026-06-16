@@ -12,5 +12,19 @@ export class OrdersRepository {
     @InjectRepository(OrderItem) private readonly itemRepo: Repository<OrderItem>,
     private readonly dataSource: DataSource,
   ) {}
-  // TODO Phase 3: findById, findByUser, createWithItems (in transaction), markPaid, markExpired
+  findByUser(userId: string): Promise<Order[]> {
+    return this.orderRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  findByIdAndOwner(id: string, userId: string, isAdmin: boolean): Promise<Order | null> {
+    const whereCondition = isAdmin ? { id } : { id, userId };
+    return this.orderRepo.findOne({
+      where: whereCondition,
+    });
+  }
+
+  // TODO Phase 3: findById, createWithItems (in transaction), markPaid, markExpired
 }
