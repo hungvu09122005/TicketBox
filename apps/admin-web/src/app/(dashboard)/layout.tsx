@@ -1,10 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { hasStoredAdminAccessToken } from '@/lib/auth-store';
+import { PERMISSIONS, Permission } from '@/lib/permissions';
+import { useAuthStore } from '@/lib/auth-store';
+
+function getRequiredPermission(pathname: string): Permission | null {
+  if (pathname.startsWith('/concerts')) return PERMISSIONS.CONCERT_CREATE;
+  if (pathname.startsWith('/artists')) return PERMISSIONS.AI_GENERATE_BIO;
+  if (pathname.startsWith('/venues')) return PERMISSIONS.CONCERT_CREATE;
+  if (pathname.startsWith('/events')) return PERMISSIONS.REPORT_VIEW;
+  return null;
+}
 
 export default function DashboardLayout({
   children,
@@ -14,12 +24,19 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const permissions = useAuthStore((state) => state.admin?.permissions ?? []);
+  const requiredPermission = useMemo(() => getRequiredPermission(pathname), [pathname]);
 
   useEffect(() => {
     if (!hasStoredAdminAccessToken()) {
       router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      return;
     }
-  }, [pathname, router]);
+
+    if (requiredPermission && !permissions.includes(requiredPermission)) {
+      router.replace('/forbidden');
+    }
+  }, [pathname, permissions, requiredPermission, router]);
 
   return (
     <div className="flex h-screen bg-surface font-sans">
