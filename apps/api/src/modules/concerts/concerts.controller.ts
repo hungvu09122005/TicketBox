@@ -1,5 +1,9 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { 
+  Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, 
+  UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator 
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -26,24 +30,49 @@ export class ConcertsController {
     return this.concertsService.findById(id);
   }
 
+  // --- Logic Upload SeatMap cho Task 6 ---
+  @Post(':concertId/zones/:zoneId/seat-map')
+  @RequirePermissions(Permission.CONCERT_UPDATE)
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadSeatMap(
+    @Param('zoneId') zoneId: string,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 2 }), // Giới hạn 2MB
+          new FileTypeValidator({ fileType: 'image/svg+xml' }),   // Chỉ nhận SVG
+        ],
+      }),
+    ) file: Express.Multer.File,
+  ) {
+    return await this.concertsService.uploadSeatMap(zoneId, file);
+  }
+  // --------------------------------------
+
   @Post()
   @RequirePermissions(Permission.CONCERT_CREATE)
   create(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
-    // TODO Phase 2: implement CreateConcertDto + ConcertsService.createConcert()
     return { message: 'Not implemented — Phase 2' };
   }
 
   @Patch(':id')
   @RequirePermissions(Permission.CONCERT_UPDATE)
   update(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
-    // TODO Phase 2: ownership check + updateConcert
     return { message: 'Not implemented — Phase 2' };
   }
 
   @Delete(':id')
   @RequirePermissions(Permission.CONCERT_UPDATE)
   cancel(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 2: cancelConcert with ownership check
     return { message: 'Not implemented — Phase 2' };
   }
 }

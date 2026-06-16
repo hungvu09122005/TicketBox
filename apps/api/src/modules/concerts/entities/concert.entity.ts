@@ -3,7 +3,7 @@ import {
   UpdateDateColumn, Index, ManyToOne, JoinColumn, OneToMany,
 } from 'typeorm';
 import { Artist } from '../../artists/entities/artist.entity';
-
+import { SeatZone } from './seat-zone.entity';
 export enum ConcertStatus {
   DRAFT = 'DRAFT',
   PUBLISHED = 'PUBLISHED',
@@ -68,4 +68,7 @@ export class Concert {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
+
+  @OneToMany(() => SeatZone, (seatZone) => seatZone.concert)
+  seatZones!: SeatZone[];
 }

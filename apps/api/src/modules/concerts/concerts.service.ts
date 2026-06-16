@@ -3,7 +3,9 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { ConcertsRepository } from './concerts.repository';
+import { SeatZoneRepository } from './seat-zone.repository';
 import { Concert, ConcertStatus } from './entities/concert.entity';
+import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../common/ports/object-storage.port';
 
 /**
  * ConcertsService — application service layer.
@@ -18,8 +20,10 @@ import { Concert, ConcertStatus } from './entities/concert.entity';
 export class ConcertsService {
   constructor(
     private readonly concertsRepository: ConcertsRepository,
+    private readonly seatZoneRepository: SeatZoneRepository,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
     private readonly config: ConfigService,
+    @Inject(OBJECT_STORAGE_PORT) private readonly objectStorage: ObjectStoragePort,
   ) {}
 
   async findPublished(): Promise<Concert[]> {
@@ -67,6 +71,19 @@ export class ConcertsService {
       this.cache.del('concerts:published:list'),
       this.cache.del(`concerts:detail:${concertId}`),
     ]);
+  }
+
+  // Thêm hàm này vào class ConcertsService
+  async uploadSeatMap(zoneId: string, file: Express.Multer.File): Promise<string> {
+    const objectKey = await this.objectStorage.upload({
+      objectKey: `seatmaps/${zoneId}.svg`,
+      buffer: file.buffer,
+      contentType: file.mimetype,
+      size: file.size,
+    });
+
+    await this.seatZoneRepository.update(zoneId, { svgPath: objectKey });
+    return objectKey;
   }
 
   // TODO Phase 2: createConcert, updateConcert, cancelConcert with ownership check

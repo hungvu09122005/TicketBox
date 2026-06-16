@@ -18,6 +18,8 @@
     "migration:show": "typeorm-ts-node-commonjs migration:show -d src/database/data-source.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1068.0",
+    "@aws-sdk/s3-request-presigner": "^3.1068.0",
     "@nestjs/bull": "^10.1.1",
     "@nestjs/cache-manager": "^3.1.2",
     "@nestjs/common": "^10.3.10",
@@ -69,7 +71,7 @@
     "@types/cache-manager-ioredis": "^2.0.8",
     "@types/express": "^5.0.6",
     "@types/jest": "^29.5.12",
-    "@types/multer": "^1.4.11",
+    "@types/multer": "^1.4.13",
     "@types/node": "^20.14.10",
     "@types/opossum": "^8.1.4",
     "@types/passport-jwt": "^4.0.1",
