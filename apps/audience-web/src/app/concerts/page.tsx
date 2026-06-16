@@ -56,7 +56,7 @@ function ConcertCard({ concert, index }: Readonly<{ concert: PublicConcert; inde
 
         <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full border border-white/15 bg-black/30 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/90 backdrop-blur-md">
           <span className="h-2 w-2 rounded-full bg-emerald-400" />
-          PUBLISHED
+          {' '}PUBLISHED
         </div>
 
         <div className="absolute inset-x-0 bottom-0 p-5">
@@ -152,7 +152,7 @@ export default function ConcertsPage() {
     }
 
     const timer = window.setTimeout(() => {
-      void loadConcerts();
+      loadConcerts();
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -176,7 +176,7 @@ export default function ConcertsPage() {
             >
               <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium uppercase tracking-[0.22em] text-white/75 backdrop-blur-md">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                Concerts PUBLISHED từ API thật
+                {' '}Concerts PUBLISHED từ API thật
               </div>
 
               <h1 className="max-w-4xl text-4xl font-semibold tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">
@@ -194,7 +194,7 @@ export default function ConcertsPage() {
           {state === "loading" && (
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, index) => (
-                <SkeletonCard key={index} />
+                <SkeletonCard key={`skeleton-${String(index)}`} />
               ))}
             </div>
           )}

@@ -3,7 +3,7 @@
 import { List } from '@phosphor-icons/react';
 import { useAuthStore } from '@/lib/auth-store';
 
-export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
+export function Header({ onMenuClick }: Readonly<{ onMenuClick?: () => void }>) {
   const admin = useAuthStore((state) => state.admin);
 
   return (

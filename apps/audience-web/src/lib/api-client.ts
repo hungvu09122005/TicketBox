@@ -24,7 +24,7 @@ const refreshClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  if (typeof globalThis.window !== 'undefined') {
+  if (globalThis.window !== undefined) {
     const token = getStoredAccessToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -68,13 +68,13 @@ const handleUnauthorized = async (error: AxiosError, originalRequest: CustomAxio
   return redirectToLogin(error);
 };
 
-const redirectToLogin = (error: AxiosError | unknown) => {
+const redirectToLogin = (error: unknown) => {
   clearStoredTokens();
   useAuthStore.getState().logout();
-  if (typeof globalThis.window !== 'undefined') {
+  if (globalThis.window !== undefined) {
     globalThis.window.location.assign('/login');
   }
-  return Promise.reject(error);
+  throw error;
 };
 
 apiClient.interceptors.response.use(
@@ -87,13 +87,13 @@ apiClient.interceptors.response.use(
       return handleUnauthorized(error, originalRequest as CustomAxiosRequestConfig);
     }
 
-    if (status === 403 && typeof globalThis.window !== 'undefined') {
+    if (status === 403 && globalThis.window !== undefined) {
       const pathname = globalThis.window.location.pathname;
       if (pathname !== '/forbidden') {
         globalThis.window.location.assign('/forbidden');
       }
     }
 
-    return Promise.reject(error);
+    throw error;
   },
 );

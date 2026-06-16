@@ -21,7 +21,7 @@ const navigation = [
   { name: 'Events', href: '/events', icon: Calendar, permissions: [Permission.REPORT_VIEW] },
 ];
 
-export function Sidebar({ onClose }: { onClose?: () => void }) {
+export function Sidebar({ onClose }: Readonly<{ onClose?: () => void }>) {
   const pathname = usePathname();
   const router = useRouter();
   const permissions = useAuthStore((state) => state.permissions);
@@ -33,7 +33,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   return (
     <div className="flex h-full w-full flex-col border-r border-border bg-surface">
       <div className="flex h-16 shrink-0 items-center justify-between px-6">
-        <Logo variant="admin" />
+        <Logo />
         {onClose && (
           <button onClick={onClose} className="md:hidden p-1 text-muted hover:text-primary">
             <X size={20} />

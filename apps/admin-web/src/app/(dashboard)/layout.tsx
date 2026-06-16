@@ -75,6 +75,12 @@ export default function DashboardLayout({
         <div 
           className="fixed inset-0 z-40 bg-primary/50 backdrop-blur-sm md:hidden"
           onClick={() => setIsSidebarOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' || e.key === 'Enter') setIsSidebarOpen(false);
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Close sidebar"
         />
       )}
 

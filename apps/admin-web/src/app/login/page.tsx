@@ -65,7 +65,7 @@ function AdminLoginForm() {
       <div className="w-full max-w-md relative">
         <div className="relative bg-surface border border-border rounded-2xl p-8 shadow-sm">
           <div className="flex flex-col items-center text-center mb-8">
-            <Logo variant="admin" className="mb-2" />
+            <Logo className="mb-2" />
             <p className="text-muted text-sm mt-1">Đăng nhập tài khoản Quản trị viên</p>
           </div>
 
