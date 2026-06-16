@@ -4,17 +4,17 @@ import { Concert, Artist } from '../types';
 export const concertService = {
   getConcerts: async (): Promise<Concert[]> => {
     const response = await apiClient.get('/concerts/organizer/me');
-    return response.data;
+    return response.data.data;
   },
   
   getConcert: async (id: string): Promise<Concert> => {
     const response = await apiClient.get(`/concerts/${id}`);
-    return response.data;
+    return response.data.data;
   },
   
   createConcert: async (data: Partial<Concert>): Promise<Concert> => {
     const response = await apiClient.post('/concerts', data);
-    return response.data;
+    return response.data.data;
   },
   
   updateConcert: async (id: string, data: Partial<Concert>): Promise<void> => {
@@ -32,7 +32,7 @@ export const concertService = {
   // Metadata loaders for form
   getArtists: async (): Promise<Artist[]> => {
     const response = await apiClient.get('/artists');
-    return response.data;
+    return response.data.data;
   },
 
 };

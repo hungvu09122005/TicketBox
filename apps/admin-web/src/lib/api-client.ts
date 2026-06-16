@@ -56,7 +56,7 @@ apiClient.interceptors.response.use(
             refreshToken,
           });
 
-          const { accessToken, refreshToken: nextRefreshToken } = refreshResponse.data as {
+          const { accessToken, refreshToken: nextRefreshToken } = refreshResponse.data.data as {
             accessToken: string;
             refreshToken: string;
           };

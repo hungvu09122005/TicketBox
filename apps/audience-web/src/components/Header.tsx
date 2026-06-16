@@ -34,7 +34,7 @@ export function Header() {
         }`}
     >
       <div className="max-w-[1400px] mx-auto px-6 h-20 flex items-center justify-between">
-        <Link href="/" className={`flex items-center gap-2 transition-colors ${scrolled ? 'text-zinc-950' : 'text-white'}`}>
+        <Link href={showAuthActions ? "/" : "/concerts"} className={`flex items-center gap-2 transition-colors ${scrolled ? 'text-zinc-950' : 'text-white'}`}>
           <Ticket weight="fill" className="w-8 h-8 text-emerald-500" />
           <span className="font-bold text-xl tracking-tight">TicketBox</span>
         </Link>
