@@ -1,33 +1,31 @@
 import { create } from 'zustand';
-
-type AuthUser = Record<string, unknown>;
+import { clearStoredTokens, setStoredTokens } from './auth-session';
+import type { AudienceProfile } from './auth.types';
 
 interface AuthState {
-  user: AuthUser | null;
+  user: AudienceProfile | null;
+  permissions: string[];
   isAuthenticated: boolean;
-  login: (userData: AuthUser, token: string) => void;
+  login: (userData: AudienceProfile, token: string, refreshToken?: string) => void;
   logout: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
+  permissions: [],
   isAuthenticated: false,
-  login: (userData, token) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('access_token', token);
-    }
-    set({ user: userData, isAuthenticated: true });
+  login: (userData, token, refreshToken) => {
+    setStoredTokens(token, refreshToken);
+    set({
+      user: userData,
+      permissions: userData.permissions ?? [],
+      isAuthenticated: true,
+    });
   },
   logout: () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-    }
-    set({ user: null, isAuthenticated: false });
+    clearStoredTokens();
+    set({ user: null, permissions: [], isAuthenticated: false });
   },
 }));
 
-export const hasStoredAccessToken = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  return Boolean(localStorage.getItem('access_token'));
-};
+export { hasStoredSession, hasStoredAccessToken } from './auth-session';

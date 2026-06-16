@@ -7,7 +7,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Logo } from "@/components/Logo";
 import { authService } from "@/lib/services/auth.service";
-import { hasStoredAdminAccessToken, useAuthStore } from "@/lib/auth-store";
+import { hasStoredAdminSession, useAuthStore } from "@/lib/auth-store";
+import { setStoredAdminTokens } from "@/lib/auth-session";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Email không hợp lệ" }),
@@ -20,6 +21,7 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const login = useAuthStore((state) => state.login);
+  const logout = useAuthStore((state) => state.logout);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
@@ -30,7 +32,7 @@ export default function AdminLoginPage() {
   });
 
   useEffect(() => {
-    if (hasStoredAdminAccessToken()) {
+    if (hasStoredAdminSession()) {
       router.replace(searchParams.get("next") || "/concerts");
     }
   }, [router, searchParams]);
@@ -39,13 +41,13 @@ export default function AdminLoginPage() {
     setSubmitError(null);
     try {
       const tokens = await authService.login(data);
-      login({ email: data.email }, tokens.accessToken);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("admin_refresh_token", tokens.refreshToken);
-      }
+      setStoredAdminTokens(tokens.accessToken, tokens.refreshToken);
+      const profile = await authService.me();
+      login(profile, tokens.accessToken, tokens.refreshToken);
       const nextPath = searchParams.get("next") || "/concerts";
       router.replace(nextPath);
     } catch (error: unknown) {
+      logout();
       const message =
         typeof error === "object" &&
         error !== null &&

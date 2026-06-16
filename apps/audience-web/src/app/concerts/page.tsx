@@ -7,7 +7,7 @@ import { ArrowClockwise, CalendarBlank, MapPin, MusicNotes, Ticket } from "@phos
 import { Header } from "../../components/Header";
 import { concertService } from "@/lib/services/concert.service";
 import { PublicConcert } from "@/lib/types";
-import { hasStoredAccessToken } from "@/lib/auth-store";
+import { hasStoredSession } from "@/lib/auth-store";
 
 type LoadState = "loading" | "ready" | "empty" | "error";
 
@@ -146,7 +146,7 @@ export default function ConcertsPage() {
   }, []);
 
   useEffect(() => {
-    if (!hasStoredAccessToken()) {
+    if (!hasStoredSession()) {
       router.replace("/login?next=/concerts");
       return;
     }

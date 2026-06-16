@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { Ticket, ArrowRight } from "@phosphor-icons/react/dist/ssr";
 import { motion } from "motion/react";
 import { authService } from "@/lib/services/auth.service";
-import { hasStoredAccessToken } from "@/lib/auth-store";
+import { hasStoredSession } from "@/lib/auth-store";
 
 const registerSchema = z.object({
   fullName: z.string().min(2, { message: "Họ tên quá ngắn" }),
@@ -36,7 +36,7 @@ export default function RegisterPage() {
   });
 
   useEffect(() => {
-    if (hasStoredAccessToken()) {
+    if (hasStoredSession()) {
       router.replace(searchParams.get("next") || "/concerts");
     }
   }, [router, searchParams]);

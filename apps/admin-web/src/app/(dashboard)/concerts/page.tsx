@@ -28,8 +28,14 @@ export default function ConcertsPage() {
     try {
       await concertService.updateStatus(id, newStatus);
       setConcerts(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c));
-    } catch (err: any) {
-      const msg = err.response?.data?.message || 'Failed to update status';
+    } catch (err: unknown) {
+      const msg =
+        typeof err === 'object' &&
+        err !== null &&
+        'response' in err &&
+        typeof (err as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
+          ? (err as { response?: { data?: { message?: string } } }).response!.data!.message!
+          : 'Failed to update status';
       alert(`Error: ${msg}`);
     }
   };

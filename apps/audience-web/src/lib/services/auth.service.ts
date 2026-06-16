@@ -1,4 +1,5 @@
 import { apiClient } from '../api-client';
+import type { AudienceProfile } from '../auth.types';
 
 export interface LoginPayload {
   email: string;
@@ -24,6 +25,11 @@ export const authService = {
 
   register: async (payload: RegisterPayload): Promise<AuthTokens> => {
     const response = await apiClient.post('/auth/register', payload);
+    return response.data;
+  },
+
+  me: async (): Promise<AudienceProfile> => {
+    const response = await apiClient.get('/users/me');
     return response.data;
   },
 };

@@ -9,7 +9,8 @@ import { useEffect, useState } from "react";
 import { Ticket, ArrowRight } from "@phosphor-icons/react/dist/ssr";
 import { motion } from "motion/react";
 import { authService } from "@/lib/services/auth.service";
-import { hasStoredAccessToken, useAuthStore } from "@/lib/auth-store";
+import { hasStoredSession, useAuthStore } from "@/lib/auth-store";
+import { setStoredTokens } from "@/lib/auth-session";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Email không hợp lệ" }),
@@ -22,6 +23,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const login = useAuthStore((state) => state.login);
+  const logout = useAuthStore((state) => state.logout);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
@@ -32,7 +34,7 @@ export default function LoginPage() {
   });
 
   useEffect(() => {
-    if (hasStoredAccessToken()) {
+    if (hasStoredSession()) {
       router.replace(searchParams.get("next") || "/concerts");
     }
   }, [router, searchParams]);
@@ -41,10 +43,9 @@ export default function LoginPage() {
     setSubmitError(null);
     try {
       const tokens = await authService.login(data);
-      login({ email: data.email }, tokens.accessToken);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("refresh_token", tokens.refreshToken);
-      }
+      setStoredTokens(tokens.accessToken, tokens.refreshToken);
+      const profile = await authService.me();
+      login(profile, tokens.accessToken, tokens.refreshToken);
 
       const nextPath = searchParams.get("next") || "/concerts";
       router.replace(nextPath);
@@ -56,6 +57,7 @@ export default function LoginPage() {
         typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === "string"
           ? (error as { response?: { data?: { message?: string } } }).response!.data!.message!
           : "Đăng nhập thất bại. Vui lòng thử lại.";
+      logout();
       setSubmitError(message);
     }
   };

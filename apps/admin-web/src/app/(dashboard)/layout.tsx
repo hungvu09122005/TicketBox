@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
-import { hasStoredAdminAccessToken } from '@/lib/auth-store';
+import { authService } from '@/lib/services/auth.service';
+import { hasStoredAdminSession, useAuthStore } from '@/lib/auth-store';
+import { getStoredAdminAccessToken, getStoredAdminRefreshToken } from '@/lib/auth-session';
 
 export default function DashboardLayout({
   children,
@@ -14,12 +16,57 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const login = useAuthStore((state) => state.login);
+  const logout = useAuthStore((state) => state.logout);
 
   useEffect(() => {
-    if (!hasStoredAdminAccessToken()) {
-      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
-    }
-  }, [pathname, router]);
+    let isMounted = true;
+
+    const bootstrap = async () => {
+      if (!hasStoredAdminSession()) {
+        router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+        if (isMounted) setIsBootstrapping(false);
+        return;
+      }
+
+      try {
+        const profile = await authService.me();
+        const accessToken = getStoredAdminAccessToken() ?? '';
+        const refreshToken = getStoredAdminRefreshToken() ?? undefined;
+        if (isMounted) {
+          login(profile, accessToken, refreshToken);
+          setIsBootstrapping(false);
+        }
+      } catch (error) {
+        logout();
+        router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+        if (isMounted) setIsBootstrapping(false);
+        console.error('Failed to bootstrap admin session', error);
+      }
+    };
+
+    void bootstrap();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [login, logout, pathname, router]);
+
+  if (isBootstrapping) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-surface text-primary">
+        <div className="flex items-center gap-3 text-sm text-muted">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+          Verifying session...
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasStoredAdminSession()) {
+    return null;
+  }
 
   return (
     <div className="flex h-screen bg-surface font-sans">

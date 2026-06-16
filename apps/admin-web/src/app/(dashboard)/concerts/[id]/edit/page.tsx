@@ -84,8 +84,15 @@ export default function EditConcertPage({ params }: { params: Promise<{ id: stri
     try {
       await concertService.updateConcert(id, data);
       router.push('/concerts');
-    } catch (err: any) {
-      setServerError(err.response?.data?.message || 'An unexpected error occurred while saving.');
+    } catch (err: unknown) {
+      const message =
+        typeof err === 'object' &&
+        err !== null &&
+        'response' in err &&
+        typeof (err as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
+          ? (err as { response?: { data?: { message?: string } } }).response!.data!.message!
+          : 'An unexpected error occurred while saving.';
+      setServerError(message);
     } finally {
       setIsSubmitting(false);
     }
