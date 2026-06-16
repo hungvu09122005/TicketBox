@@ -1,15 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
+import { hasStoredAdminAccessToken } from '@/lib/auth-store';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (!hasStoredAdminAccessToken()) {
+      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    }
+  }, [pathname, router]);
 
   return (
     <div className="flex h-screen bg-surface font-sans">

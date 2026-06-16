@@ -3,7 +3,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Logo } from "@/components/Logo";
 import { authService } from "@/lib/services/auth.service";
@@ -18,6 +18,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const login = useAuthStore((state) => state.login);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const {
@@ -36,7 +37,8 @@ export default function AdminLoginPage() {
       if (typeof window !== "undefined") {
         localStorage.setItem("admin_refresh_token", tokens.refreshToken);
       }
-      router.replace("/concerts");
+      const nextPath = searchParams.get("next") || "/concerts";
+      router.replace(nextPath);
     } catch (error: unknown) {
       const message =
         typeof error === "object" &&

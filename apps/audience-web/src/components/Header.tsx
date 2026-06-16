@@ -2,11 +2,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion, useScroll, useMotionValueEvent } from "motion/react";
-import { Ticket, User, UserPlus } from "@phosphor-icons/react";
+import { Ticket, User, UserPlus, SignOut } from "@phosphor-icons/react";
+import { hasStoredAccessToken, useAuthStore } from "@/lib/auth-store";
 
 export function Header() {
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const logout = useAuthStore((state) => state.logout);
+  const hasToken = hasStoredAccessToken();
+  const showAuthActions = !(isAuthenticated || hasToken);
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     if (latest > 50) {
@@ -33,14 +38,27 @@ export function Header() {
         </Link>
 
         <div className="flex items-center gap-4">
-          <Link href="/login" className={`flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-zinc-600 hover:text-zinc-950' : 'text-zinc-300 hover:text-white'}`}>
-            <User className="w-5 h-5" />
-            <span>Đăng nhập</span>
-          </Link>
-          <Link href="/register" className={`flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-zinc-600 hover:text-zinc-950' : 'text-zinc-300 hover:text-white'}`}>
-            <UserPlus className="w-5 h-5" />
-            <span>Đăng ký</span>
-          </Link>
+          {showAuthActions ? (
+            <>
+              <Link href="/login" className={`flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-zinc-600 hover:text-zinc-950' : 'text-zinc-300 hover:text-white'}`}>
+                <User className="w-5 h-5" />
+                <span>Đăng nhập</span>
+              </Link>
+              <Link href="/register" className={`flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-zinc-600 hover:text-zinc-950' : 'text-zinc-300 hover:text-white'}`}>
+                <UserPlus className="w-5 h-5" />
+                <span>Đăng ký</span>
+              </Link>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={logout}
+              className={`flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-zinc-600 hover:text-zinc-950' : 'text-zinc-300 hover:text-white'}`}
+            >
+              <SignOut className="w-5 h-5" />
+              <span>Đăng xuất</span>
+            </button>
+          )}
         </div>
       </div>
     </motion.header>

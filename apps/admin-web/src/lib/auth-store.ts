@@ -24,3 +24,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ admin: null, isAuthenticated: false });
   },
 }));
+
+export const hasStoredAdminAccessToken = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return Boolean(localStorage.getItem('admin_access_token'));
+};

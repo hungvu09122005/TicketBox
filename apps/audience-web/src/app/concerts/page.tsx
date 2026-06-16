@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { ArrowClockwise, CalendarBlank, MapPin, MusicNotes, Ticket } from "@phosphor-icons/react";
 import { Header } from "../../components/Header";
 import { concertService } from "@/lib/services/concert.service";
 import { PublicConcert } from "@/lib/types";
+import { hasStoredAccessToken } from "@/lib/auth-store";
 
 type LoadState = "loading" | "ready" | "empty" | "error";
 
@@ -117,6 +119,7 @@ function SkeletonCard() {
 }
 
 export default function ConcertsPage() {
+  const router = useRouter();
   const [concerts, setConcerts] = useState<PublicConcert[]>([]);
   const [state, setState] = useState<LoadState>("loading");
   const [errorMessage, setErrorMessage] = useState("Không thể tải danh sách concert.");
@@ -143,12 +146,17 @@ export default function ConcertsPage() {
   }, []);
 
   useEffect(() => {
+    if (!hasStoredAccessToken()) {
+      router.replace("/login?next=/concerts");
+      return;
+    }
+
     const timer = window.setTimeout(() => {
       void loadConcerts();
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [loadConcerts]);
+  }, [loadConcerts, router]);
 
   return (
     <div className="min-h-screen bg-[#050816] text-white selection:bg-amber-300/30">
