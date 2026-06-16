@@ -11,6 +11,8 @@ import { Cache } from 'cache-manager';
 import { DataSource } from 'typeorm';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { Permission } from '../constants/permissions.enum';
+import { Role } from '../constants/roles.enum';
+import { ROLE_PERMISSIONS_MAPPING } from '../constants/role-permissions.mapping';
 import { AuthenticatedUser } from '../decorators/current-user.decorator';
 
 /**
@@ -19,7 +21,7 @@ import { AuthenticatedUser } from '../decorators/current-user.decorator';
  * Authorization flow per request:
  *   1. Read required permissions from route metadata (@RequirePermissions).
  *   2. Resolve user's permissions via Redis cache keyed by userId + permissionVersion.
- *   3. On cache miss: query PostgreSQL user_roles → role_permissions → permissions.
+ *   3. On cache miss: query PostgreSQL users -> roles -> map to permissions.
  *   4. Compare required vs. actual permissions.
  *   5. Return 403 Forbidden if insufficient.
  *
@@ -53,7 +55,7 @@ export class RbacGuard implements CanActivate {
     let userPermissions: string[] | undefined = await this.cache.get<string[]>(cacheKey);
 
     if (!userPermissions) {
-      // Cache miss — load from PostgreSQL
+      // Cache miss — load from PostgreSQL and map to permissions
       userPermissions = await this.loadPermissionsFromDb(user.sub);
       // Cache for ~5 minutes; immediate invalidation happens on RBAC change via cache.del()
       await this.cache.set(cacheKey, userPermissions, 300_000);
