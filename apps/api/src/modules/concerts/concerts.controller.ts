@@ -4,28 +4,29 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { JwtAuthGuard, OptionalJwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
 import { ConcertsService } from './concerts.service';
+import { Multer } from 'multer';
 
 @ApiTags('concerts')
 @ApiBearerAuth()
-@Controller('api/v1/concerts')
-@UseGuards(JwtAuthGuard, RbacGuard)
+@Controller('concerts')
+@UseGuards(OptionalJwtAuthGuard)
 export class ConcertsController {
   constructor(private readonly concertsService: ConcertsService) {}
 
   @Get()
-  @RequirePermissions(Permission.CONCERT_READ)
+  //@RequirePermissions(Permission.CONCERT_READ)
   findAll() {
     return this.concertsService.findPublished();
   }
 
   @Get(':id')
-  @RequirePermissions(Permission.CONCERT_READ)
+  //@RequirePermissions(Permission.CONCERT_READ)
   findOne(@Param('id') id: string) {
     return this.concertsService.findById(id);
   }

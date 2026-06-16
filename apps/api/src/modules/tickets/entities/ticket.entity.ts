@@ -1,6 +1,8 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index,
+  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn
 } from 'typeorm';
+import { Order } from '../../orders/entities/order.entity';
+import { TicketType } from '../../concerts/entities/ticket-type.entity';
 
 export enum TicketStatus {
   ACTIVE = 'ACTIVE',
@@ -40,4 +42,12 @@ export class Ticket {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
+
+  @ManyToOne(() => Order, (order) => order.tickets)
+  @JoinColumn({ name: 'order_id' })
+  order!: Order;
+
+  @ManyToOne(() => TicketType)
+  @JoinColumn({ name: 'ticket_type_id' })
+  ticketType!: TicketType;
 }

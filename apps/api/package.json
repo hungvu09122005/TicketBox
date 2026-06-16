@@ -6,16 +6,17 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
-    "start": "node dist/main",
+    "start": "node dist/apps/api/main.js",
     "lint": "eslint \"{src,test}/**/*.ts\" --fix",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config jest.e2e.config.ts --runInBand",
-    "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
-    "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
-    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
-    "migration:show": "typeorm-ts-node-commonjs migration:show -d src/database/data-source.ts"
+    "migration:generate": "npx typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
+    "migration:run": "npx typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
+    "migration:revert": "npx typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
+    "migration:show": "npx typeorm-ts-node-commonjs migration:show -d src/database/data-source.ts",
+    "typeorm": "npx typeorm-ts-node-commonjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1068.0",
