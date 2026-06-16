@@ -1,11 +1,11 @@
-import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { ConcertsRepository } from './concerts.repository';
-import { Concert as ConcertEntity, ConcertStatus } from './entities/concert.entity';
-import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../common/ports/object-storage.port';
-import { PublicConcertDto } from './dto/public-concert.dto';
+import { Concert, ConcertStatus } from './entities/concert.entity';
+import { CreateConcertDto } from './dto/create-concert.dto';
+import { UpdateConcertDto } from './dto/update-concert.dto';
 
 /**
  * ConcertsService — application service layer.
@@ -23,7 +23,7 @@ export class ConcertsService {
     @Inject(OBJECT_STORAGE_PORT) private readonly storage: ObjectStoragePort,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
     private readonly config: ConfigService,
-  ) {}
+  ) { }
 
   async findPublished(): Promise<PublicConcertDto[]> {
     const cacheKey = 'concerts:published:list';
@@ -74,34 +74,77 @@ export class ConcertsService {
     ]);
   }
 
-  // TODO Phase 2: createConcert, updateConcert, cancelConcert with ownership check
+  async findOrganizerConcerts(organizerId: string): Promise<Concert[]> {
+    return this.concertsRepository.findByOrganizer(organizerId);
+  }
 
-  private async toPublicDto(concert: ConcertEntity): Promise<PublicConcertDto> {
-    const [bannerUrl, avatarUrl] = await Promise.all([
-      concert.bannerObjectKey
-        ? this.storage.getPresignedUrl(concert.bannerObjectKey, 60 * 60)
-        : Promise.resolve(null),
-      concert.artist.avatarObjectKey
-        ? this.storage.getPresignedUrl(concert.artist.avatarObjectKey, 60 * 60)
-        : Promise.resolve(null),
-    ]);
+  async createConcert(organizerId: string, dto: CreateConcertDto): Promise<Concert> {
+    const concert = await this.concertsRepository.create({
+      ...dto,
+      organizerId,
+      status: ConcertStatus.DRAFT,
+    });
+    return concert;
+  }
 
-    return {
-      id: concert.id,
-      name: concert.name,
-      description: concert.description ?? null,
-      startsAt: concert.startsAt.toISOString(),
-      endsAt: concert.endsAt.toISOString(),
-      saleStartsAt: concert.saleStartsAt?.toISOString() ?? null,
-      saleEndsAt: concert.saleEndsAt?.toISOString() ?? null,
-      venue: concert.venue ?? null,
-      status: concert.status,
-      bannerUrl,
-      artist: {
-        id: concert.artist.id,
-        name: concert.artist.name,
-        avatarUrl,
-      },
-    };
+  async updateConcert(
+    id: string,
+    organizerId: string,
+    dto: UpdateConcertDto,
+    isAdmin: boolean,
+  ): Promise<void> {
+    const concert = await this.concertsRepository.findById(id);
+    if (!concert) throw new NotFoundException('Concert not found');
+    if (!isAdmin && concert.organizerId !== organizerId) {
+      throw new ForbiddenException('You do not own this concert');
+    }
+
+    await this.concertsRepository.update(id, dto);
+    await this.invalidateCacheFor(id);
+  }
+
+  async publishConcert(
+    id: string,
+    organizerId: string,
+    isAdmin: boolean,
+  ): Promise<void> {
+    const concert = await this.concertsRepository.findById(id);
+    if (!concert) throw new NotFoundException('Concert not found');
+    if (!isAdmin && concert.organizerId !== organizerId) {
+      throw new ForbiddenException('You do not own this concert');
+    }
+
+    if (
+      !concert.startsAt ||
+      !concert.endsAt ||
+      !concert.saleStartsAt ||
+      !concert.saleEndsAt ||
+      !concert.venue ||
+      !concert.artistId
+    ) {
+      throw new BadRequestException('Missing mandatory fields to publish a concert');
+    }
+
+    await this.concertsRepository.update(id, { status: ConcertStatus.PUBLISHED });
+    await this.invalidateCacheFor(id);
+  }
+
+  async cancelConcert(
+    id: string,
+    organizerId: string,
+    isAdmin: boolean,
+  ): Promise<void> {
+    const concert = await this.concertsRepository.findById(id);
+    if (!concert) throw new NotFoundException('Concert not found');
+    if (!isAdmin && concert.organizerId !== organizerId) {
+      throw new ForbiddenException('You do not own this concert');
+    }
+
+    if (concert.startsAt && new Date() > concert.startsAt) {
+      throw new BadRequestException('Cannot cancel a concert that has already started');
+    }
+
+    await this.concertsRepository.update(id, { status: ConcertStatus.CANCELLED });
+    await this.invalidateCacheFor(id);
   }
 }

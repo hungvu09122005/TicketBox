@@ -1,12 +1,19 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  
+  app.setGlobalPrefix('api/v1');
+
+  // ── Logging ─────────────────────────────────────────────────────────────
+  const logger = app.get(Logger);
+  app.useLogger(logger);
 
   // ── Global Pipes ─────────────────────────────────────────────────────────
   app.useGlobalPipes(
@@ -18,8 +25,9 @@ async function bootstrap() {
     }),
   );
 
-  // ── Global Filters ───────────────────────────────────────────────────────
+  // ── Global Filters & Interceptors ────────────────────────────────────────
   app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalInterceptors(new TransformInterceptor());
 
   // ── CORS ─────────────────────────────────────────────────────────────────
   app.enableCors({

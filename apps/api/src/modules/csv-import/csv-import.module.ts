@@ -10,6 +10,7 @@ import { CsvImportRepository } from './csv-import.repository';
 import { CsvImportProcessor } from './processors/csv-import.processor';
 import { TicketsModule } from '../tickets/tickets.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { StorageModule } from '../storage/storage.module';
 
 /**
  * CsvImportModule — VIP guest import pipeline.
@@ -26,9 +27,11 @@ import { NotificationsModule } from '../notifications/notifications.module';
     BullModule.registerQueue({ name: 'csv-import' }),
     TicketsModule,
     NotificationsModule,
+    StorageModule,
   ],
   controllers: [CsvImportController],
   providers: [CsvImportService, CsvImportRepository, CsvImportProcessor],
   exports: [CsvImportService],
 })
 export class CsvImportModule {}
+
