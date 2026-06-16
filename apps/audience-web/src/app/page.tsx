@@ -1,6 +1,7 @@
 "use client";
-import { Header } from "../components/Header";
+
 import { motion } from "motion/react";
+import { Header } from "../components/Header";
 
 export default function Home() {
   return (
@@ -8,7 +9,6 @@ export default function Home() {
       <Header />
       <main>
         <section className="relative min-h-[100dvh] flex items-center pt-20 overflow-hidden">
-          {/* Background Image */}
           <div className="absolute inset-0 z-0">
             <img
               src="/images/hero_bg.png"

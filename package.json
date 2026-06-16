@@ -22,12 +22,5 @@
   },
   "devDependencies": {
     "typescript": "^5.4.5"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@nestjs/core",
-      "bcrypt",
-      "msgpackr-extract"
-    ]
   }
 }

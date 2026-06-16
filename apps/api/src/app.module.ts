@@ -22,6 +22,7 @@ import { CsvImportModule } from './modules/csv-import/csv-import.module';
 import { AiBioModule } from './modules/ai-bio/ai-bio.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ReportingModule } from './modules/reporting/reporting.module';
+import { ObjectStorageModule } from './common/modules/object-storage.module';
 
 /**
  * AppModule — root module registering all infrastructure and domain modules.
@@ -75,6 +76,7 @@ import { ReportingModule } from './modules/reporting/reporting.module';
     ]),
 
     // ── Domain Modules ─────────────────────────────────────────────────────
+    ObjectStorageModule,
     AuthModule,
     UsersModule,
     ArtistsModule,

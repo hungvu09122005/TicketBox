@@ -8,25 +8,26 @@ import { Permission } from '../../common/constants/permissions.enum';
 import { ConcertsService } from './concerts.service';
 
 @ApiTags('concerts')
-@ApiBearerAuth()
 @Controller('api/v1/concerts')
-@UseGuards(JwtAuthGuard, RbacGuard)
 export class ConcertsController {
   constructor(private readonly concertsService: ConcertsService) {}
 
   @Get()
-  @RequirePermissions(Permission.CONCERT_READ)
-  findAll() {
+  findPublished() {
     return this.concertsService.findPublished();
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @ApiBearerAuth()
   @RequirePermissions(Permission.CONCERT_READ)
   findOne(@Param('id') id: string) {
     return this.concertsService.findById(id);
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @ApiBearerAuth()
   @RequirePermissions(Permission.CONCERT_CREATE)
   create(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
     // TODO Phase 2: implement CreateConcertDto + ConcertsService.createConcert()
@@ -34,6 +35,8 @@ export class ConcertsController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @ApiBearerAuth()
   @RequirePermissions(Permission.CONCERT_UPDATE)
   update(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
     // TODO Phase 2: ownership check + updateConcert
@@ -41,6 +44,8 @@ export class ConcertsController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @ApiBearerAuth()
   @RequirePermissions(Permission.CONCERT_UPDATE)
   cancel(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     // TODO Phase 2: cancelConcert with ownership check

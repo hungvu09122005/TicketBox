@@ -1,9 +1,14 @@
 packages:
   - 'apps/*'
-  - 'packages/*'
 allowBuilds:
-  '@nestjs/core': set this to true or false
-  bcrypt: set this to true or false
-  msgpackr-extract: set this to true or false
-  sharp: set this to true or false
-  unrs-resolver: set this to true or false
+  '@nestjs/core': true
+  bcrypt: true
+  msgpackr-extract: true
+  sharp: true
+  unrs-resolver: true
+onlyBuiltDependencies:
+  - '@nestjs/core'
+  - bcrypt
+  - msgpackr-extract
+  - sharp
+  - unrs-resolver

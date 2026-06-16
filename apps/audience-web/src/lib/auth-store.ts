@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 
+type AuthUser = Record<string, unknown>;
+
 interface AuthState {
-  user: any | null;
+  user: AuthUser | null;
   isAuthenticated: boolean;
-  login: (userData: any, token: string) => void;
+  login: (userData: AuthUser, token: string) => void;
   logout: () => void;
 }
 
@@ -23,3 +25,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user: null, isAuthenticated: false });
   },
 }));
+
+export const hasStoredAccessToken = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return Boolean(localStorage.getItem('access_token'));
+};

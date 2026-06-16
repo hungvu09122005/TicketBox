@@ -4,8 +4,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Ticket, ArrowRight } from "@phosphor-icons/react/dist/ssr";
 import { motion } from "motion/react";
+import { authService } from "@/lib/services/auth.service";
+import { useAuthStore } from "@/lib/auth-store";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Email không hợp lệ" }),
@@ -15,6 +19,9 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
+  const router = useRouter();
+  const login = useAuthStore((state) => state.login);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -24,8 +31,29 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (data: LoginFormValues) => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log("Login data:", data);
+    setSubmitError(null);
+    try {
+      const tokens = await authService.login(data);
+      login({ email: data.email }, tokens.accessToken);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("refresh_token", tokens.refreshToken);
+      }
+
+      const nextPath =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("next") || "/concerts"
+          : "/concerts";
+      router.replace(nextPath);
+    } catch (error: unknown) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === "string"
+          ? (error as { response?: { data?: { message?: string } } }).response!.data!.message!
+          : "Đăng nhập thất bại. Vui lòng thử lại.";
+      setSubmitError(message);
+    }
   };
 
   return (
@@ -48,7 +76,7 @@ export default function LoginPage() {
           </Link>
           <blockquote className="space-y-4">
             <p className="text-3xl font-bold text-white tracking-tight leading-tight">
-              "Nền tảng đặt vé mượt mà nhất tôi từng sử dụng. Trải nghiệm tuyệt vời từ lúc mua vé đến khi quét mã."
+              &ldquo;Nền tảng đặt vé mượt mà nhất tôi từng sử dụng. Trải nghiệm tuyệt vời từ lúc mua vé đến khi quét mã.&rdquo;
             </p>
             <footer className="text-zinc-400 font-medium">
               — Hoàng Minh, Khán giả thường xuyên
@@ -75,10 +103,15 @@ export default function LoginPage() {
               Chào mừng trở lại
             </h1>
             <p className="text-zinc-500 mb-8">
-              Đăng nhập tài khoản của bạn để tiếp tục đặt vé.
+              Đăng nhập tài khoản của bạn để xem concerts.
             </p>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+              {submitError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {submitError}
+                </div>
+              )}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-zinc-950">Email</label>
                 <input

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { motion, useScroll, useMotionValueEvent } from "motion/react";
 import { Ticket, User, UserPlus } from "@phosphor-icons/react";
 
@@ -26,20 +27,20 @@ export function Header() {
         }`}
     >
       <div className="max-w-[1400px] mx-auto px-6 h-20 flex items-center justify-between">
-        <a href="/" className={`flex items-center gap-2 transition-colors ${scrolled ? 'text-zinc-950' : 'text-white'}`}>
+        <Link href="/" className={`flex items-center gap-2 transition-colors ${scrolled ? 'text-zinc-950' : 'text-white'}`}>
           <Ticket weight="fill" className="w-8 h-8 text-emerald-500" />
           <span className="font-bold text-xl tracking-tight">TicketBox</span>
-        </a>
+        </Link>
 
         <div className="flex items-center gap-4">
-          <a href="/login" className={`flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-zinc-600 hover:text-zinc-950' : 'text-zinc-300 hover:text-white'}`}>
+          <Link href="/login" className={`flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-zinc-600 hover:text-zinc-950' : 'text-zinc-300 hover:text-white'}`}>
             <User className="w-5 h-5" />
             <span>Đăng nhập</span>
-          </a>
-          <a href="/register" className={`flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-zinc-600 hover:text-zinc-950' : 'text-zinc-300 hover:text-white'}`}>
+          </Link>
+          <Link href="/register" className={`flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-zinc-600 hover:text-zinc-950' : 'text-zinc-300 hover:text-white'}`}>
             <UserPlus className="w-5 h-5" />
             <span>Đăng ký</span>
-          </a>
+          </Link>
         </div>
       </div>
     </motion.header>

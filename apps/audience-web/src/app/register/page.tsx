@@ -53,7 +53,7 @@ export default function RegisterPage() {
           </Link>
           <blockquote className="space-y-4">
             <p className="text-3xl font-bold text-white tracking-tight leading-tight">
-              "Khám phá các sự kiện hấp dẫn nhất quanh bạn, theo dõi nghệ sĩ yêu thích và mua vé an toàn, nhanh chóng."
+              &ldquo;Khám phá các sự kiện hấp dẫn nhất quanh bạn, theo dõi nghệ sĩ yêu thích và mua vé an toàn, nhanh chóng.&rdquo;
             </p>
           </blockquote>
         </div>

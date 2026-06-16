@@ -13,6 +13,7 @@ export class ConcertsRepository {
   findPublished(): Promise<Concert[]> {
     return this.repo.find({
       where: { status: ConcertStatus.PUBLISHED },
+      relations: ['artist'],
       order: { startsAt: 'ASC' },
     });
   }
