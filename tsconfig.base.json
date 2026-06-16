@@ -5,6 +5,13 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "moduleDetection": "force"
+    "moduleDetection": "force",
+    
+    // THÊM ĐOẠN NÀY ĐỂ KẾT NỐI CÁC APP
+    "baseUrl": ".",
+    "paths": {
+      "@api/*": ["apps/api/src/*"],
+      "@mobile/*": ["mobile-checkin/src/*"]
+    }
   }
 }

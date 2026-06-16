@@ -21,6 +21,7 @@
     "migration:revert": "pnpm --filter @ticketbox/api migration:revert"
   },
   "devDependencies": {
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.4.5"
   },
   "pnpm": {
@@ -29,5 +30,8 @@
       "bcrypt",
       "msgpackr-extract"
     ]
+  },
+  "dependencies": {
+    "typeorm": "^1.0.0"
   }
 }

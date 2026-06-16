@@ -20,7 +20,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
           max: config.get<number>('app.database.poolMax'),
         },
 
-        synchronize: false,
+        synchronize: config.get<string>('app.nodeEnv') === 'development',
         logging: config.get<string>('app.nodeEnv') === 'development',
         autoLoadEntities: true,
         migrationsTableName: 'typeorm_migrations',
