@@ -5,36 +5,18 @@ import Link from 'next/link';
 import { Plus, MagnifyingGlass, Funnel, DotsThree, CheckCircle, XCircle } from '@phosphor-icons/react';
 import { concertService } from '@/lib/services/concert.service';
 import { Concert } from '@/lib/types';
-import { useAuthStore } from '@/lib/auth-store';
-import { PERMISSIONS, hasAnyPermission } from '@/lib/permissions';
 
 export default function ConcertsPage() {
   const [concerts, setConcerts] = useState<Concert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const permissions = useAuthStore((state) => state.admin?.permissions ?? []);
-  const canCreateConcert = hasAnyPermission(permissions, [PERMISSIONS.CONCERT_CREATE]);
-  const canUpdateConcert = hasAnyPermission(permissions, [PERMISSIONS.CONCERT_UPDATE]);
 
   useEffect(() => {
     async function load() {
       try {
-        setErrorMessage(null);
         const data = await concertService.getConcerts();
         setConcerts(data);
       } catch (err) {
         console.error('Failed to load concerts', err);
-        const status = typeof err === 'object' && err !== null && 'response' in err
-          ? (err as { response?: { status?: number; data?: { message?: string } } }).response?.status
-          : undefined;
-        const message = typeof err === 'object' && err !== null && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-        setErrorMessage(
-          status === 403
-            ? message || 'Bạn không có quyền truy cập danh sách concert này.'
-            : message || 'Failed to load concerts'
-        );
       } finally {
         setIsLoading(false);
       }
@@ -59,15 +41,13 @@ export default function ConcertsPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-primary">Concerts</h1>
           <p className="text-sm text-muted mt-1">Manage live events, artists, and venues.</p>
         </div>
-        {canCreateConcert && (
-          <Link 
-            href="/concerts/create"
-            className="inline-flex w-full md:w-auto items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-surface transition-colors hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-          >
-            <Plus size={16} weight="bold" />
-            Create Concert
-          </Link>
-        )}
+        <Link 
+          href="/concerts/create"
+          className="inline-flex w-full md:w-auto items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-surface transition-colors hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+        >
+          <Plus size={16} weight="bold" />
+          Create Concert
+        </Link>
       </div>
 
       <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -85,11 +65,6 @@ export default function ConcertsPage() {
         </button>
       </div>
 
-      {errorMessage && !isLoading ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-rose-700">
-          {errorMessage}
-        </div>
-      ) : (
       <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-sm">
         <div className="w-full overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
@@ -138,7 +113,7 @@ export default function ConcertsPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                        {canUpdateConcert && concert.status === 'DRAFT' && (
+                        {concert.status === 'DRAFT' && (
                           <button 
                             onClick={() => handleUpdateStatus(concert.id, 'PUBLISHED')}
                             className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-md"
@@ -147,7 +122,7 @@ export default function ConcertsPage() {
                             <CheckCircle size={18} />
                           </button>
                         )}
-                        {canUpdateConcert && concert.status !== 'CANCELLED' && (
+                        {concert.status !== 'CANCELLED' && (
                           <button 
                             onClick={() => handleUpdateStatus(concert.id, 'CANCELLED')}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-md"
@@ -156,14 +131,12 @@ export default function ConcertsPage() {
                             <XCircle size={18} />
                           </button>
                         )}
-                        {canUpdateConcert && (
-                          <Link 
-                            href={`/concerts/${concert.id}/edit`}
-                            className="p-2 text-muted hover:text-primary hover:bg-primary/5 rounded-md"
-                          >
-                            <DotsThree size={20} weight="bold" />
-                          </Link>
-                        )}
+                        <Link 
+                          href={`/concerts/${concert.id}/edit`}
+                          className="p-2 text-muted hover:text-primary hover:bg-primary/5 rounded-md"
+                        >
+                          <DotsThree size={20} weight="bold" />
+                        </Link>
                       </div>
                     </td>
                   </tr>
@@ -173,7 +146,6 @@ export default function ConcertsPage() {
           </table>
         </div>
       </div>
-      )}
     </div>
   );
 }

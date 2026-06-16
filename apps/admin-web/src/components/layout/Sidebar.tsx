@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { 
   MusicNotes, 
   Users, 
@@ -11,21 +11,16 @@ import {
   X
 } from '@phosphor-icons/react';
 import { Logo } from '@/components/Logo';
-import { useAuthStore } from '@/lib/auth-store';
-import { PERMISSIONS, hasAnyPermission } from '@/lib/permissions';
 
 const navigation = [
-  { name: 'Concerts', href: '/concerts', icon: MusicNotes, permissions: [PERMISSIONS.CONCERT_CREATE] },
-  { name: 'Artists', href: '/artists', icon: Users, permissions: [PERMISSIONS.AI_GENERATE_BIO] },
-  { name: 'Venues', href: '/venues', icon: MapPin, permissions: [PERMISSIONS.CONCERT_CREATE] },
-  { name: 'Events', href: '/events', icon: Calendar, permissions: [PERMISSIONS.REPORT_VIEW] },
+  { name: 'Concerts', href: '/concerts', icon: MusicNotes },
+  { name: 'Artists', href: '/artists', icon: Users },
+  { name: 'Venues', href: '/venues', icon: MapPin },
+  { name: 'Events', href: '/events', icon: Calendar },
 ];
 
 export function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const permissions = useAuthStore((state) => state.admin?.permissions ?? []);
-  const logout = useAuthStore((state) => state.logout);
 
   return (
     <div className="flex h-full w-full flex-col border-r border-border bg-surface">
@@ -39,7 +34,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
       </div>
       <div className="flex-1 px-4 py-6 overflow-y-auto">
         <nav className="flex flex-col gap-1">
-          {navigation.filter((item) => hasAnyPermission(permissions, item.permissions)).map((item) => {
+          {navigation.map((item) => {
             const isActive = pathname.startsWith(item.href);
             const Icon = item.icon;
             return (
@@ -61,13 +56,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
         </nav>
       </div>
       <div className="p-4">
-        <button
-          onClick={() => {
-            logout();
-            router.replace('/login');
-          }}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-primary/5 hover:text-primary"
-        >
+        <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-primary/5 hover:text-primary">
           <SignOut size={20} />
           Sign out
         </button>

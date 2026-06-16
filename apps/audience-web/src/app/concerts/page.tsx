@@ -139,8 +139,6 @@ export default function ConcertsPage() {
       setErrorMessage(
         status === 401
           ? "Bạn cần đăng nhập để xem danh sách concert."
-          : status === 403
-            ? "Bạn không có quyền truy cập danh sách concert này."
           : "Không thể kết nối API concert. Vui lòng thử lại."
       );
       setState("error");

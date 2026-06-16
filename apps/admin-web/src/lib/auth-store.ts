@@ -1,38 +1,31 @@
 import { create } from 'zustand';
-import { buildAdminSessionFromToken, clearStoredAdminSession, readStoredAdminSession, ADMIN_ACCESS_TOKEN_KEY } from './auth-session';
 
 interface AuthState {
-  admin: {
-    id: string;
-    email: string;
-    roles: string[];
-    permissionVersion: number;
-    permissions: string[];
-  } | null;
+  admin: any | null;
   isAuthenticated: boolean;
-  login: (adminData: { email: string }, token: string) => void;
+  login: (adminData: any, token: string) => void;
   logout: () => void;
 }
 
-const initialSession = readStoredAdminSession();
-
 export const useAuthStore = create<AuthState>((set) => ({
-  admin: initialSession,
-  isAuthenticated: Boolean(initialSession),
+  admin: null,
+  isAuthenticated: false,
   login: (adminData, token) => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(ADMIN_ACCESS_TOKEN_KEY, token);
+      localStorage.setItem('admin_access_token', token);
     }
-    const session = buildAdminSessionFromToken(token, adminData.email);
-    set({ admin: session, isAuthenticated: true });
+    set({ admin: adminData, isAuthenticated: true });
   },
   logout: () => {
-    clearStoredAdminSession();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('admin_access_token');
+      localStorage.removeItem('admin_refresh_token');
+    }
     set({ admin: null, isAuthenticated: false });
   },
 }));
 
 export const hasStoredAdminAccessToken = (): boolean => {
   if (typeof window === 'undefined') return false;
-  return Boolean(localStorage.getItem(ADMIN_ACCESS_TOKEN_KEY));
+  return Boolean(localStorage.getItem('admin_access_token'));
 };

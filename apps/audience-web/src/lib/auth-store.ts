@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { clearStoredAuthSession, hasStoredAccessToken as hasStoredAccessTokenInSession, setStoredAuthTokens } from './auth-session';
 
 type AuthUser = Record<string, unknown>;
 
@@ -12,17 +11,23 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  isAuthenticated: hasStoredAccessTokenInSession(),
+  isAuthenticated: false,
   login: (userData, token) => {
-    setStoredAuthTokens(token);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('access_token', token);
+    }
     set({ user: userData, isAuthenticated: true });
   },
   logout: () => {
-    clearStoredAuthSession();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+    }
     set({ user: null, isAuthenticated: false });
   },
 }));
 
 export const hasStoredAccessToken = (): boolean => {
-  return hasStoredAccessTokenInSession();
+  if (typeof window === 'undefined') return false;
+  return Boolean(localStorage.getItem('access_token'));
 };
