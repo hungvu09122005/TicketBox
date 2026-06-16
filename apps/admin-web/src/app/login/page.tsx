@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Logo } from "@/components/Logo";
 import { authService } from "@/lib/services/auth.service";
@@ -96,9 +97,9 @@ export default function AdminLoginPage() {
                 <label className="block text-sm font-medium text-primary">
                   Mật khẩu
                 </label>
-                <a href="#" className="text-sm font-medium text-muted hover:text-primary transition-colors">
+                <Link href="/forgot-password" className="text-sm font-medium text-muted hover:text-primary transition-colors">
                   Quên mật khẩu?
-                </a>
+                </Link>
               </div>
               <input
                 {...register("password")}
