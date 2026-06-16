@@ -1,12 +1,19 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
-  UpdateDateColumn, Index,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
+import { Role } from './role.entity';
 
 /**
  * User entity — Blueprint §04-database-design
  * Belongs exclusively to UsersModule.
- * Other modules access user data ONLY through UsersService (exported from UsersModule).
+ * Other modules access user data ONLY through UsersService.
  */
 @Entity('users')
 export class User {
@@ -41,4 +48,14 @@ export class User {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
+
+  // --- RBAC Integration ---
+  
+  @ManyToMany(() => Role, (role) => role.users)
+  @JoinTable({ 
+    name: 'user_roles',
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' }
+  })
+  roles!: Role[];
 }
