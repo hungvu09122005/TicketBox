@@ -76,10 +76,11 @@ export default function AdminLoginPage() {
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-primary mb-1.5">
+              <label htmlFor="email" className="block text-sm font-medium text-primary mb-1.5">
                 Email
               </label>
               <input
+                id="email"
                 {...register("email")}
                 type="email"
                 placeholder="admin@ticketbox.com"
@@ -94,7 +95,7 @@ export default function AdminLoginPage() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium text-primary">
+                <label htmlFor="password" className="block text-sm font-medium text-primary">
                   Mật khẩu
                 </label>
                 <Link href="/forgot-password" className="text-sm font-medium text-muted hover:text-primary transition-colors">
@@ -102,6 +103,7 @@ export default function AdminLoginPage() {
                 </Link>
               </div>
               <input
+                id="password"
                 {...register("password")}
                 type="password"
                 placeholder="••••••••"

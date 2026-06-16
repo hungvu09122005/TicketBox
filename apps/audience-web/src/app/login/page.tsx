@@ -119,8 +119,9 @@ export default function LoginPage() {
                 </div>
               )}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-950">Email</label>
+                <label htmlFor="email" className="text-sm font-medium text-zinc-950">Email</label>
                 <input
+                  id="email"
                   {...register("email")}
                   type="email"
                   placeholder="name@example.com"
@@ -135,12 +136,13 @@ export default function LoginPage() {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-zinc-950">Mật khẩu</label>
+                  <label htmlFor="password" className="text-sm font-medium text-zinc-950">Mật khẩu</label>
                   <Link href="/forgot-password" className="text-sm font-medium text-emerald-600 hover:text-emerald-500 transition-colors">
                     Quên mật khẩu?
                   </Link>
                 </div>
                 <input
+                  id="password"
                   {...register("password")}
                   type="password"
                   placeholder="••••••••"
