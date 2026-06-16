@@ -7,7 +7,7 @@ import * as redisStore from 'cache-manager-ioredis';
 import { LoggerModule } from 'nestjs-pino';
 import configuration from './config/configuration';
 import { DatabaseModule } from './database/database.module';
-
+import { QueueModule } from './modules/queue/queue.module';
 // Domain Modules
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -65,6 +65,8 @@ import { RequestIdMiddleware } from './common/middlewares/request-id.middleware'
       }),
     }),
 
+    QueueModule,
+    
     CacheModule.registerAsync({
       isGlobal: true,
       useFactory: () => ({
