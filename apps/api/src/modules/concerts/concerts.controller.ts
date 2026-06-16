@@ -6,10 +6,12 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
 import { ConcertsService } from './concerts.service';
+import { CreateConcertDto } from './dto/create-concert.dto';
+import { UpdateConcertDto } from './dto/update-concert.dto';
 
 @ApiTags('concerts')
 @ApiBearerAuth()
-@Controller('api/v1/concerts')
+@Controller('concerts')
 @UseGuards(JwtAuthGuard, RbacGuard)
 export class ConcertsController {
   constructor(private readonly concertsService: ConcertsService) {}
@@ -20,6 +22,12 @@ export class ConcertsController {
     return this.concertsService.findPublished();
   }
 
+  @Get('organizer/me')
+  @RequirePermissions(Permission.CONCERT_READ)
+  findMyConcerts(@CurrentUser() user: AuthenticatedUser) {
+    return this.concertsService.findOrganizerConcerts(user.sub);
+  }
+
   @Get(':id')
   @RequirePermissions(Permission.CONCERT_READ)
   findOne(@Param('id') id: string) {
@@ -28,22 +36,28 @@ export class ConcertsController {
 
   @Post()
   @RequirePermissions(Permission.CONCERT_CREATE)
-  create(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
-    // TODO Phase 2: implement CreateConcertDto + ConcertsService.createConcert()
-    return { message: 'Not implemented — Phase 2' };
+  create(@CurrentUser() user: AuthenticatedUser, @Body() body: CreateConcertDto) {
+    return this.concertsService.createConcert(user.sub, body);
   }
 
   @Patch(':id')
   @RequirePermissions(Permission.CONCERT_UPDATE)
-  update(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
-    // TODO Phase 2: ownership check + updateConcert
-    return { message: 'Not implemented — Phase 2' };
+  update(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: UpdateConcertDto) {
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    return this.concertsService.updateConcert(id, user.sub, body, isAdmin);
   }
 
-  @Delete(':id')
+  @Post(':id/publish')
+  @RequirePermissions(Permission.CONCERT_UPDATE)
+  publish(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    return this.concertsService.publishConcert(id, user.sub, isAdmin);
+  }
+
+  @Post(':id/cancel')
   @RequirePermissions(Permission.CONCERT_UPDATE)
   cancel(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 2: cancelConcert with ownership check
-    return { message: 'Not implemented — Phase 2' };
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    return this.concertsService.cancelConcert(id, user.sub, isAdmin);
   }
 }
