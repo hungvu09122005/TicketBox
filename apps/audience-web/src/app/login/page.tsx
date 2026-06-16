@@ -5,11 +5,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Ticket, ArrowRight } from "@phosphor-icons/react/dist/ssr";
 import { motion } from "motion/react";
 import { authService } from "@/lib/services/auth.service";
-import { useAuthStore } from "@/lib/auth-store";
+import { hasStoredAccessToken, useAuthStore } from "@/lib/auth-store";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Email không hợp lệ" }),
@@ -30,6 +30,12 @@ export default function LoginPage() {
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
   });
+
+  useEffect(() => {
+    if (hasStoredAccessToken()) {
+      router.replace(searchParams.get("next") || "/concerts");
+    }
+  }, [router, searchParams]);
 
   const onSubmit = async (data: LoginFormValues) => {
     setSubmitError(null);

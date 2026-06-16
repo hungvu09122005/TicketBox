@@ -4,12 +4,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Ticket, ArrowRight } from "@phosphor-icons/react/dist/ssr";
 import { motion } from "motion/react";
 import { authService } from "@/lib/services/auth.service";
-import { useAuthStore } from "@/lib/auth-store";
+import { hasStoredAccessToken } from "@/lib/auth-store";
 
 const registerSchema = z.object({
   fullName: z.string().min(2, { message: "Họ tên quá ngắn" }),
@@ -25,7 +25,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const router = useRouter();
-  const login = useAuthStore((state) => state.login);
+  const searchParams = useSearchParams();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
@@ -35,21 +35,23 @@ export default function RegisterPage() {
     resolver: zodResolver(registerSchema),
   });
 
+  useEffect(() => {
+    if (hasStoredAccessToken()) {
+      router.replace(searchParams.get("next") || "/concerts");
+    }
+  }, [router, searchParams]);
+
   const onSubmit = async (data: RegisterFormValues) => {
     setSubmitError(null);
     try {
-      const tokens = await authService.register({
+      await authService.register({
         name: data.fullName,
         email: data.email,
         password: data.password,
       });
 
-      login({ email: data.email, name: data.fullName }, tokens.accessToken);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("refresh_token", tokens.refreshToken);
-      }
-
-      router.replace("/concerts");
+      const nextPath = searchParams.get("next") || "/concerts";
+      router.replace(`/login?next=${encodeURIComponent(nextPath)}`);
     } catch (error: unknown) {
       const message =
         typeof error === "object" &&

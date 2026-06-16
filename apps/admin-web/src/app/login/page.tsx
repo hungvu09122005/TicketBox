@@ -4,10 +4,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Logo } from "@/components/Logo";
 import { authService } from "@/lib/services/auth.service";
-import { useAuthStore } from "@/lib/auth-store";
+import { hasStoredAdminAccessToken, useAuthStore } from "@/lib/auth-store";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Email không hợp lệ" }),
@@ -28,6 +28,12 @@ export default function AdminLoginPage() {
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
   });
+
+  useEffect(() => {
+    if (hasStoredAdminAccessToken()) {
+      router.replace(searchParams.get("next") || "/concerts");
+    }
+  }, [router, searchParams]);
 
   const onSubmit = async (data: LoginFormValues) => {
     setSubmitError(null);
