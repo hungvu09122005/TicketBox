@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { OrdersRepository } from './orders.repository';
@@ -25,10 +25,20 @@ export class OrdersService {
     @InjectQueue('orders') private readonly ordersQueue: Queue,
   ) {}
 
+  async findMine(userId: string) {
+    return this.ordersRepository.findByUser(userId);
+  }
+
+  async findById(id: string, userId: string, isAdmin: boolean) {
+    const order = await this.ordersRepository.findByIdAndOwner(id, userId, isAdmin);
+    if (!order) {
+      throw new NotFoundException(`Order ${id} not found.`);
+    }
+    return order;
+  }
+
   // TODO Phase 3:
   //   createOrder(dto, userId) — pessimistic lock transaction → enqueue order-expiry delayed job
-  //   findById(id)
-  //   findByUser(userId)
   //   markPaid(orderId, paymentId)    ← called by PaymentsService
   //   expireOrder(orderId)            ← called by OrderExpiryProcessor
 }

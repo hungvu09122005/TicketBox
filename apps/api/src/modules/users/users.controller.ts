@@ -6,10 +6,12 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
 import { UsersService } from './users.service';
+import { UpdateRolesDto } from './dto/update-roles.dto';
+import { Body, Param, Patch } from '@nestjs/common';
 
 @ApiTags('users')
 @ApiBearerAuth()
-@Controller('api/v1/users')
+@Controller('users')
 @UseGuards(JwtAuthGuard, RbacGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -18,5 +20,15 @@ export class UsersController {
   @RequirePermissions(Permission.ORDER_READ_OWN) // Any authenticated user
   getMe(@CurrentUser() user: AuthenticatedUser) {
     return this.usersService.findById(user.sub);
+  }
+
+  @Patch(':id/roles')
+  @RequirePermissions(Permission.RBAC_MANAGE)
+  updateRoles(
+    @Param('id') targetUserId: string,
+    @Body() body: UpdateRolesDto,
+    @CurrentUser() admin: AuthenticatedUser,
+  ) {
+    return this.usersService.updateRoles(targetUserId, body.roles, admin.sub);
   }
 }

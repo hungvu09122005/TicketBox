@@ -6,5 +6,11 @@ import { Ticket } from './entities/ticket.entity';
 @Injectable()
 export class TicketsRepository {
   constructor(@InjectRepository(Ticket) private readonly repo: Repository<Ticket>) {}
-  // TODO Phase 3: bulkCreate, findByUser, findByQrToken, markUsed
+  findByUser(userId: string): Promise<Ticket[]> {
+    return this.repo.find({
+      where: { userId },
+    });
+  }
+
+  // TODO Phase 3: bulkCreate, findByQrToken, markUsed
 }

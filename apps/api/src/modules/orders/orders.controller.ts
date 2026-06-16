@@ -9,7 +9,7 @@ import { OrdersService } from './orders.service';
 
 @ApiTags('orders')
 @ApiBearerAuth()
-@Controller('api/v1/orders')
+@Controller('orders')
 @UseGuards(JwtAuthGuard, RbacGuard)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
@@ -26,8 +26,7 @@ export class OrdersController {
   @Get('me')
   @RequirePermissions(Permission.ORDER_READ_OWN)
   findMine(@CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 3
-    return [];
+    return this.ordersService.findMine(user.sub);
   }
 
   /** GET /api/v1/orders — Organizer / Admin views all orders. */
@@ -42,7 +41,7 @@ export class OrdersController {
   @Get(':id')
   @RequirePermissions(Permission.ORDER_READ_OWN)
   findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 3
-    return null;
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    return this.ordersService.findById(id, user.sub, isAdmin);
   }
 }
