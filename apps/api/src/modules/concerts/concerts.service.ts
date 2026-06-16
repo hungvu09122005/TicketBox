@@ -93,11 +93,8 @@ export class ConcertsService {
     dto: UpdateConcertDto,
     isAdmin: boolean,
   ): Promise<void> {
-    const concert = await this.concertsRepository.findById(id);
+    const concert = await this.concertsRepository.findByIdAndOrganizer(id, organizerId, isAdmin);
     if (!concert) throw new NotFoundException('Concert not found');
-    if (!isAdmin && concert.organizerId !== organizerId) {
-      throw new ForbiddenException('You do not own this concert');
-    }
 
     await this.concertsRepository.update(id, dto);
     await this.invalidateCacheFor(id);
@@ -108,11 +105,8 @@ export class ConcertsService {
     organizerId: string,
     isAdmin: boolean,
   ): Promise<void> {
-    const concert = await this.concertsRepository.findById(id);
+    const concert = await this.concertsRepository.findByIdAndOrganizer(id, organizerId, isAdmin);
     if (!concert) throw new NotFoundException('Concert not found');
-    if (!isAdmin && concert.organizerId !== organizerId) {
-      throw new ForbiddenException('You do not own this concert');
-    }
 
     if (
       !concert.startsAt ||
@@ -134,11 +128,8 @@ export class ConcertsService {
     organizerId: string,
     isAdmin: boolean,
   ): Promise<void> {
-    const concert = await this.concertsRepository.findById(id);
+    const concert = await this.concertsRepository.findByIdAndOrganizer(id, organizerId, isAdmin);
     if (!concert) throw new NotFoundException('Concert not found');
-    if (!isAdmin && concert.organizerId !== organizerId) {
-      throw new ForbiddenException('You do not own this concert');
-    }
 
     if (concert.startsAt && new Date() > concert.startsAt) {
       throw new BadRequestException('Cannot cancel a concert that has already started');

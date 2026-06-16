@@ -17,5 +17,9 @@ export class TicketsService {
     @Inject(QR_CODE_GENERATOR_PORT) private readonly qrGenerator: QrCodeGeneratorPort,
   ) {}
 
-  // TODO Phase 3: issueTickets, findByUser, verifyQrToken, markUsed
+  async findMine(userId: string) {
+    return this.ticketsRepository.findByUser(userId);
+  }
+
+  // TODO Phase 3: issueTickets, verifyQrToken, markUsed
 }

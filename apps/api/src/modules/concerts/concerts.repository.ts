@@ -22,6 +22,11 @@ export class ConcertsRepository {
     return this.repo.findOne({ where: { id }, relations: ['artist'] });
   }
 
+  findByIdAndOrganizer(id: string, organizerId: string, isAdmin: boolean): Promise<Concert | null> {
+    const whereCondition = isAdmin ? { id } : { id, organizerId };
+    return this.repo.findOne({ where: whereCondition, relations: ['artist'] });
+  }
+
   findByOrganizer(organizerId: string): Promise<Concert[]> {
     return this.repo.find({ where: { organizerId } });
   }

@@ -37,4 +37,11 @@ export class UsersRepository {
   async incrementPermissionVersion(userId: string): Promise<void> {
     await this.repo.increment({ id: userId }, 'permissionVersion', 1);
   }
+
+  async updateRoles(userId: string, roles: string[]): Promise<void> {
+    await this.repo.query(
+      `UPDATE users SET roles = $1, permission_version = permission_version + 1 WHERE id = $2`,
+      [JSON.stringify(roles), userId],
+    );
+  }
 }
