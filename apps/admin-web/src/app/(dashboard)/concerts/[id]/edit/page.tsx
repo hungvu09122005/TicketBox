@@ -129,8 +129,9 @@ export default function EditConcertPage({ params }: { params: Promise<{ id: stri
 
         <div className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-primary mb-1.5">Concert Title</label>
+            <label htmlFor="name" className="block text-sm font-medium text-primary mb-1.5">Concert Title</label>
             <input 
+              id="name"
               {...register('name')}
               className={`w-full rounded-lg border py-2.5 px-3 text-sm bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary ${
                 errors.name ? 'border-red-500' : 'border-border focus:border-primary'
@@ -141,8 +142,9 @@ export default function EditConcertPage({ params }: { params: Promise<{ id: stri
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label className="block text-sm font-medium text-primary mb-1.5">Artist</label>
+              <label htmlFor="artistId" className="block text-sm font-medium text-primary mb-1.5">Artist</label>
               <select 
+                id="artistId"
                 {...register('artistId')}
                 className={`w-full rounded-lg border py-2.5 px-3 text-sm bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary ${
                   errors.artistId ? 'border-red-500' : 'border-border focus:border-primary'
@@ -157,8 +159,9 @@ export default function EditConcertPage({ params }: { params: Promise<{ id: stri
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-primary mb-1.5">Venue</label>
+              <label htmlFor="venue" className="block text-sm font-medium text-primary mb-1.5">Venue</label>
               <input 
+                id="venue"
                 {...register('venue')}
                 className={`w-full rounded-lg border py-2.5 px-3 text-sm bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary ${
                   errors.venue ? 'border-red-500' : 'border-border focus:border-primary'
@@ -171,8 +174,9 @@ export default function EditConcertPage({ params }: { params: Promise<{ id: stri
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label className="block text-sm font-medium text-primary mb-1.5">Start Time</label>
+              <label htmlFor="startsAt" className="block text-sm font-medium text-primary mb-1.5">Start Time</label>
               <input 
+                id="startsAt"
                 type="datetime-local"
                 {...register('startsAt')}
                 className={`w-full rounded-lg border py-2.5 px-3 text-sm bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary ${
@@ -183,8 +187,9 @@ export default function EditConcertPage({ params }: { params: Promise<{ id: stri
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-primary mb-1.5">End Time</label>
+              <label htmlFor="endsAt" className="block text-sm font-medium text-primary mb-1.5">End Time</label>
               <input 
+                id="endsAt"
                 type="datetime-local"
                 {...register('endsAt')}
                 className={`w-full rounded-lg border py-2.5 px-3 text-sm bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary ${
@@ -197,8 +202,9 @@ export default function EditConcertPage({ params }: { params: Promise<{ id: stri
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label className="block text-sm font-medium text-primary mb-1.5">Sale Starts At</label>
+              <label htmlFor="saleStartsAt" className="block text-sm font-medium text-primary mb-1.5">Sale Starts At</label>
               <input 
+                id="saleStartsAt"
                 type="datetime-local"
                 {...register('saleStartsAt')}
                 className={`w-full rounded-lg border py-2.5 px-3 text-sm bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary ${
@@ -209,8 +215,9 @@ export default function EditConcertPage({ params }: { params: Promise<{ id: stri
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-primary mb-1.5">Sale Ends At</label>
+              <label htmlFor="saleEndsAt" className="block text-sm font-medium text-primary mb-1.5">Sale Ends At</label>
               <input 
+                id="saleEndsAt"
                 type="datetime-local"
                 {...register('saleEndsAt')}
                 className={`w-full rounded-lg border py-2.5 px-3 text-sm bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary ${
@@ -222,8 +229,9 @@ export default function EditConcertPage({ params }: { params: Promise<{ id: stri
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-primary mb-1.5">Description</label>
+            <label htmlFor="description" className="block text-sm font-medium text-primary mb-1.5">Description</label>
             <textarea 
+              id="description"
               {...register('description')}
               rows={5}
               className={`w-full rounded-lg border py-2.5 px-3 text-sm bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none ${
