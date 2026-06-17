@@ -3,7 +3,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { ConcertsRepository } from './concerts.repository';
-import { SeatZoneRepository } from './seat-zone.repository';
+
 import { Concert, ConcertStatus } from './entities/concert.entity';
 import { CreateConcertDto } from './dto/create-concert.dto';
 import { UpdateConcertDto } from './dto/update-concert.dto';
@@ -56,12 +56,16 @@ export class ConcertsService {
     };
   }
 
-  async findPublished(): Promise<PublicConcertDto[]> {
-    const cacheKey = 'concerts:published:list';
+  async findPublished(
+    page: number = 1,
+    limit: number = 10,
+    timeFilter?: 'upcoming' | 'past'
+  ): Promise<PublicConcertDto[]> {
+    const cacheKey = `concerts:published:list:${page}:${limit}:${timeFilter || 'all'}`;
     const cached = await this.cache.get<PublicConcertDto[]>(cacheKey);
     if (cached) return cached;
 
-    const concerts = await this.concertsRepository.findPublished();
+    const concerts = await this.concertsRepository.findPublished(page, limit, timeFilter);
     const ttl = this.config.get<number>('app.cache.concertListTtl', 60) * 1000;
     const payload = await Promise.all(concerts.map((concert) => this.toPublicDto(concert)));
     await this.cache.set(cacheKey, payload, ttl);
@@ -105,17 +109,17 @@ export class ConcertsService {
     ]);
   }
 
-  // Thêm hàm này vào class ConcertsService
-  async uploadSeatMap(zoneId: string, file: Express.Multer.File): Promise<string> {
-    const objectKey = await this.objectStorage.upload({
-      objectKey: `seatmaps/${zoneId}.svg`,
-      buffer: file.buffer,
-      contentType: file.mimetype,
-      size: file.size,
-    });
+  async checkOwnership(concertId: string, userId: string, isAdmin: boolean): Promise<Concert> {
+    const concert = await this.concertsRepository.findByIdAndOrganizer(concertId, userId, isAdmin);
+    if (!concert) {
+      throw new NotFoundException(`Concert ${concertId} not found`);
+    }
+    return concert;
+  }
 
-    await this.seatZoneRepository.update(zoneId, { svgPath: objectKey });
-    return objectKey;
+  async findOrganizerConcerts(organizerId: string): Promise<PublicConcertDto[]> {
+    const concerts = await this.concertsRepository.findByOrganizer(organizerId);
+    return Promise.all(concerts.map(c => this.toPublicDto(c)));
   }
 
   // TODO Phase 2: createConcert, updateConcert, cancelConcert with ownership check

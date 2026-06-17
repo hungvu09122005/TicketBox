@@ -19,6 +19,8 @@
     "typeorm": "npx typeorm-ts-node-commonjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1069.0",
+    "@aws-sdk/s3-request-presigner": "^3.1069.0",
     "@bull-board/api": "^8.0.0",
     "@bull-board/express": "^8.0.0",
     "@bull-board/nestjs": "^8.0.0",
@@ -47,6 +49,7 @@
     "csv-parse": "^5.5.6",
     "dayjs": "^1.11.12",
     "dotenv": "^17.4.2",
+    "fast-xml-parser": "^5.9.0",
     "ioredis": "^5.3.2",
     "knex": "^3.2.10",
     "minio": "^8.0.1",

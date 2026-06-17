@@ -1,9 +1,7 @@
 import { 
-  Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, 
-  UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator 
+  Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Query, DefaultValuePipe, ParseIntPipe
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard, OptionalJwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -21,8 +19,12 @@ export class ConcertsController {
   constructor(private readonly concertsService: ConcertsService) { }
 
   @Get()
-  findPublished() {
-    return this.concertsService.findPublished();
+  findPublished(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('timeFilter') timeFilter?: 'upcoming' | 'past'
+  ) {
+    return this.concertsService.findPublished(page, limit, timeFilter);
   }
 
   @Get('organizer/me')
@@ -32,40 +34,11 @@ export class ConcertsController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard, RbacGuard)
-  @ApiBearerAuth()
-  @RequirePermissions(Permission.CONCERT_READ)
   findOne(@Param('id') id: string) {
     return this.concertsService.findById(id);
   }
 
-  // --- Logic Upload SeatMap cho Task 6 ---
-  @Post(':concertId/zones/:zoneId/seat-map')
-  @RequirePermissions(Permission.CONCERT_UPDATE)
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: { type: 'string', format: 'binary' },
-      },
-    },
-  })
-  @UseInterceptors(FileInterceptor('file'))
-  async uploadSeatMap(
-    @Param('zoneId') zoneId: string,
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 2 }), // Giới hạn 2MB
-          new FileTypeValidator({ fileType: 'image/svg+xml' }),   // Chỉ nhận SVG
-        ],
-      }),
-    ) file: Express.Multer.File,
-  ) {
-    return await this.concertsService.uploadSeatMap(zoneId, file);
-  }
-  // --------------------------------------
+
 
   @Post()
   @UseGuards(JwtAuthGuard, RbacGuard)

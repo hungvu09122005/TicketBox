@@ -1,18 +1,15 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Concert } from './entities/concert.entity';
-import { SeatZone } from './entities/seat-zone.entity'; // Import thêm
-import { TicketType } from './entities/ticket-type.entity'; // Import thêm
 import { ConcertsController } from './concerts.controller';
 import { ConcertsService } from './concerts.service';
 import { ConcertsRepository } from './concerts.repository';
-import { SeatZoneRepository } from './seat-zone.repository'; // Import repository mới
 import { ArtistsModule } from '../artists/artists.module';
 import { CommonModule } from '../../common/common.module'; // Import CommonModule
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Concert, SeatZone, TicketType]), // Đăng ký các entities
+    TypeOrmModule.forFeature([Concert]), // Đăng ký các entities
     ArtistsModule,
     CommonModule, // Quan trọng: để dùng được OBJECT_STORAGE_PORT
   ],
@@ -20,7 +17,6 @@ import { CommonModule } from '../../common/common.module'; // Import CommonModul
   providers: [
     ConcertsService,
     ConcertsRepository,
-    SeatZoneRepository, // Đăng ký repository mới
   ],
   exports: [ConcertsService],
 })
