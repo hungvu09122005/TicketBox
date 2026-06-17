@@ -14,11 +14,10 @@ import { UpdateConcertDto } from './dto/update-concert.dto';
 @Controller('concerts')
 @UseGuards(JwtAuthGuard, RbacGuard)
 export class ConcertsController {
-  constructor(private readonly concertsService: ConcertsService) {}
+  constructor(private readonly concertsService: ConcertsService) { }
 
   @Get()
-  @RequirePermissions(Permission.CONCERT_READ)
-  findAll() {
+  findPublished() {
     return this.concertsService.findPublished();
   }
 
@@ -29,12 +28,16 @@ export class ConcertsController {
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @ApiBearerAuth()
   @RequirePermissions(Permission.CONCERT_READ)
   findOne(@Param('id') id: string) {
     return this.concertsService.findById(id);
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @ApiBearerAuth()
   @RequirePermissions(Permission.CONCERT_CREATE)
   create(@CurrentUser() user: AuthenticatedUser, @Body() body: CreateConcertDto) {
     return this.concertsService.createConcert(user.sub, body);
