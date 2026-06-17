@@ -29,6 +29,14 @@ export const concertService = {
     await apiClient.post(`/concerts/${id}/cancel`);
   },
 
+  uploadBannerAsset: async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await apiClient.post('/storage/test-upload', formData);
+    return response.data.objectName as string;
+  },
+
   // Metadata loaders for form
   getArtists: async (): Promise<Artist[]> => {
     const response = await apiClient.get('/artists');

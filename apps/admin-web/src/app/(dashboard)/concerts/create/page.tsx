@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
-import { ArrowLeft, SpinnerGap } from '@phosphor-icons/react';
+import { ArrowLeft, CheckCircle, SpinnerGap, UploadSimple } from '@phosphor-icons/react';
 import { concertService } from '@/lib/services/concert.service';
 import { Artist } from '@/lib/types';
 import { extractApiMessages } from '@/lib/api-errors';
@@ -28,6 +28,9 @@ export default function CreateConcertPage() {
   const router = useRouter();
   const [artists, setArtists] = useState<Artist[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [bannerFileName, setBannerFileName] = useState<string | null>(null);
+  const [bannerObjectKey, setBannerObjectKey] = useState<string | null>(null);
   const [serverErrors, setServerErrors] = useState<string[] | null>(null);
 
   const {
@@ -50,12 +53,28 @@ export default function CreateConcertPage() {
     loadMeta();
   }, []);
 
+  const handleBannerUpload = async (file?: File) => {
+    if (!file) return;
+    setIsUploadingBanner(true);
+    setServerErrors(null);
+    try {
+      const objectKey = await concertService.uploadBannerAsset(file);
+      setBannerFileName(file.name);
+      setBannerObjectKey(objectKey);
+    } catch (err: unknown) {
+      setServerErrors(extractApiMessages(err, 'Không thể upload banner.'));
+    } finally {
+      setIsUploadingBanner(false);
+    }
+  };
+
   const onSubmit = async (data: ConcertFormValues) => {
     setIsSubmitting(true);
     setServerErrors(null);
     try {
       await concertService.createConcert({
         ...data,
+        bannerObjectKey: bannerObjectKey ?? undefined,
       });
       router.push('/concerts');
     } catch (err: unknown) {
@@ -205,6 +224,37 @@ export default function CreateConcertPage() {
               placeholder="Detailed description of the concert..."
             />
             {errors.description && <p className="mt-1.5 text-xs text-red-600">{errors.description.message}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="banner" className="block text-sm font-medium text-primary mb-1.5">Banner image</label>
+            <div className="rounded-lg border border-dashed border-border bg-surface/60 p-4">
+              <input
+                id="banner"
+                type="file"
+                accept="image/*"
+                onChange={(event) => handleBannerUpload(event.target.files?.[0])}
+                className="block w-full text-sm text-muted file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-surface hover:file:opacity-90"
+              />
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
+                {isUploadingBanner ? (
+                  <>
+                    <SpinnerGap size={14} className="animate-spin" />
+                    <span>Uploading banner...</span>
+                  </>
+                ) : bannerObjectKey ? (
+                  <>
+                    <CheckCircle size={14} className="text-emerald-600" />
+                    <span>Banner uploaded: {bannerFileName}</span>
+                  </>
+                ) : (
+                  <>
+                    <UploadSimple size={14} />
+                    <span>Upload banner now so the concert can be published later.</span>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 

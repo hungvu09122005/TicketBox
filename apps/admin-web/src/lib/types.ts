@@ -22,6 +22,7 @@ export interface Concert {
   saleStartsAt?: string | null;
   saleEndsAt?: string | null;
   venue?: string | null;
+  bannerObjectKey?: string | null;
   status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
   bannerUrl?: string;
   createdAt: string;

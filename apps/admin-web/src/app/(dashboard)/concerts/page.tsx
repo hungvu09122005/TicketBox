@@ -17,6 +17,16 @@ function getStatusClasses(status: string) {
   }
 }
 
+function getPublishMissingFields(concert: Concert) {
+  const missing: string[] = [];
+  if (!concert.venue) missing.push('venue');
+  if (!concert.description) missing.push('description');
+  if (!concert.saleStartsAt) missing.push('saleStartsAt');
+  if (!concert.saleEndsAt) missing.push('saleEndsAt');
+  if (!concert.bannerUrl) missing.push('banner');
+  return missing;
+}
+
 export default function ConcertsPage() {
   const [concerts, setConcerts] = useState<Concert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +48,12 @@ export default function ConcertsPage() {
   const handleUpdateStatus = async (id: string, newStatus: 'PUBLISHED' | 'CANCELLED') => {
     try {
       if (newStatus === 'PUBLISHED') {
+        const targetConcert = concerts.find((concert) => concert.id === id);
+        const missing = targetConcert ? getPublishMissingFields(targetConcert) : [];
+        if (missing.length > 0) {
+          alert(`Cannot publish this concert yet. Missing: ${missing.join(', ')}`);
+          return;
+        }
         await concertService.publishConcert(id);
       } else {
         await concertService.cancelConcert(id);
@@ -133,8 +149,9 @@ export default function ConcertsPage() {
                         {concert.status === 'DRAFT' && (
                           <button 
                             onClick={() => handleUpdateStatus(concert.id, 'PUBLISHED')}
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-md"
-                            title="Publish"
+                            disabled={getPublishMissingFields(concert).length > 0}
+                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-md disabled:cursor-not-allowed disabled:opacity-40"
+                            title={getPublishMissingFields(concert).length > 0 ? `Missing: ${getPublishMissingFields(concert).join(', ')}` : 'Publish'}
                           >
                             <CheckCircle size={18} />
                           </button>
