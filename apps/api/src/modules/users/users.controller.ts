@@ -19,7 +19,6 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get('me')
-  @RequirePermissions(Permission.ORDER_READ_OWN) // Any authenticated user
   getMe(@CurrentUser() user: AuthenticatedUser) {
     return this.usersService.findById(user.sub).then((profile) => {
       if (!profile) return null;
