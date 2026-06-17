@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
-import { ArrowLeft, SpinnerGap } from '@phosphor-icons/react';
+import { ArrowLeft, SpinnerGap, Ticket } from '@phosphor-icons/react';
 import { concertService } from '@/lib/services/concert.service';
 import { Artist } from '@/lib/types';
 import { extractApiMessages } from '@/lib/api-errors';
@@ -104,13 +104,22 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
-        <Link 
-          href="/concerts"
-          className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary mb-4 transition-colors"
-        >
-          <ArrowLeft size={16} />
-          Back to concerts
-        </Link>
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <Link
+            href="/concerts"
+            className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary transition-colors"
+          >
+            <ArrowLeft size={16} />
+            Back to concerts
+          </Link>
+          <Link
+            href={`/concerts/${id}/ticketing`}
+            className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
+          >
+            <Ticket size={16} />
+            Ticketing
+          </Link>
+        </div>
         <h1 className="text-2xl font-semibold tracking-tight text-primary">Edit Concert</h1>
         <p className="text-sm text-muted mt-1">Update the details of this event.</p>
       </div>

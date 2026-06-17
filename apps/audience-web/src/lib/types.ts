@@ -4,6 +4,13 @@ export interface PublicConcertArtist {
   avatarUrl?: string | null;
 }
 
+export interface PublicArtistDetail {
+  id: string;
+  name: string;
+  description?: string | null;
+  avatarUrl?: string | null;
+}
+
 export interface PublicConcert {
   id: string;
   name: string;
@@ -16,4 +23,53 @@ export interface PublicConcert {
   status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
   bannerUrl?: string | null;
   artist: PublicConcertArtist;
+}
+
+export interface SeatZone {
+  id: string;
+  name: string;
+  svgObjectKey?: string | null;
+  ticketTypeId?: string | null;
+  createdAt?: string;
+}
+
+export interface SeatMapResponse {
+  svgUrl: string | null;
+  zones: SeatZone[];
+}
+
+export interface PublicTicketType {
+  id: string;
+  name: string;
+  price: number;
+  maxPerUser: number;
+  availableQuantity: number;
+  status: 'AVAILABLE' | 'SOLD_OUT';
+}
+
+export interface OrderSummary {
+  id: string;
+  concertId: string;
+  ticketTypeId: string;
+  quantity: number;
+  totalAmount: number;
+  status: 'PENDING_PAYMENT' | 'PAID' | 'EXPIRED' | 'PAYMENT_FAILED';
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface TicketSummary {
+  id: string;
+  orderId: string;
+  ticketTypeId: string;
+  userId: string;
+  concertId: string;
+  status: 'ACTIVE' | 'USED' | 'CANCELLED' | 'TRANSFERRED';
+  createdAt: string;
+}
+
+export interface CreateOrderPayload {
+  concertId: string;
+  ticketTypeId: string;
+  quantity: number;
 }

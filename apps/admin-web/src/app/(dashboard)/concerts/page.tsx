@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, MagnifyingGlass, Funnel, DotsThree, CheckCircle, XCircle } from '@phosphor-icons/react';
+import { Plus, MagnifyingGlass, Funnel, DotsThree, CheckCircle, XCircle, Ticket } from '@phosphor-icons/react';
 import { concertService } from '@/lib/services/concert.service';
 import { Concert } from '@/lib/types';
 
@@ -153,6 +153,13 @@ export default function ConcertsPage() {
                           className="p-2 text-muted hover:text-primary hover:bg-primary/5 rounded-md"
                         >
                           <DotsThree size={20} weight="bold" />
+                        </Link>
+                        <Link
+                          href={`/concerts/${concert.id}/ticketing`}
+                          className="p-2 text-muted hover:text-primary hover:bg-primary/5 rounded-md"
+                          title="Ticketing"
+                        >
+                          <Ticket size={20} />
                         </Link>
                       </div>
                     </td>
