@@ -28,6 +28,7 @@ export class ConcertsController {
   }
 
   @Get('organizer/me')
+  @UseGuards(JwtAuthGuard, RbacGuard)
   @RequirePermissions(Permission.CONCERT_READ)
   findMyConcerts(@CurrentUser() user: AuthenticatedUser) {
     return this.concertsService.findOrganizerConcerts(user.sub);
@@ -49,12 +50,14 @@ export class ConcertsController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, RbacGuard)
   @RequirePermissions(Permission.CONCERT_UPDATE)
   update(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
     return { message: 'Not implemented — Phase 2' };
   }
 
   @Post(':id/cancel')
+  @UseGuards(JwtAuthGuard, RbacGuard)
   @RequirePermissions(Permission.CONCERT_UPDATE)
   cancel(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return { message: 'Not implemented — Phase 2' };
