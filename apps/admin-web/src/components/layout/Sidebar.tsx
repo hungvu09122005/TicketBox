@@ -7,6 +7,7 @@ import {
   Users, 
   MapPin, 
   Calendar, 
+  ShieldCheck,
   SignOut,
   X
 } from '@phosphor-icons/react';
@@ -19,6 +20,7 @@ const navigation = [
   { name: 'Artists', href: '/artists', icon: Users, permissions: [Permission.CONCERT_READ] },
   { name: 'Venues', href: '/venues', icon: MapPin, permissions: [Permission.CONCERT_READ] },
   { name: 'Events', href: '/events', icon: Calendar, permissions: [Permission.REPORT_VIEW] },
+  { name: 'Access Control', href: '/rbac', icon: ShieldCheck, permissions: [Permission.RBAC_MANAGE] },
 ];
 
 export function Sidebar({ onClose }: Readonly<{ onClose?: () => void }>) {

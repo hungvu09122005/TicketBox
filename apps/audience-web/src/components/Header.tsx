@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, useScroll, useMotionValueEvent } from "motion/react";
-import { Ticket, User, UserPlus, SignOut } from "@phosphor-icons/react";
+import { Ticket, User, UserPlus, SignOut, Receipt, QrCode } from "@phosphor-icons/react";
 import { hasStoredSession, useAuthStore } from "@/lib/auth-store";
 
 export function Header() {
@@ -52,17 +52,27 @@ export function Header() {
               </Link>
             </>
           ) : (
-            <button
-              type="button"
-              onClick={() => {
-                logout();
-                router.replace("/login");
-              }}
-              className={`flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-zinc-600 hover:text-zinc-950' : 'text-zinc-300 hover:text-white'}`}
-            >
-              <SignOut className="w-5 h-5" />
-              <span>Đăng xuất</span>
-            </button>
+            <>
+              <Link href="/orders" className={`hidden md:flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-zinc-600 hover:text-zinc-950' : 'text-zinc-300 hover:text-white'}`}>
+                <Receipt className="w-5 h-5" />
+                <span>Đơn hàng</span>
+              </Link>
+              <Link href="/tickets" className={`hidden md:flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-zinc-600 hover:text-zinc-950' : 'text-zinc-300 hover:text-white'}`}>
+                <QrCode className="w-5 h-5" />
+                <span>Vé của tôi</span>
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  logout();
+                  router.replace("/login");
+                }}
+                className={`flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-zinc-600 hover:text-zinc-950' : 'text-zinc-300 hover:text-white'}`}
+              >
+                <SignOut className="w-5 h-5" />
+                <span>Đăng xuất</span>
+              </button>
+            </>
           )}
         </div>
       </div>

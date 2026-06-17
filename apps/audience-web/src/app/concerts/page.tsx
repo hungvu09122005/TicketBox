@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowClockwise, CalendarBlank, MapPin, MusicNotes, Ticket } from "@phosphor-icons/react";
 import { Header } from "../../components/Header";
@@ -96,6 +97,13 @@ function ConcertCard({ concert, index }: Readonly<{ concert: PublicConcert; inde
             <span>{concert.saleStartsAt ? `Mở bán từ ${formatSchedule({ ...concert, startsAt: concert.saleStartsAt, endsAt: concert.saleEndsAt ?? concert.saleStartsAt })}` : "Đang mở bán"}</span>
           </div>
         </div>
+
+        <Link
+          href={`/concerts/${concert.id}`}
+          className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+        >
+          Xem chi tiết & đặt vé
+        </Link>
       </div>
     </motion.article>
   );
