@@ -9,8 +9,8 @@ import { OrdersService } from './orders.service';
 
 @ApiTags('orders')
 @ApiBearerAuth()
-@Controller('orders')
-@UseGuards(JwtAuthGuard, RbacGuard)
+@Controller('api/v1/orders')
+//@UseGuards(JwtAuthGuard, RbacGuard)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 

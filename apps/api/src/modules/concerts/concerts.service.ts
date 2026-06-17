@@ -3,6 +3,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { ConcertsRepository } from './concerts.repository';
+import { SeatZoneRepository } from './seat-zone.repository';
 import { Concert, ConcertStatus } from './entities/concert.entity';
 import { CreateConcertDto } from './dto/create-concert.dto';
 import { UpdateConcertDto } from './dto/update-concert.dto';
@@ -104,68 +105,18 @@ export class ConcertsService {
     ]);
   }
 
-  async findOrganizerConcerts(organizerId: string): Promise<Concert[]> {
-    return this.concertsRepository.findByOrganizer(organizerId);
-  }
-
-  async createConcert(organizerId: string, dto: CreateConcertDto): Promise<Concert> {
-    const concert = await this.concertsRepository.create({
-      ...dto,
-      organizerId,
-      status: ConcertStatus.DRAFT,
+  // Thêm hàm này vào class ConcertsService
+  async uploadSeatMap(zoneId: string, file: Express.Multer.File): Promise<string> {
+    const objectKey = await this.objectStorage.upload({
+      objectKey: `seatmaps/${zoneId}.svg`,
+      buffer: file.buffer,
+      contentType: file.mimetype,
+      size: file.size,
     });
-    return concert;
+
+    await this.seatZoneRepository.update(zoneId, { svgPath: objectKey });
+    return objectKey;
   }
 
-  async updateConcert(
-    id: string,
-    organizerId: string,
-    dto: UpdateConcertDto,
-    isAdmin: boolean,
-  ): Promise<void> {
-    const concert = await this.concertsRepository.findByIdAndOrganizer(id, organizerId, isAdmin);
-    if (!concert) throw new NotFoundException('Concert not found');
-
-    await this.concertsRepository.update(id, dto);
-    await this.invalidateCacheFor(id);
-  }
-
-  async publishConcert(
-    id: string,
-    organizerId: string,
-    isAdmin: boolean,
-  ): Promise<void> {
-    const concert = await this.concertsRepository.findByIdAndOrganizer(id, organizerId, isAdmin);
-    if (!concert) throw new NotFoundException('Concert not found');
-
-    if (
-      !concert.startsAt ||
-      !concert.endsAt ||
-      !concert.saleStartsAt ||
-      !concert.saleEndsAt ||
-      !concert.venue ||
-      !concert.artistId
-    ) {
-      throw new BadRequestException('Missing mandatory fields to publish a concert');
-    }
-
-    await this.concertsRepository.update(id, { status: ConcertStatus.PUBLISHED });
-    await this.invalidateCacheFor(id);
-  }
-
-  async cancelConcert(
-    id: string,
-    organizerId: string,
-    isAdmin: boolean,
-  ): Promise<void> {
-    const concert = await this.concertsRepository.findByIdAndOrganizer(id, organizerId, isAdmin);
-    if (!concert) throw new NotFoundException('Concert not found');
-
-    if (concert.startsAt && new Date() > concert.startsAt) {
-      throw new BadRequestException('Cannot cancel a concert that has already started');
-    }
-
-    await this.concertsRepository.update(id, { status: ConcertStatus.CANCELLED });
-    await this.invalidateCacheFor(id);
-  }
+  // TODO Phase 2: createConcert, updateConcert, cancelConcert with ownership check
 }

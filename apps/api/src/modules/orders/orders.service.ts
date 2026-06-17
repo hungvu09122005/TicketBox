@@ -1,44 +1,106 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { OrdersRepository } from './orders.repository';
+import { DataSource, Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Order } from './entities/order.entity';
 import { ConcertsService } from '../concerts/concerts.service';
 import { TicketTypesService } from '../ticket-types/ticket-types.service';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { OrderStatus } from './enums/order-status.enum';
 
-/**
- * OrdersService — application service.
- *
- * Exported surface consumed by:
- *   - PaymentsModule: markOrderPaid(), findById()
- *   - ReportingModule: findByStatus() aggregation queries
- *
- * Internal dependencies (all via imported services, never via foreign repositories):
- *   - ConcertsService.assertPublishedAndSaleOpen()
- *   - TicketTypesService.holdInventory() / releaseInventory() / confirmInventory()
- */
 @Injectable()
 export class OrdersService {
   constructor(
-    private readonly ordersRepository: OrdersRepository,
+    private readonly dataSource: DataSource,
+    @InjectRepository(Order) 
+    private readonly orderRepo: Repository<Order>,
     private readonly concertsService: ConcertsService,
     private readonly ticketTypesService: TicketTypesService,
-    @InjectQueue('orders') private readonly ordersQueue: Queue,
+    @InjectQueue('orders') 
+    private readonly ordersQueue: Queue,
   ) {}
 
-  async findMine(userId: string) {
-    return this.ordersRepository.findByUser(userId);
+  /**
+   * Tạo đơn hàng với Pessimistic Locking để chống oversell
+   */
+  async createOrder(dto: CreateOrderDto, userId: string) {
+    return await this.dataSource.transaction(async (manager) => {
+      // 1. Kiểm tra trạng thái concert
+      await this.concertsService.assertPublishedAndSaleOpen(dto.concertId);
+
+      // 2. Lock kho vé (Pessimistic Write)
+      const ticketType = await this.ticketTypesService.holdInventory(
+        dto.ticketTypeId, 
+        dto.quantity, 
+        manager
+      );
+
+      // 3. Khởi tạo và lưu đơn hàng trong transaction
+      const order = new Order();
+      order.userId = userId;
+      order.concertId = dto.concertId;
+      order.ticketTypeId = dto.ticketTypeId;
+      order.quantity = dto.quantity;
+      order.totalAmount = Number(ticketType.price) * dto.quantity;
+      order.status = OrderStatus.PENDING_PAYMENT;
+
+      const savedOrder = await manager.save(order);
+
+      // 4. Enqueue job hủy đơn tự động sau 15 phút
+      await this.ordersQueue.add('expire-order', 
+        { orderId: savedOrder.id }, 
+        { delay: 15 * 60 * 1000 }
+      );
+
+      return savedOrder;
+    });
   }
 
-  async findById(id: string, userId: string, isAdmin: boolean) {
-    const order = await this.ordersRepository.findByIdAndOwner(id, userId, isAdmin);
-    if (!order) {
-      throw new NotFoundException(`Order ${id} not found.`);
-    }
+  async findById(id: string) {
+    const order = await this.orderRepo.findOneBy({ id });
+    if (!order) throw new NotFoundException('Order not found');
     return order;
   }
 
-  // TODO Phase 3:
-  //   createOrder(dto, userId) — pessimistic lock transaction → enqueue order-expiry delayed job
-  //   markPaid(orderId, paymentId)    ← called by PaymentsService
-  //   expireOrder(orderId)            ← called by OrderExpiryProcessor
+  async findByUser(userId: string) {
+    return await this.orderRepo.findBy({ userId });
+  }
+
+  /**
+   * Được gọi khi Payment Gateway báo thanh toán thành công
+   */
+  async markPaid(orderId: string, paymentId: string) {
+    return await this.dataSource.transaction(async (manager) => {
+      const order = await manager.findOneBy(Order, { id: orderId });
+      if (!order) throw new NotFoundException('Order not found');
+      if (order.status !== OrderStatus.PENDING_PAYMENT) {
+        throw new ConflictException('Order already processed');
+      }
+
+      order.status = OrderStatus.PAID;
+      await manager.save(order);
+
+      // Xác nhận chuyển trạng thái vé từ "giữ" sang "bán thành công"
+      await this.ticketTypesService.confirmInventory(order.ticketTypeId, order.quantity, manager);
+      
+      return order;
+    });
+  }
+
+  /**
+   * Xử lý khi đơn hàng quá hạn thanh toán
+   */
+  async expireOrder(orderId: string) {
+    await this.dataSource.transaction(async (manager) => {
+      const order = await manager.findOneBy(Order, { id: orderId });
+      if (order && order.status === OrderStatus.PENDING_PAYMENT) {
+        order.status = OrderStatus.EXPIRED;
+        await manager.save(order);
+        
+        // Hoàn lại vé vào kho
+        await this.ticketTypesService.releaseInventory(order.ticketTypeId, order.quantity, manager);
+      }
+    });
+  }
 }

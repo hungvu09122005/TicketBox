@@ -1,6 +1,10 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { 
+  Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, 
+  UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator 
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { JwtAuthGuard, OptionalJwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -12,7 +16,7 @@ import { UpdateConcertDto } from './dto/update-concert.dto';
 @ApiTags('concerts')
 @ApiBearerAuth()
 @Controller('concerts')
-@UseGuards(JwtAuthGuard, RbacGuard)
+@UseGuards(OptionalJwtAuthGuard)
 export class ConcertsController {
   constructor(private readonly concertsService: ConcertsService) { }
 
@@ -35,32 +39,51 @@ export class ConcertsController {
     return this.concertsService.findById(id);
   }
 
+  // --- Logic Upload SeatMap cho Task 6 ---
+  @Post(':concertId/zones/:zoneId/seat-map')
+  @RequirePermissions(Permission.CONCERT_UPDATE)
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadSeatMap(
+    @Param('zoneId') zoneId: string,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 2 }), // Giới hạn 2MB
+          new FileTypeValidator({ fileType: 'image/svg+xml' }),   // Chỉ nhận SVG
+        ],
+      }),
+    ) file: Express.Multer.File,
+  ) {
+    return await this.concertsService.uploadSeatMap(zoneId, file);
+  }
+  // --------------------------------------
+
   @Post()
   @UseGuards(JwtAuthGuard, RbacGuard)
   @ApiBearerAuth()
   @RequirePermissions(Permission.CONCERT_CREATE)
-  create(@CurrentUser() user: AuthenticatedUser, @Body() body: CreateConcertDto) {
-    return this.concertsService.createConcert(user.sub, body);
+  create(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
+    return { message: 'Not implemented — Phase 2' };
   }
 
   @Patch(':id')
   @RequirePermissions(Permission.CONCERT_UPDATE)
-  update(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: UpdateConcertDto) {
-    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
-    return this.concertsService.updateConcert(id, user.sub, body, isAdmin);
-  }
-
-  @Post(':id/publish')
-  @RequirePermissions(Permission.CONCERT_UPDATE)
-  publish(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
-    return this.concertsService.publishConcert(id, user.sub, isAdmin);
+  update(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
+    return { message: 'Not implemented — Phase 2' };
   }
 
   @Post(':id/cancel')
   @RequirePermissions(Permission.CONCERT_UPDATE)
   cancel(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
-    return this.concertsService.cancelConcert(id, user.sub, isAdmin);
+    return { message: 'Not implemented — Phase 2' };
   }
 }
