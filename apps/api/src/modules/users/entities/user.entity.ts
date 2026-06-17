@@ -35,10 +35,13 @@ export class User {
    * RbacGuard uses this to invalidate the Redis permission cache.
    */
   @Column({ name: 'permission_version', default: 1 })
-  permissionVersion!: number;
+  permissionVersion: number = 1;
 
   @Column({ default: true, name: 'is_active' })
-  isActive!: boolean;
+  isActive: boolean = true;
+
+  ///@Column({ type: 'jsonb', default: ['Audience'] })
+  ///roles: string[] = ['Audience'];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
