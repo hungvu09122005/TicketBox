@@ -29,7 +29,7 @@ export class Order {
   @Column({ type: 'numeric', precision: 15, scale: 2, name: 'total_amount' })
   totalAmount!: number;
 
-  /** Hold expires at this time. BullMQ delayed job checks this. */
+  /** Hold expires at this time. bullMQ delayed job checks this. */
   @Column({ type: 'timestamptz', name: 'expires_at' })
   expiresAt!: Date;
 

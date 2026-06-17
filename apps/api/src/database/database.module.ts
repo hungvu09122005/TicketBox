@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { BootstrapService } from './bootstrap.service';
+import { UsersModule } from '../modules/users/users.module';
 
 @Module({
   imports: [
@@ -26,6 +28,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         migrationsTableName: 'typeorm_migrations',
       }),
     }),
+    UsersModule,
   ],
+
+  providers: [BootstrapService],
 })
 export class DatabaseModule {}

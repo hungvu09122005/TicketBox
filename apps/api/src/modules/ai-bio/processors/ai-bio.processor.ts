@@ -6,7 +6,7 @@ import { AI_TEXT_GENERATION_PORT, AITextGenerationPort } from '../../../common/p
 export const AI_BIO_JOB = 'ai.bio.generate';
 
 /**
- * AiBioProcessor — BullMQ worker for AI bio generation. Blueprint §05 §3.5.
+ * AiBioProcessor — bullMQ worker for AI bio generation. Blueprint §05 §3.5.
  * Circuit breaker (Opossum) wraps the AITextGenerationPort call here.
  * Retry: max 3, exponential backoff. On exhaustion → status=FAILED + failureReason.
  * NEVER auto-publishes the draft.
