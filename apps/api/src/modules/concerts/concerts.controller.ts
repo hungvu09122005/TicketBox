@@ -1,5 +1,5 @@
 import { 
-  Controller, Get, Post, Patch, Delete, Param, Body, UseGuards 
+  Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Query, DefaultValuePipe, ParseIntPipe
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard, OptionalJwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -19,8 +19,12 @@ export class ConcertsController {
   constructor(private readonly concertsService: ConcertsService) { }
 
   @Get()
-  findPublished() {
-    return this.concertsService.findPublished();
+  findPublished(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('timeFilter') timeFilter?: 'upcoming' | 'past'
+  ) {
+    return this.concertsService.findPublished(page, limit, timeFilter);
   }
 
   @Get('organizer/me')
@@ -30,9 +34,6 @@ export class ConcertsController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard, RbacGuard)
-  @ApiBearerAuth()
-  @RequirePermissions(Permission.CONCERT_READ)
   findOne(@Param('id') id: string) {
     return this.concertsService.findById(id);
   }

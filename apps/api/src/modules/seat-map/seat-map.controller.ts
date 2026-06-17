@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { JwtAuthGuard, OptionalJwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
@@ -21,17 +21,17 @@ import { SeatMapService } from './seat-map.service';
 @ApiTags('seat-map')
 @ApiBearerAuth()
 @Controller('concerts/:concertId/seat-map')
-@UseGuards(JwtAuthGuard, RbacGuard)
+@UseGuards(OptionalJwtAuthGuard)
 export class SeatMapController {
   constructor(private readonly seatMapService: SeatMapService) {}
 
   @Get()
-  @RequirePermissions(Permission.CONCERT_READ)
   async getZones(@Param('concertId') concertId: string) {
     return this.seatMapService.getZonesByConcert(concertId);
   }
 
   @Post('upload')
+  @UseGuards(JwtAuthGuard, RbacGuard)
   @RequirePermissions(Permission.CONCERT_UPDATE)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')

@@ -56,12 +56,16 @@ export class ConcertsService {
     };
   }
 
-  async findPublished(): Promise<PublicConcertDto[]> {
-    const cacheKey = 'concerts:published:list';
+  async findPublished(
+    page: number = 1,
+    limit: number = 10,
+    timeFilter?: 'upcoming' | 'past'
+  ): Promise<PublicConcertDto[]> {
+    const cacheKey = `concerts:published:list:${page}:${limit}:${timeFilter || 'all'}`;
     const cached = await this.cache.get<PublicConcertDto[]>(cacheKey);
     if (cached) return cached;
 
-    const concerts = await this.concertsRepository.findPublished();
+    const concerts = await this.concertsRepository.findPublished(page, limit, timeFilter);
     const ttl = this.config.get<number>('app.cache.concertListTtl', 60) * 1000;
     const payload = await Promise.all(concerts.map((concert) => this.toPublicDto(concert)));
     await this.cache.set(cacheKey, payload, ttl);

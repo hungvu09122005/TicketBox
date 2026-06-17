@@ -1,16 +1,30 @@
-import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { Logger } from 'nestjs-pino';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { ConfigService } from '@nestjs/config';
 import { TicketTypesRepository } from './ticket-types.repository';
 import { TicketType } from './entities/ticket-type.entity';
 import { CreateTicketTypeDto } from './dto/create-ticket-type.dto';
 import { UpdateTicketTypeDto } from './dto/update-ticket-type.dto';
+
+export interface PublicTicketTypeDto {
+  id: string;
+  name: string;
+  price: number;
+  maxPerUser: number;
+  availableQuantity: number;
+  status: 'AVAILABLE' | 'SOLD_OUT';
+}
 
 @Injectable()
 export class TicketTypesService {
   constructor(
     private readonly repo: TicketTypesRepository,
     private readonly logger: Logger,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+    private readonly config: ConfigService,
   ) {}
 
   async findByConcertId(concertId: string): Promise<TicketType[]> {
@@ -118,5 +132,31 @@ export class TicketTypesService {
     
     // Sửa: Tính toán với camelCase
     return ticketType.totalQuantity - (ticketType.soldQuantity + ticketType.heldQuantity);
+  }
+
+  async getPublicAvailability(concertId: string): Promise<PublicTicketTypeDto[]> {
+    const cacheKey = `concert:${concertId}:availability`;
+    const cached = await this.cache.get<PublicTicketTypeDto[]>(cacheKey);
+    if (cached) return cached;
+
+    const ticketTypes = await this.repo.find({ where: { concertId }, order: { price: 'ASC' } });
+    
+    const payload = ticketTypes.map((tt) => {
+      const availableQuantity = tt.totalQuantity - tt.soldQuantity - tt.heldQuantity;
+      return {
+        id: tt.id,
+        name: tt.name,
+        price: Number(tt.price),
+        maxPerUser: tt.maxPerUser,
+        availableQuantity: availableQuantity > 0 ? availableQuantity : 0,
+        status: availableQuantity > 0 ? 'AVAILABLE' : 'SOLD_OUT',
+      } as PublicTicketTypeDto;
+    });
+
+    // Cache for 5-10s depending on config
+    const ttl = this.config.get<number>('app.cache.availabilityTtl', 10) * 1000;
+    await this.cache.set(cacheKey, payload, ttl);
+
+    return payload;
   }
 }
