@@ -5,6 +5,8 @@ import { RbacGuard } from '../../common/guards/rbac.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
+import { Role } from '../../common/constants/roles.enum';
+import { ROLE_PERMISSIONS_MAPPING } from '../../common/constants/role-permissions.mapping';
 import { UsersService } from './users.service';
 import { UpdateRolesDto } from './dto/update-roles.dto';
 import { Body, Param, Patch } from '@nestjs/common';
@@ -19,7 +21,27 @@ export class UsersController {
   @Get('me')
   @RequirePermissions(Permission.ORDER_READ_OWN) // Any authenticated user
   getMe(@CurrentUser() user: AuthenticatedUser) {
-    return this.usersService.findById(user.sub);
+    return this.usersService.findById(user.sub).then((profile) => {
+      if (!profile) return null;
+
+      const permissions = Array.from(
+        new Set(
+          profile.roles.flatMap((role) => {
+            const key = role as Role;
+            return ROLE_PERMISSIONS_MAPPING[key] ?? [];
+          }),
+        ),
+      );
+
+      return {
+        id: profile.id,
+        email: profile.email,
+        name: profile.name,
+        roles: profile.roles,
+        permissionVersion: profile.permissionVersion,
+        permissions,
+      };
+    });
   }
 
   @Patch(':id/roles')

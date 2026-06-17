@@ -18,11 +18,10 @@ import { UpdateConcertDto } from './dto/update-concert.dto';
 @Controller('concerts')
 @UseGuards(OptionalJwtAuthGuard)
 export class ConcertsController {
-  constructor(private readonly concertsService: ConcertsService) {}
+  constructor(private readonly concertsService: ConcertsService) { }
 
   @Get()
-  //@RequirePermissions(Permission.CONCERT_READ)
-  findAll() {
+  findPublished() {
     return this.concertsService.findPublished();
   }
 
@@ -33,7 +32,9 @@ export class ConcertsController {
   }
 
   @Get(':id')
-  //@RequirePermissions(Permission.CONCERT_READ)
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @ApiBearerAuth()
+  @RequirePermissions(Permission.CONCERT_READ)
   findOne(@Param('id') id: string) {
     return this.concertsService.findById(id);
   }
@@ -67,6 +68,8 @@ export class ConcertsController {
   // --------------------------------------
 
   @Post()
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @ApiBearerAuth()
   @RequirePermissions(Permission.CONCERT_CREATE)
   create(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
     return { message: 'Not implemented — Phase 2' };
