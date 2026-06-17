@@ -45,21 +45,31 @@ export class ConcertsController {
   @UseGuards(JwtAuthGuard, RbacGuard)
   @ApiBearerAuth()
   @RequirePermissions(Permission.CONCERT_CREATE)
-  create(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
-    return { message: 'Not implemented — Phase 2' };
+  create(@CurrentUser() user: AuthenticatedUser, @Body() body: CreateConcertDto) {
+    return this.concertsService.create(user.sub, body);
   }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RbacGuard)
   @RequirePermissions(Permission.CONCERT_UPDATE)
-  update(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
-    return { message: 'Not implemented — Phase 2' };
+  update(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: UpdateConcertDto) {
+    const isAdmin = user.roles?.includes('ADMIN') ?? false;
+    return this.concertsService.update(id, user.sub, isAdmin, body);
+  }
+
+  @Post(':id/publish')
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @RequirePermissions(Permission.CONCERT_UPDATE)
+  publish(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    const isAdmin = user.roles?.includes('ADMIN') ?? false;
+    return this.concertsService.publish(id, user.sub, isAdmin);
   }
 
   @Post(':id/cancel')
   @UseGuards(JwtAuthGuard, RbacGuard)
   @RequirePermissions(Permission.CONCERT_UPDATE)
   cancel(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    return { message: 'Not implemented — Phase 2' };
+    const isAdmin = user.roles?.includes('ADMIN') ?? false;
+    return this.concertsService.cancel(id, user.sub, isAdmin);
   }
 }
