@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  UnauthorizedException,
   Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -11,6 +12,8 @@ import { Cache } from 'cache-manager';
 import { DataSource } from 'typeorm';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { Permission } from '../constants/permissions.enum';
+import { Role } from '../constants/roles.enum';
+import { ROLE_PERMISSIONS_MAPPING } from '../constants/role-permissions.mapping';
 import { AuthenticatedUser } from '../decorators/current-user.decorator';
 
 /**
@@ -19,7 +22,7 @@ import { AuthenticatedUser } from '../decorators/current-user.decorator';
  * Authorization flow per request:
  *   1. Read required permissions from route metadata (@RequirePermissions).
  *   2. Resolve user's permissions via Redis cache keyed by userId + permissionVersion.
- *   3. On cache miss: query PostgreSQL user_roles → role_permissions → permissions.
+ *   3. On cache miss: query PostgreSQL users -> roles -> map to permissions.
  *   4. Compare required vs. actual permissions.
  *   5. Return 403 Forbidden if insufficient.
  *
@@ -53,8 +56,14 @@ export class RbacGuard implements CanActivate {
     let userPermissions: string[] | undefined = await this.cache.get<string[]>(cacheKey);
 
     if (!userPermissions) {
-      // Cache miss — load from PostgreSQL
-      userPermissions = await this.loadPermissionsFromDb(user.sub);
+      // Cache miss — load from PostgreSQL and map to permissions
+      const { permissions, permissionVersion } = await this.loadUserAndPermissionsFromDb(user.sub);
+      
+      if (permissionVersion > user.permissionVersion) {
+        throw new UnauthorizedException('Token permissions expired. Please login again.');
+      }
+
+      userPermissions = permissions;
       // Cache for ~5 minutes; immediate invalidation happens on RBAC change via cache.del()
       await this.cache.set(cacheKey, userPermissions, 300_000);
     }
@@ -69,16 +78,52 @@ export class RbacGuard implements CanActivate {
     return true;
   }
 
-  private async loadPermissionsFromDb(userId: string): Promise<string[]> {
-    const rows = await this.dataSource.query<{ code: string }[]>(
-      `SELECT DISTINCT p.code
-       FROM users u
-       JOIN user_roles ur ON ur.user_id = u.id
-       JOIN role_permissions rp ON rp.role_id = ur.role_id
-       JOIN permissions p ON p.id = rp.permission_id
-       WHERE u.id = $1`,
+  private async loadUserAndPermissionsFromDb(userId: string): Promise<{ permissions: string[], permissionVersion: number }> {
+    const rows = await this.dataSource.query<{ roles: string, permission_version: number }[]>(
+      `SELECT roles, permission_version FROM users WHERE id = $1`,
       [userId],
     );
-    return rows.map((r) => r.code);
+    if (!rows || rows.length === 0) return { permissions: [], permissionVersion: 0 };
+    
+    // Parse roles if it's a string, otherwise it's an array/object depending on TypeORM
+    const rolesData = rows[0].roles;
+    let roles: string[] = [];
+    if (typeof rolesData === 'string') {
+      try {
+        roles = JSON.parse(rolesData);
+      } catch (e) {
+        roles = [];
+      }
+    } else if (Array.isArray(rolesData)) {
+      roles = rolesData;
+    }
+
+    const permissions = new Set<string>();
+    
+    for (const role of roles) {
+      const upperRole = role.toUpperCase();
+      if (upperRole === 'SYSTEM_ADMIN') {
+        Object.values(Permission).forEach(p => permissions.add(p));
+      } else if (upperRole === 'ORGANIZER') {
+        permissions.add(Permission.CONCERT_READ);
+        permissions.add(Permission.CONCERT_CREATE);
+        permissions.add(Permission.CONCERT_UPDATE);
+        permissions.add(Permission.ORDER_READ_ALL);
+        permissions.add(Permission.VIP_IMPORT);
+        permissions.add(Permission.AI_GENERATE_BIO);
+        permissions.add(Permission.REPORT_VIEW);
+      } else if (upperRole === 'CHECKIN_STAFF') {
+        permissions.add(Permission.CONCERT_READ);
+        permissions.add(Permission.TICKET_VALIDATE);
+      } else {
+        // Audience defaults
+        permissions.add(Permission.CONCERT_READ);
+        permissions.add(Permission.ORDER_CREATE);
+        permissions.add(Permission.ORDER_READ_OWN);
+        permissions.add(Permission.TICKET_VIEW_OWN);
+      }
+    }
+
+    return { permissions: Array.from(permissions), permissionVersion: rows[0].permission_version };
   }
 }

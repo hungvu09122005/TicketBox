@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "TicketBox Check-in",
+    "slug": "ticketbox-checkin-mobile",
+    "scheme": "ticketbox-checkin",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "platforms": ["ios", "android", "web"]
+  }
+}

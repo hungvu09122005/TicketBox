@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
@@ -26,8 +26,7 @@ export class OrdersController {
   @Get('me')
   @RequirePermissions(Permission.ORDER_READ_OWN)
   findMine(@CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 3
-    return [];
+    return this.ordersService.findByUser(user.sub);
   }
 
   /** GET /api/v1/orders — Organizer / Admin views all orders. */
@@ -38,11 +37,14 @@ export class OrdersController {
     return [];
   }
 
-  /** GET /api/v1/orders/:id — Ownership enforced in service. */
   @Get(':id')
   @RequirePermissions(Permission.ORDER_READ_OWN)
-  findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 3
-    return null;
+  async findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    const order = await this.ordersService.findById(id);
+    if (!isAdmin && order.userId !== user.sub) {
+      throw new ForbiddenException();
+    }
+    return order;
   }
 }

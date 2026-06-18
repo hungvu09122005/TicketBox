@@ -66,7 +66,7 @@ import { RequestIdMiddleware } from './common/middlewares/request-id.middleware'
     }),
 
     QueueModule,
-    
+
     CacheModule.registerAsync({
       isGlobal: true,
       useFactory: () => ({

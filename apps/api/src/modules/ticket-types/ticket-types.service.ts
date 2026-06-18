@@ -1,15 +1,95 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
+import { Logger } from 'nestjs-pino';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { ConfigService } from '@nestjs/config';
 import { TicketTypesRepository } from './ticket-types.repository';
 import { TicketType } from './entities/ticket-type.entity';
+import { CreateTicketTypeDto } from './dto/create-ticket-type.dto';
+import { UpdateTicketTypeDto } from './dto/update-ticket-type.dto';
+
+export interface PublicTicketTypeDto {
+  id: string;
+  name: string;
+  price: number;
+  maxPerUser: number;
+  availableQuantity: number;
+  status: 'AVAILABLE' | 'SOLD_OUT';
+}
 
 @Injectable()
 export class TicketTypesService {
-  constructor(private readonly repo: TicketTypesRepository) {}
+  constructor(
+    private readonly repo: TicketTypesRepository,
+    private readonly logger: Logger,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+    private readonly config: ConfigService,
+  ) {}
 
   async findByConcertId(concertId: string): Promise<TicketType[]> {
-    // Sửa: where: { concertId: concertId }
-    return await this.repo.find({ where: { concertId: concertId } });
+    return await this.repo.find({ where: { concertId }, order: { price: 'ASC' } });
+  }
+
+  async create(concertId: string, dto: CreateTicketTypeDto, adminId: string): Promise<TicketType> {
+    const ticketType = await this.repo.createTicketType({
+      concertId,
+      ...dto,
+      saleStartsAt: dto.saleStartsAt ? new Date(dto.saleStartsAt) : undefined,
+      saleEndsAt: dto.saleEndsAt ? new Date(dto.saleEndsAt) : undefined,
+    });
+
+    this.logger.log({
+      msg: 'Audit: TicketType created',
+      targetConcertId: concertId,
+      ticketTypeId: ticketType.id,
+      adminId,
+      details: dto,
+    });
+
+    return ticketType;
+  }
+
+  async update(ticketTypeId: string, dto: UpdateTicketTypeDto, adminId: string): Promise<TicketType> {
+    const ticketType = await this.repo.findOne({ where: { id: ticketTypeId } });
+    if (!ticketType) {
+      throw new NotFoundException('Loại vé không tồn tại');
+    }
+
+    if (dto.totalQuantity !== undefined) {
+      const minimumRequired = ticketType.soldQuantity + ticketType.heldQuantity;
+      if (dto.totalQuantity < minimumRequired) {
+        throw new BadRequestException(`Không thể giảm tổng số vé xuống dưới số vé đã bán và đang giữ (${minimumRequired})`);
+      }
+    }
+
+    const updateData: Partial<TicketType> = {
+      ...dto,
+      saleStartsAt: dto.saleStartsAt ? new Date(dto.saleStartsAt) : undefined,
+      saleEndsAt: dto.saleEndsAt ? new Date(dto.saleEndsAt) : undefined,
+    };
+    // remove undefined values so they don't overwrite with null
+    if (dto.saleStartsAt === undefined) delete updateData.saleStartsAt;
+    if (dto.saleEndsAt === undefined) delete updateData.saleEndsAt;
+
+    const updated = await this.repo.updateTicketType(ticketTypeId, updateData);
+
+    this.logger.log({
+      msg: 'Audit: TicketType updated',
+      ticketTypeId,
+      adminId,
+      oldValues: {
+        name: ticketType.name,
+        price: ticketType.price,
+        totalQuantity: ticketType.totalQuantity,
+        maxPerUser: ticketType.maxPerUser,
+        saleStartsAt: ticketType.saleStartsAt,
+        saleEndsAt: ticketType.saleEndsAt,
+      },
+      newValues: dto,
+    });
+
+    return updated;
   }
 
   /**
@@ -52,5 +132,31 @@ export class TicketTypesService {
     
     // Sửa: Tính toán với camelCase
     return ticketType.totalQuantity - (ticketType.soldQuantity + ticketType.heldQuantity);
+  }
+
+  async getPublicAvailability(concertId: string): Promise<PublicTicketTypeDto[]> {
+    const cacheKey = `concert:${concertId}:availability`;
+    const cached = await this.cache.get<PublicTicketTypeDto[]>(cacheKey);
+    if (cached) return cached;
+
+    const ticketTypes = await this.repo.find({ where: { concertId }, order: { price: 'ASC' } });
+    
+    const payload = ticketTypes.map((tt) => {
+      const availableQuantity = tt.totalQuantity - tt.soldQuantity - tt.heldQuantity;
+      return {
+        id: tt.id,
+        name: tt.name,
+        price: Number(tt.price),
+        maxPerUser: tt.maxPerUser,
+        availableQuantity: availableQuantity > 0 ? availableQuantity : 0,
+        status: availableQuantity > 0 ? 'AVAILABLE' : 'SOLD_OUT',
+      } as PublicTicketTypeDto;
+    });
+
+    // Cache for 5-10s depending on config
+    const ttl = this.config.get<number>('app.cache.availabilityTtl', 10) * 1000;
+    await this.cache.set(cacheKey, payload, ttl);
+
+    return payload;
   }
 }
