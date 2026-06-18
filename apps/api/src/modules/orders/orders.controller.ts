@@ -6,6 +6,7 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
 import { OrdersService } from './orders.service';
+import { CreateOrderDto } from './dto/create-order.dto';
 
 @ApiTags('orders')
 @ApiBearerAuth()
@@ -17,9 +18,8 @@ export class OrdersController {
   /** POST /api/v1/orders — Audience creates an order (hold inventory). */
   @Post()
   @RequirePermissions(Permission.ORDER_CREATE)
-  create(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
-    // TODO Phase 3: CreateOrderDto → OrdersService.createOrder()
-    return { message: 'Not implemented — Phase 3' };
+  create(@CurrentUser() user: AuthenticatedUser, @Body() body: CreateOrderDto) {
+    return this.ordersService.createOrder(body, user.sub);
   }
 
   /** GET /api/v1/orders/me — Audience views their own orders. */
