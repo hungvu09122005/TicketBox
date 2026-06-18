@@ -40,8 +40,6 @@ export class User {
   @Column({ default: true, name: 'is_active' })
   isActive: boolean = true;
 
-  @Column({ type: 'jsonb', default: ['AUDIENCE'] })
-  roles: string[] = ['AUDIENCE'];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

@@ -24,6 +24,11 @@ export class TicketsService {
     return ticket;
   }
 
+  // Tìm vé của một user
+  async findMine(userId: string): Promise<Ticket[]> {
+    return await this.ticketsRepository.find({ where: { userId } });
+  }
+
   // Xác thực QR Token (Logic từ port)
   async verifyQrToken(qrToken: string): Promise<Ticket> {
   const payload = await this.qrGenerator.verifyToken(qrToken);

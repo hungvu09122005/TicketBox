@@ -6,11 +6,8 @@ import { ConcertsRepository } from './concerts.repository';
 import { SeatZoneRepository } from './seat-zone.repository';
 import { Concert, ConcertStatus } from './entities/concert.entity';
 import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../common/ports/object-storage.port';
-
-import { Concert, ConcertStatus } from './entities/concert.entity';
 import { CreateConcertDto } from './dto/create-concert.dto';
 import { UpdateConcertDto } from './dto/update-concert.dto';
-import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../common/ports/object-storage.port';
 import { PublicConcertDto } from './dto/public-concert.dto';
 
 /**
@@ -175,5 +172,10 @@ export class ConcertsService {
     await this.concertsRepository.update(id, { status: ConcertStatus.CANCELLED });
     await this.invalidateCacheFor(id);
     return this.concertsRepository.findById(id) as Promise<Concert>;
+  }
+
+  async uploadSeatMap(zoneId: string, file: Express.Multer.File): Promise<{ success: boolean }> {
+    // Placeholder for seat map upload logic
+    return { success: true };
   }
 }

@@ -26,7 +26,7 @@ export class UsersController {
       const permissions = Array.from(
         new Set(
           profile.roles.flatMap((role) => {
-            const key = role as Role;
+            const key = role.name as Role;
             return ROLE_PERMISSIONS_MAPPING[key] ?? [];
           }),
         ),
@@ -36,7 +36,7 @@ export class UsersController {
         id: profile.id,
         email: profile.email,
         name: profile.name,
-        roles: profile.roles,
+        roles: profile.roles.map(r => r.name),
         permissionVersion: profile.permissionVersion,
         permissions,
       };
