@@ -1,6 +1,7 @@
 import { 
   Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, 
-  UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator 
+  UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator,
+  Query, DefaultValuePipe, ParseIntPipe
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
