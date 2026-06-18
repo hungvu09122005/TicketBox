@@ -79,51 +79,32 @@ export class RbacGuard implements CanActivate {
   }
 
   private async loadUserAndPermissionsFromDb(userId: string): Promise<{ permissions: string[], permissionVersion: number }> {
-    const rows = await this.dataSource.query<{ roles: string, permission_version: number }[]>(
-      `SELECT roles, permission_version FROM users WHERE id = $1`,
+    const rows = await this.dataSource.query<{ permission_version: number, permission_name: string }[]>(
+      `
+      SELECT u.permission_version, p.name AS permission_name
+      FROM users u
+      LEFT JOIN user_roles ur ON ur.user_id = u.id
+      LEFT JOIN roles r ON r.id = ur.role_id
+      LEFT JOIN role_permissions rp ON rp.role_id = r.id
+      LEFT JOIN permissions p ON p.id = rp.permission_id
+      WHERE u.id = $1
+      `,
       [userId],
     );
-    if (!rows || rows.length === 0) return { permissions: [], permissionVersion: 0 };
-    
-    // Parse roles if it's a string, otherwise it's an array/object depending on TypeORM
-    const rolesData = rows[0].roles;
-    let roles: string[] = [];
-    if (typeof rolesData === 'string') {
-      try {
-        roles = JSON.parse(rolesData);
-      } catch (e) {
-        roles = [];
-      }
-    } else if (Array.isArray(rolesData)) {
-      roles = rolesData;
-    }
 
+    if (!rows || rows.length === 0) {
+      return { permissions: [], permissionVersion: 0 };
+    }
+    
+    const permissionVersion = rows[0].permission_version;
     const permissions = new Set<string>();
     
-    for (const role of roles) {
-      const upperRole = role.toUpperCase();
-      if (upperRole === 'SYSTEM_ADMIN') {
-        Object.values(Permission).forEach(p => permissions.add(p));
-      } else if (upperRole === 'ORGANIZER') {
-        permissions.add(Permission.CONCERT_READ);
-        permissions.add(Permission.CONCERT_CREATE);
-        permissions.add(Permission.CONCERT_UPDATE);
-        permissions.add(Permission.ORDER_READ_ALL);
-        permissions.add(Permission.VIP_IMPORT);
-        permissions.add(Permission.AI_GENERATE_BIO);
-        permissions.add(Permission.REPORT_VIEW);
-      } else if (upperRole === 'CHECKIN_STAFF') {
-        permissions.add(Permission.CONCERT_READ);
-        permissions.add(Permission.TICKET_VALIDATE);
-      } else {
-        // Audience defaults
-        permissions.add(Permission.CONCERT_READ);
-        permissions.add(Permission.ORDER_CREATE);
-        permissions.add(Permission.ORDER_READ_OWN);
-        permissions.add(Permission.TICKET_VIEW_OWN);
+    for (const row of rows) {
+      if (row.permission_name) {
+        permissions.add(row.permission_name);
       }
     }
 
-    return { permissions: Array.from(permissions), permissionVersion: rows[0].permission_version };
+    return { permissions: Array.from(permissions), permissionVersion };
   }
 }
