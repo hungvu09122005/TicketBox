@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { getQueueToken } from '@nestjs/bull';
+import { getQueueToken } from '@nestjs/bullmq';
 import { Queue } from 'bull';
 
 async function testTask3() {

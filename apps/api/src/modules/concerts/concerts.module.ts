@@ -1,27 +1,27 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Concert } from './entities/concert.entity';
+import { SeatZone } from './entities/seat-zone.entity'; // Import thêm
+import { TicketType } from './entities/ticket-type.entity'; // Import thêm
 import { ConcertsController } from './concerts.controller';
 import { ConcertsService } from './concerts.service';
 import { ConcertsRepository } from './concerts.repository';
+import { SeatZoneRepository } from './seat-zone.repository'; // Import repository mới
 import { ArtistsModule } from '../artists/artists.module';
+import { CommonModule } from '../../common/common.module'; // Import CommonModule
 
-/**
- * ConcertsModule — owns Concert entity and cache management.
- *
- * Boundary rules:
- *   - Imports ArtistsModule for artist lookup (via ArtistsService, not ArtistsRepository).
- *   - Exports ConcertsService for OrdersModule (concert existence + sale window check).
- *   - Redis cache-aside for concert list/detail handled in ConcertsService.
- *   - Cache invalidation triggered here on PATCH/DELETE.
- */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Concert]),
+    TypeOrmModule.forFeature([Concert, SeatZone, TicketType]), // Đăng ký các entities
     ArtistsModule,
+    CommonModule, // Quan trọng: để dùng được OBJECT_STORAGE_PORT
   ],
   controllers: [ConcertsController],
-  providers: [ConcertsService, ConcertsRepository],
+  providers: [
+    ConcertsService,
+    ConcertsRepository,
+    SeatZoneRepository, // Đăng ký repository mới
+  ],
   exports: [ConcertsService],
 })
 export class ConcertsModule {}

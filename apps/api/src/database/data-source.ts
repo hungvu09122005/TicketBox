@@ -1,23 +1,18 @@
+import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
-import { resolve } from 'path';
+import { join, resolve } from 'path';
 
-dotenv.config({ path: resolve(__dirname, '../../../../.env') });
+dotenv.config({ path: resolve(process.cwd(), '.env') });
 
-/**
- * TypeORM DataSource used by the migration CLI only.
- * The application uses DatabaseModule (TypeOrmModule.forRootAsync) at runtime.
- */
 export const AppDataSource = new DataSource({
   type: 'postgres',
-  host: process.env.DATABASE_HOST ?? 'localhost',
-  port: parseInt(process.env.DATABASE_PORT ?? '5432', 10),
-  username: process.env.DATABASE_USERNAME ?? 'ticketbox',
-  password: process.env.DATABASE_PASSWORD ?? '',
-  database: process.env.DATABASE_NAME ?? 'ticketbox',
+  host: process.env.DATABASE_HOST,
+  port: parseInt(process.env.DATABASE_PORT || '5432'),
+  username: process.env.DATABASE_USERNAME,
+  password: process.env.DATABASE_PASSWORD,
+  database: process.env.DATABASE_NAME,
   synchronize: false,
-  logging: process.env.NODE_ENV === 'development',
-  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  migrations: [__dirname + '/migrations/*{.ts,.js}'],
-  migrationsTableName: 'typeorm_migrations',
+  entities: [join(process.cwd(), 'src/**/*.entity{.ts,.js}')], // Trỏ thẳng vào file ts
+  migrations: [join(process.cwd(), 'src/database/migrations/**/*{.ts,.js}')],
 });
