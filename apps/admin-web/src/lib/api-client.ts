@@ -30,6 +30,22 @@ apiClient.interceptors.request.use((config) => {
       config.headers.Authorization = `Bearer ${token}`;
     }
   }
+
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData && config.headers) {
+    const headers = config.headers as {
+      set?: (name: string, value: string | undefined) => void;
+      [key: string]: unknown;
+    };
+
+    if (typeof headers.set === 'function') {
+      headers.set('Content-Type', undefined);
+      headers.set('content-type', undefined);
+    } else {
+      delete headers['Content-Type'];
+      delete headers['content-type'];
+    }
+  }
+
   return config;
 });
 

@@ -1,8 +1,11 @@
 export interface Artist {
   id: string;
   name: string;
-  bio?: string;
-  imageUrl?: string;
+  shortBio?: string | null;
+  avatarUrl?: string | null;
+  avatarObjectKey?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Venue {

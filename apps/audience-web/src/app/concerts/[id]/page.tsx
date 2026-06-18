@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   ArrowClockwise,
   ArrowLeft,
+  ArrowRight,
   CalendarBlank,
   Info,
   MusicNotes,
@@ -134,6 +135,7 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
   const [tickets, setTickets] = useState<TicketSummary[]>([]);
   const [svgMarkup, setSvgMarkup] = useState<string | null>(null);
   const [svgError, setSvgError] = useState(false);
+  const [bannerError, setBannerError] = useState(false);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -158,6 +160,7 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
     setSubmitError([]);
     setSubmitSuccess(null);
     setArtist(null);
+    setBannerError(false);
 
     try {
       const concertData = await concertService.getConcert(id);
@@ -170,6 +173,7 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
         setTickets([]);
         setSvgMarkup(null);
         setSvgError(false);
+        setBannerError(false);
         setState("empty");
         setErrorMessage("Concert này đã bị hủy.");
         return;
@@ -216,6 +220,7 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
       setTickets([]);
       setSvgMarkup(null);
       setSvgError(false);
+      setBannerError(false);
       setState("error");
       setErrorMessage(
         status === 404
@@ -445,7 +450,7 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
               </h1>
 
               <p className="mt-5 max-w-2xl text-base leading-7 text-white/72 sm:text-lg">
-                {concert?.description || "Mở concert để xem bio nghệ sĩ, seat map SVG thật, ticket type khả dụng và giữ vé theo giới hạn mua."}
+                {concert?.description || "Mở sự kiện để xem nghệ sĩ, sơ đồ chỗ ngồi, loại vé khả dụng và giữ vé theo giới hạn mua."}
               </p>
             </div>
 
@@ -519,15 +524,16 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
           )}
 
           {state === "ready" && concert && (
-            <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+            <div className="grid gap-6 xl:grid-cols-[1.42fr_0.58fr]">
               <div className="space-y-6">
                 <article className="overflow-hidden rounded-[32px] border border-white/10 bg-white/5 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
                   <div className="relative aspect-[16/9] bg-zinc-900">
-                    {concert.bannerUrl ? (
+                    {concert.bannerUrl && !bannerError ? (
                       <img
                         src={concert.bannerUrl}
                         alt={concert.name}
                         className="h-full w-full object-cover"
+                        onError={() => setBannerError(true)}
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,#f97316_0%,#0f172a_42%,#020617_100%)]">
@@ -539,7 +545,7 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
 
                     <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/30 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/90 backdrop-blur-md">
                       <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                      PUBLISHED
+                      Đang mở bán
                     </div>
 
                     <div className="absolute inset-x-0 bottom-0 p-5">
@@ -563,8 +569,12 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                       <p className="mt-2 line-clamp-2 text-sm font-semibold text-white">{concert.venue || "Đang cập nhật"}</p>
                     </div>
                     <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.22em] text-white/55">Seat map</p>
-                      <p className="mt-2 text-sm font-semibold text-white">{seatMap?.zones.length ? `${seatMap.zones.length} zones` : "Chưa có"}</p>
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-white/55">Sơ đồ chỗ ngồi</p>
+                      <div className="mt-2 flex min-h-[56px] items-center justify-center rounded-[16px] border border-white/10 bg-black/20 px-3 py-2 text-center">
+                        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-white">
+                          {seatMap?.zones.length ? `${seatMap.zones.length} khu vực` : "Chưa có"}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </article>
@@ -575,24 +585,65 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                       <Info size={22} className="text-white/85" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-white">Artist bio published</h3>
-                      <p className="text-sm text-white/60">Chỉ hiển thị dữ liệu từ API artist.</p>
+                      <h3 className="text-xl font-semibold text-white">Bio nghệ sĩ</h3>
+                      <p className="text-sm text-white/60">Chỉ hiển thị nội dung công khai của nghệ sĩ.</p>
                     </div>
                   </div>
 
-                  <div className="mt-5 rounded-[24px] border border-dashed border-white/10 bg-white/5 p-5 text-sm text-white/60">
-                    {artist?.description?.trim()
-                      ? artist.description
-                      : "Bio published chưa có nội dung từ API artist. Khối này sẽ không hiển thị nội dung draft."}
-                  </div>
+                  {artist ? (
+                    <div className="mt-5 grid gap-5 lg:grid-cols-[176px_1fr]">
+                      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/5">
+                        {artist.avatarUrl ? (
+                          <img
+                            src={artist.avatarUrl}
+                            alt={artist.name}
+                            className="h-full min-h-[220px] w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex min-h-[220px] items-center justify-center bg-[radial-gradient(circle_at_top,#f97316_0%,#0f172a_52%,#020617_100%)]">
+                            <MusicNotes size={36} weight="light" className="text-white/70" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="rounded-[24px] border border-dashed border-white/10 bg-white/5 p-5">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Nghệ sĩ</p>
+                          <h4 className="mt-2 text-2xl font-semibold text-white">{artist.name}</h4>
+                          <p className="mt-3 text-sm leading-7 text-white/70">
+                            {artist.shortBio?.trim() || artist.description?.trim() || 'Nghệ sĩ này chưa có bio công khai.'}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.18em] text-white/55">
+                          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                            {artist.shortBio?.trim() ? 'Bio sẵn sàng' : 'Chưa có bio'}
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                            {artist.avatarUrl ? 'Ảnh sẵn sàng' : 'Chưa có ảnh'}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-3">
+                          <Link
+                            href={`/artists/${artist.id}`}
+                            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5"
+                          >
+                            Xem nghệ sĩ
+                            <ArrowRight size={16} weight="bold" />
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                 </article>
 
                 <article className="rounded-[32px] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-xl font-semibold text-white">Seat map SVG tương tác</h3>
+                      <h3 className="text-xl font-semibold text-white">Sơ đồ chỗ ngồi tương tác</h3>
                       <p className="mt-1 text-sm text-white/60">
-                        Chọn zone trực tiếp từ SVG hoặc từ danh sách bên dưới để xem ticket type, giá và giới hạn mua.
+                        Chọn khu vực trực tiếp trên sơ đồ hoặc từ danh sách bên dưới để xem loại vé, giá và giới hạn mua.
                       </p>
                     </div>
                     <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.18em] text-white/60">
@@ -600,29 +651,29 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+                  <div className="mt-5 space-y-5">
                     <div className="overflow-hidden rounded-[24px] border border-white/10 bg-zinc-950/70">
                       {svgMarkup ? (
                         <div
                           ref={svgContainerRef}
-                          className="min-h-[320px] w-full overflow-auto p-4 [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-full"
+                          className="min-h-[520px] w-full overflow-auto p-5 [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-full [&_svg]:min-h-[520px]"
                           dangerouslySetInnerHTML={{ __html: svgMarkup }}
                         />
                       ) : seatMap?.svgUrl && !svgError ? (
                         <img
                           src={seatMap.svgUrl}
                           alt="Seat map"
-                          className="h-full w-full object-contain"
+                          className="h-full min-h-[520px] w-full object-contain"
                           onError={() => setSvgError(true)}
                         />
                       ) : (
-                        <div className="flex min-h-[320px] items-center justify-center bg-white/5 text-white/55">
-                          {svgError ? "Không thể hiển thị SVG seat map." : "Seat map chưa được upload"}
+                        <div className="flex min-h-[520px] items-center justify-center bg-white/5 text-white/55">
+                          {svgError ? "Không thể hiển thị sơ đồ chỗ ngồi." : "Chưa có sơ đồ chỗ ngồi"}
                         </div>
                       )}
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="grid gap-3 md:grid-cols-2">
                       {seatMap?.zones.length ? (
                         seatMap.zones.map((zone) => {
                           const ticketType = ticketTypes.find((item) => item.id === zone.ticketTypeId) ?? null;
@@ -651,8 +702,8 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                                     {zone.id}
                                   </p>
                                 </div>
-                                <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white/60">
-                                  {ticketType?.name ?? "Unmapped"}
+                                <div className="min-w-[96px] rounded-full border border-white/10 bg-white/5 px-3 py-2 text-center text-[11px] uppercase tracking-[0.22em] text-white/60">
+                                  {ticketType?.name ?? "Chưa gán"}
                                 </div>
                               </div>
 
@@ -671,7 +722,7 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                         })
                       ) : (
                         <div className="rounded-[24px] border border-dashed border-white/10 bg-white/5 p-5 text-sm text-white/60">
-                          Chưa có zone nào được cấu hình cho seat map này.
+                          Chưa có khu vực nào được cấu hình cho sơ đồ này.
                         </div>
                       )}
                     </div>
@@ -686,15 +737,15 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                       <Ticket size={22} className="text-white/85" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-white">Ticket selection</h3>
-                      <p className="text-sm text-white/60">Chọn số lượng trong giới hạn `max_per_user` và tồn kho thật.</p>
+                      <h3 className="text-xl font-semibold text-white">Chọn vé</h3>
+                      <p className="text-sm text-white/60">Chọn số lượng trong giới hạn cho phép và tồn kho hiện có.</p>
                     </div>
                   </div>
 
                   {selectedTicketType ? (
                     <div className="mt-5 space-y-4">
                       <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
-                        <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Ticket type</p>
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Loại vé</p>
                         <p className="mt-2 text-lg font-semibold text-white">{selectedTicketType.name}</p>
                         <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/70">
                           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
@@ -704,7 +755,7 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                             Max/user {selectedTicketType.maxPerUser}
                           </span>
                           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                            Available {selectedTicketType.availableQuantity}
+                            Còn {selectedTicketType.availableQuantity}
                           </span>
                         </div>
                       </div>
@@ -787,14 +838,14 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                         <div className="rounded-[24px] border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
                           <p className="font-semibold">Zone đang chọn: {selectedZone.name}</p>
                           <p className="mt-1 text-amber-100/75">
-                            {selectedZone.ticketTypeId ? "Zone này đã map với ticket type thật." : "Zone chưa được map."}
+                            {selectedZone.ticketTypeId ? "Zone này đã được gán loại vé." : "Zone chưa được gán."}
                           </p>
                         </div>
                       ) : null}
 
                       {submitError.length > 0 ? (
                         <div className="rounded-[24px] border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-100">
-                          <p className="font-semibold">Backend error</p>
+                          <p className="font-semibold">Lỗi</p>
                           <ul className="mt-2 list-disc space-y-1 pl-5">
                             {submitError.map((message) => (
                               <li key={message}>{message}</li>
@@ -821,15 +872,15 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                     </div>
                   ) : (
                     <div className="mt-5 rounded-[24px] border border-dashed border-white/10 bg-white/5 p-5 text-sm text-white/60">
-                      Chưa có ticket type khả dụng. Vui lòng chờ admin cấu hình ticket type và seat map.
+                      Chưa có loại vé khả dụng. Vui lòng chờ admin cấu hình thêm.
                     </div>
                   )}
                 </article>
 
                 <article className="rounded-[32px] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
-                  <h3 className="text-xl font-semibold text-white">Availability thật từ API</h3>
+                      <h3 className="text-xl font-semibold text-white">Số lượng vé còn lại</h3>
                   <p className="mt-2 text-sm text-white/60">
-                    Những giá trị này được lấy từ backend và không dùng dữ liệu giả local.
+                    Thông tin này được cập nhật theo dữ liệu mới nhất.
                   </p>
 
                   <div className="mt-5 space-y-3">
@@ -856,7 +907,7 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                             <div>
                               <p className="text-sm font-semibold text-white">{ticketType.name}</p>
                               <p className="mt-1 text-xs text-white/50">
-                                {ticketType.status === "AVAILABLE" ? "Available" : "Sold out"}
+                                {ticketType.status === "AVAILABLE" ? "Còn vé" : "Hết vé"}
                               </p>
                             </div>
                             <p className="text-sm font-semibold text-white">{formatCurrency(ticketType.price)}</p>

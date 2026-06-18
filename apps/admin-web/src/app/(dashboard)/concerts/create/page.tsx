@@ -31,6 +31,7 @@ export default function CreateConcertPage() {
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
   const [bannerFileName, setBannerFileName] = useState<string | null>(null);
   const [bannerObjectKey, setBannerObjectKey] = useState<string | null>(null);
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string | null>(null);
   const [serverErrors, setServerErrors] = useState<string[] | null>(null);
 
   const {
@@ -47,7 +48,7 @@ export default function CreateConcertPage() {
         const aData = await concertService.getArtists();
         setArtists(aData);
       } catch (err) {
-        console.error('Failed to load form metadata. Please ensure backend is running.', err);
+        console.error('Failed to load form metadata.', err);
       }
     }
     loadMeta();
@@ -57,6 +58,10 @@ export default function CreateConcertPage() {
     if (!file) return;
     setIsUploadingBanner(true);
     setServerErrors(null);
+    if (bannerPreviewUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(bannerPreviewUrl);
+    }
+    setBannerPreviewUrl(URL.createObjectURL(file));
     try {
       const objectKey = await concertService.uploadBannerAsset(file);
       setBannerFileName(file.name);
@@ -236,21 +241,33 @@ export default function CreateConcertPage() {
                 onChange={(event) => handleBannerUpload(event.target.files?.[0])}
                 className="block w-full text-sm text-muted file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-surface hover:file:opacity-90"
               />
+              <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
+                {bannerPreviewUrl ? (
+                  <img src={bannerPreviewUrl} alt="Banner preview" className="h-56 w-full object-cover" />
+                ) : (
+                  <div className="flex h-56 items-center justify-center px-4 text-center text-sm text-muted">
+                    Chưa chọn banner. Chọn file để xem preview ngay tại đây.
+                  </div>
+                )}
+              </div>
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
                 {isUploadingBanner ? (
                   <>
                     <SpinnerGap size={14} className="animate-spin" />
-                    <span>Uploading banner...</span>
+                    <span>Đang tải ảnh bìa...</span>
                   </>
                 ) : bannerObjectKey ? (
                   <>
                     <CheckCircle size={14} className="text-emerald-600" />
-                    <span>Banner uploaded: {bannerFileName}</span>
+                    <span>Đã chọn ảnh bìa: {bannerFileName}</span>
+                    <span className="rounded-full border border-border bg-background px-2 py-1 text-[11px] text-primary">
+                      {bannerObjectKey}
+                    </span>
                   </>
                 ) : (
                   <>
                     <UploadSimple size={14} />
-                    <span>Upload banner now so the concert can be published later.</span>
+                    <span>Chọn ảnh bìa ngay để sự kiện sẵn sàng mở bán.</span>
                   </>
                 )}
               </div>

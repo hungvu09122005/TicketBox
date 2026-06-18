@@ -23,6 +23,12 @@ export async function seedUsers(dataSource: DataSource) {
       password: process.env.SEED_ORGANIZER_PASSWORD ?? 'Organizer@123456',
     },
     {
+      role: Role.CHECKIN_STAFF,
+      email: process.env.SEED_STAFF_EMAIL ?? 'staff@ticketbox.local',
+      name: process.env.SEED_STAFF_NAME ?? 'Check-in Staff',
+      password: process.env.SEED_STAFF_PASSWORD ?? 'Staff@123456',
+    },
+    {
       role: Role.AUDIENCE,
       email: process.env.SEED_AUDIENCE_EMAIL ?? 'audience@ticketbox.local',
       name: process.env.SEED_AUDIENCE_NAME ?? 'Audience User',

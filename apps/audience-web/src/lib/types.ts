@@ -8,6 +8,7 @@ export interface PublicArtistDetail {
   id: string;
   name: string;
   description?: string | null;
+  shortBio?: string | null;
   avatarUrl?: string | null;
 }
 

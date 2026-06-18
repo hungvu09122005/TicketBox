@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Controller, Post, Get, Param, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { StorageService } from './storage.service';
 
@@ -10,7 +10,7 @@ export class StorageController {
   @UseInterceptors(FileInterceptor('file'))
   async testUpload(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
-      return { success: false, message: 'No file provided' };
+      throw new BadRequestException('No file provided');
     }
     
     const objectName = `test/${Date.now()}-${file.originalname}`;
@@ -37,4 +37,3 @@ export class StorageController {
     };
   }
 }
-

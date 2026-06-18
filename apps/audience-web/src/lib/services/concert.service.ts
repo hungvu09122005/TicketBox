@@ -36,7 +36,10 @@ export const concertService = {
     }
 
     const payload = (await response.json()) as { data: PublicArtistDetail };
-    return payload.data;
+    return {
+      ...payload.data,
+      description: payload.data.description ?? payload.data.shortBio ?? null,
+    };
   },
 
   getSeatMap: async (concertId: string): Promise<SeatMapResponse> => {

@@ -34,7 +34,7 @@ export const concertService = {
     formData.append('file', file);
 
     const response = await apiClient.post('/storage/test-upload', formData);
-    return response.data.objectName as string;
+    return (response.data.data?.objectName ?? response.data.objectName) as string;
   },
 
   // Metadata loaders for form
