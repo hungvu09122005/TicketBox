@@ -3,6 +3,9 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { ConcertsRepository } from './concerts.repository';
+import { SeatZoneRepository } from './seat-zone.repository';
+import { Concert, ConcertStatus } from './entities/concert.entity';
+import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../common/ports/object-storage.port';
 
 import { Concert, ConcertStatus } from './entities/concert.entity';
 import { CreateConcertDto } from './dto/create-concert.dto';

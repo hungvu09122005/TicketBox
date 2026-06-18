@@ -1,12 +1,17 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { DataSource } from 'typeorm';
+import { seedRbac } from './seed-rbac';
 import { Ticket, TicketStatus } from '../modules/tickets/entities/ticket.entity';
 
 async function seed() {
   const appContext = await NestFactory.createApplicationContext(AppModule);
   const dataSource = appContext.get(DataSource);
 
+  // Seed RBAC data
+  await seedRbac(dataSource);
+
+  
   const ticketRepo = dataSource.getRepository(Ticket);
   
   // Dữ liệu thật, đúng định dạng Entity
