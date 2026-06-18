@@ -17,7 +17,7 @@ import { NOTIFICATION_PORT } from '../../common/ports/notification.port';
  *   - Standalone module (no domain module dependencies).
  *   - NotificationPort fulfilled by SendgridAdapter (real SendGrid sandbox).
  *   - NotificationsService exported for PaymentsModule + CsvImportModule.
- *   - ReminderScheduler: BullMQ repeatable job, runs hourly, idempotent.
+ *   - ReminderScheduler: bullMQ repeatable job, runs hourly, idempotent.
  *   - UNIQUE(ticketId, type, channel) in DB prevents duplicate delivery.
  */
 @Module({

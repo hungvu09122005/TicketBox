@@ -10,7 +10,7 @@ export default registerAs('app', () => ({
     host: process.env.DATABASE_HOST ?? 'localhost',
     port: parseInt(process.env.DATABASE_PORT ?? '5432', 10),
     username: process.env.DATABASE_USERNAME ?? 'ticketbox',
-    password: process.env.DATABASE_PASSWORD ?? '',
+    password: process.env.DATABASE_PASSWORD ?? 'ticketbox_dev',
     name: process.env.DATABASE_NAME ?? 'ticketbox',
 
     poolMin: parseInt(process.env.DATABASE_POOL_MIN ?? '2', 10),

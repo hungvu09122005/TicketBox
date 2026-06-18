@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
+
 import { AiBioRequest } from './entities/ai-bio-request.entity';
 import { AiBioController } from './ai-bio.controller';
 import { AiBioService } from './ai-bio.service';

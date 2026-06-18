@@ -19,7 +19,7 @@ import { StorageModule } from '../storage/storage.module';
  *   - Imports TicketsModule → TicketsService.issueVipTicket()
  *   - Imports NotificationsModule → NotificationsService.enqueueVipWelcome()
  *   - CSV binary in Object Storage (key in csv_import_jobs.object_key)
- *   - All processing async via BullMQ queue 'csv-import'
+ *   - All processing async via bullMQ queue 'csv-import'
  */
 @Module({
   imports: [

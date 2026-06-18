@@ -1,6 +1,6 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { BullModule } from '@nestjs/bull';
+import { BullModule, Processor } from '@nestjs/bull';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule } from '@nestjs/throttler';
 import * as redisStore from 'cache-manager-ioredis';
@@ -28,6 +28,7 @@ import { StorageModule } from './modules/storage/storage.module';
 
 // Middlewares
 import { RequestIdMiddleware } from './common/middlewares/request-id.middleware';
+import { BootstrapService } from '@database/bootstrap.service';
 
 /**
  * AppModule — root module registering all infrastructure and domain modules.
@@ -57,7 +58,7 @@ import { RequestIdMiddleware } from './common/middlewares/request-id.middleware'
 
     BullModule.forRootAsync({
       useFactory: () => ({
-        redis: {
+        redis: { // Đổi 'connection' thành 'redis'
           host: process.env.REDIS_HOST ?? 'localhost',
           port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
           password: process.env.REDIS_PASSWORD || undefined,
@@ -101,6 +102,9 @@ import { RequestIdMiddleware } from './common/middlewares/request-id.middleware'
     NotificationsModule,
     ReportingModule,
   ],
+
+  providers: [BootstrapService],
+
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

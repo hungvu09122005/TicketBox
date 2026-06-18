@@ -8,7 +8,7 @@ import { Permission } from '../../common/constants/permissions.enum';
 import { PaymentsService } from './payments.service';
 
 @ApiTags('payments')
-@Controller('api/v1/payments')
+@Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
