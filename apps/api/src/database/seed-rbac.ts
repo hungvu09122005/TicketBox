@@ -7,21 +7,29 @@ export async function seedRbac(dataSource: DataSource) {
   const permRepo = dataSource.getRepository(Permission);
 
   const permissions = [
-    { name: 'TICKET_CREATE' },
-    { name: 'TICKET_VALIDATE' },
-    { name: 'CONCERT_MANAGE' },
-    { name: 'USER_BAN' }
+    { name: 'Create Ticket', code: 'TICKET_CREATE' },
+    { name: 'Validate Ticket', code: 'TICKET_VALIDATE' },
+    { name: 'Manage Concert', code: 'CONCERT_MANAGE' },
+    { name: 'Ban User', code: 'USER_BAN' }
   ];
 
-  const savedPermissions = await permRepo.save(permissions);
-  console.log('✅ Permissions seeded:', savedPermissions.length);
+  for (const permData of permissions) {
+    // Tìm xem đã tồn tại chưa
+    const existing = await permRepo.findOne({ where: { code: permData.code } });
+    if (!existing) {
+      await permRepo.save(permData);
+      console.log(`✅ Created permission: ${permData.code}`);
+    }
+  }
 
-  const roles = [
-    { name: 'ADMIN', permissions: savedPermissions },
-    { name: 'STAFF', permissions: savedPermissions.filter(p => p.name === 'TICKET_VALIDATE') },
-    { name: 'AUDIENCE', permissions: [] }
-  ];
+  // Tương tự với Roles
+  const roles = ['ADMIN', 'STAFF', 'AUDIENCE'];
+  for (const roleName of roles) {
+    const existing = await roleRepo.findOne({ where: { name: roleName } });
+    if (!existing) {
+      await roleRepo.save({ name: roleName });
+      console.log(`✅ Created role: ${roleName}`);
+    }
+  }
 
-  await roleRepo.save(roles);
-  console.log('✅ Roles seeded successfully!');
 }

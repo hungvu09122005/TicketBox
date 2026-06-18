@@ -1,6 +1,6 @@
 import { Controller, Post, Patch, Param, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -10,7 +10,7 @@ import { AiBioService } from './ai-bio.service';
 
 @ApiTags('ai-bio')
 @ApiBearerAuth()
-@Controller('api/v1/ai/artist-bio')
+@Controller('api/artist-bio')
 @UseGuards(JwtAuthGuard, RbacGuard)
 export class AiBioController {
   constructor(private readonly aiBioService: AiBioService) {}
@@ -19,15 +19,28 @@ export class AiBioController {
   @RequirePermissions(Permission.AI_GENERATE_BIO)
   @UseInterceptors(FileInterceptor('pdf'))
   @ApiConsumes('multipart/form-data')
-  uploadPdf(@UploadedFile() file: Express.Multer.File, @CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 7: validate PDF MIME + size → AiBioService.createRequest()
-    return { message: 'Not implemented — Phase 7' };
-  }
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        pdf: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async uploadPdf(
+    @UploadedFile() file: Express.Multer.File, 
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    // 1. Kiểm tra file có tồn tại không
+    if (!file) {
+      throw new Error('PDF file is required');
+    }
 
-  @Patch(':id/publish')
-  @RequirePermissions(Permission.AI_GENERATE_BIO)
-  publish(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 7: AiBioService.publishDraft() — never auto-publishes
-    return { message: 'Not implemented — Phase 7' };
+    // 2. Gọi Service để xử lý
+    // Lưu ý: artistId cần được truyền từ client hoặc lấy từ logic nghiệp vụ
+    return await this.aiBioService.createRequest(file, 'your-artist-id', user.sub);
   }
 }

@@ -17,7 +17,7 @@ export class OrdersService {
     private readonly orderRepo: Repository<Order>,
     private readonly concertsService: ConcertsService,
     private readonly ticketTypesService: TicketTypesService,
-    @InjectQueue('orders') 
+    @InjectQueue('orders-expiry') 
     private readonly ordersQueue: Queue,
   ) {}
 
@@ -113,5 +113,9 @@ export class OrdersService {
         await this.ticketTypesService.releaseInventory(order.ticketTypeId, order.quantity, manager);
       }
     });
+  }
+
+  async findOne(id: string): Promise<Order | null> {
+    return await this.orderRepo.findOne({ where: { id } });
   }
 }
