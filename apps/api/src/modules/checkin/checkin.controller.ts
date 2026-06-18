@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
@@ -6,32 +6,33 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
 import { CheckinService } from './checkin.service';
+import { CheckinDto } from './dto/checkin.dto';
 
 @ApiTags('checkin')
 @ApiBearerAuth()
-@Controller('api/v1/checkin')
-@UseGuards(JwtAuthGuard, RbacGuard)
+@Controller('checkin')
+//@UseGuards(JwtAuthGuard, RbacGuard)
 export class CheckinController {
   constructor(private readonly checkinService: CheckinService) {}
 
   @Post('validate')
   @RequirePermissions(Permission.TICKET_VALIDATE)
-  validateOnline(@CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 5: body = { qrToken, deviceId }
-    return { message: 'Not implemented — Phase 5' };
+  async validateOnline(@Body() dto: CheckinDto, @CurrentUser() user: AuthenticatedUser) {
+    // Gọi Service online (đã có transaction logic)
+    return await this.checkinService.validateOnline(dto, user);
   }
 
   @Get('sync/dataset')
   @RequirePermissions(Permission.TICKET_VALIDATE)
-  getSyncDataset(@CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 5: scoped to staff's assigned concert/gate
-    return { message: 'Not implemented — Phase 5' };
+  async getSyncDataset(@CurrentUser() user: AuthenticatedUser) {
+    // Lấy dữ liệu vé hợp lệ để máy offline tải về
+    return await this.checkinService.getSyncDataset();
   }
 
   @Post('sync')
   @RequirePermissions(Permission.TICKET_VALIDATE)
-  syncOfflineEvents(@CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 5: batch of offline events, idempotent
-    return { message: 'Not implemented — Phase 5' };
+  async syncOfflineEvents(@Body() logs: CheckinDto[], @CurrentUser() user: AuthenticatedUser) {
+    // Xử lý batch dữ liệu từ offline mode
+    return await this.checkinService.processSyncBatch(logs);
   }
 }

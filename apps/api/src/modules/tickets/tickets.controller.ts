@@ -6,6 +6,7 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
 import { TicketsService } from './tickets.service';
+import { Query } from '@nestjs/common';
 
 @ApiTags('tickets')
 @ApiBearerAuth()
@@ -19,4 +20,13 @@ export class TicketsController {
   findMine(@CurrentUser() user: AuthenticatedUser) {
     return this.ticketsService.findMine(user.sub);
   }
+
+  @Get()
+  @RequirePermissions(Permission.TICKET_VIEW_OWN) // Hoặc quyền quản trị tùy theo dự án
+  async findAll(@Query('concertId') concertId: string) {
+    // Gọi service để lấy vé theo concertId
+    return await this.ticketsService.findByConcert(concertId);
+  }
+
+  
 }

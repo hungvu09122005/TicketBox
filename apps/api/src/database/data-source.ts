@@ -1,6 +1,7 @@
+import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
-import { resolve } from 'path';
+import { join, resolve } from 'path';
 
 dotenv.config({ path: resolve(process.cwd(), '.env') });
 

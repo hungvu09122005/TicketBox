@@ -1,13 +1,16 @@
 import { 
-  Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Query, DefaultValuePipe, ParseIntPipe
+  Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, 
+  UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator 
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard, OptionalJwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
 import { ConcertsService } from './concerts.service';
+import { Multer } from 'multer';
 import { CreateConcertDto } from './dto/create-concert.dto';
 import { UpdateConcertDto } from './dto/update-concert.dto';
 
@@ -39,7 +42,33 @@ export class ConcertsController {
     return this.concertsService.findById(id);
   }
 
-
+  // --- Logic Upload SeatMap cho Task 6 ---
+  @Post(':concertId/zones/:zoneId/seat-map')
+  @RequirePermissions(Permission.CONCERT_UPDATE)
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadSeatMap(
+    @Param('zoneId') zoneId: string,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 2 }), // Giới hạn 2MB
+          new FileTypeValidator({ fileType: 'image/svg+xml' }),   // Chỉ nhận SVG
+        ],
+      }),
+    ) file: Express.Multer.File,
+  ) {
+    return await this.concertsService.uploadSeatMap(zoneId, file);
+  }
+  // --------------------------------------
 
   @Post()
   @UseGuards(JwtAuthGuard, RbacGuard)

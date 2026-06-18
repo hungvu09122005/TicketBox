@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CheckinLog } from './entities/checkin-log.entity';
 import { CheckinController } from './checkin.controller';
 import { CheckinService } from './checkin.service';
-import { CheckinRepository } from './checkin.repository';
+//import { CheckinRepository } from './checkin.repository';
 import { TicketsModule } from '../tickets/tickets.module';
 
 /**
@@ -18,6 +18,6 @@ import { TicketsModule } from '../tickets/tickets.module';
 @Module({
   imports: [TypeOrmModule.forFeature([CheckinLog]), TicketsModule],
   controllers: [CheckinController],
-  providers: [CheckinService, CheckinRepository],
+  providers: [CheckinService],
 })
 export class CheckinModule {}
