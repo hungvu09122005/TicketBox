@@ -12,7 +12,7 @@ import { CommonModule } from '../../common/common.module'; // Import CommonModul
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Concert, SeatZone, TicketType]), // Đăng ký các entities
+    TypeOrmModule.forFeature([Concert]), // Đăng ký các entities
     ArtistsModule,
     CommonModule, // Quan trọng: để dùng được OBJECT_STORAGE_PORT
   ],

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, MoreThanOrEqual, LessThan } from 'typeorm';
 import { Concert, ConcertStatus } from './entities/concert.entity';
 
 @Injectable()
@@ -10,10 +10,25 @@ export class ConcertsRepository {
     private readonly repo: Repository<Concert>,
   ) {}
 
-  findPublished(): Promise<Concert[]> {
+  findPublished(
+    page: number = 1,
+    limit: number = 10,
+    timeFilter?: 'upcoming' | 'past'
+  ): Promise<Concert[]> {
+    const whereCondition: any = { status: ConcertStatus.PUBLISHED };
+    
+    if (timeFilter === 'upcoming') {
+      whereCondition.startsAt = MoreThanOrEqual(new Date());
+    } else if (timeFilter === 'past') {
+      whereCondition.startsAt = LessThan(new Date());
+    }
+
     return this.repo.find({
-      where: { status: ConcertStatus.PUBLISHED },
-      order: { startsAt: 'ASC' },
+      where: whereCondition,
+      relations: ['artist'],
+      order: { startsAt: timeFilter === 'past' ? 'DESC' : 'ASC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
   }
 
@@ -21,8 +36,17 @@ export class ConcertsRepository {
     return this.repo.findOne({ where: { id }, relations: ['artist'] });
   }
 
+  findByIdAndOrganizer(id: string, organizerId: string, isAdmin: boolean): Promise<Concert | null> {
+    const whereCondition = isAdmin ? { id } : { id, organizerId };
+    return this.repo.findOne({ where: whereCondition, relations: ['artist'] });
+  }
+
   findByOrganizer(organizerId: string): Promise<Concert[]> {
-    return this.repo.find({ where: { organizerId } });
+    return this.repo.find({
+      where: { organizerId },
+      relations: ['artist'],
+      order: { startsAt: 'ASC' },
+    });
   }
 
   create(data: Partial<Concert>): Promise<Concert> {

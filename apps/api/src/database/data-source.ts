@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import 'tsconfig-paths/register';
 import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 import { join, resolve } from 'path';
@@ -13,6 +14,6 @@ export const AppDataSource = new DataSource({
   password: process.env.DATABASE_PASSWORD,
   database: process.env.DATABASE_NAME,
   synchronize: false,
-  entities: [resolve(process.cwd(), 'src/modules/**/*.entity{.ts,.js}')],
-  migrations: [resolve(process.cwd(), 'src/database/migrations/*{.ts,.js}')],
+  entities: ['src/**/*.entity.ts'], // Trỏ thẳng vào file ts
+  migrations: ['src/migrations/*.ts'],
 });

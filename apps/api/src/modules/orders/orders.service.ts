@@ -21,9 +21,6 @@ export class OrdersService {
     private readonly ordersQueue: Queue,
   ) {}
 
-  /**
-   * Tạo đơn hàng với Pessimistic Locking để chống oversell
-   */
   async createOrder(dto: CreateOrderDto, userId: string) {
     return await this.dataSource.transaction(async (manager) => {
       // 1. Kiểm tra trạng thái concert
@@ -36,7 +33,20 @@ export class OrdersService {
         manager
       );
 
-      // 3. Khởi tạo và lưu đơn hàng trong transaction
+      // 3. Kiểm tra limit người dùng
+      const existingOrders = await manager.createQueryBuilder(Order, 'order')
+        .select('SUM(order.quantity)', 'total')
+        .where('order.userId = :userId', { userId })
+        .andWhere('order.ticketTypeId = :ticketTypeId', { ticketTypeId: dto.ticketTypeId })
+        .andWhere('order.status IN (:...statuses)', { statuses: [OrderStatus.PENDING_PAYMENT, OrderStatus.PAID] })
+        .getRawOne();
+      
+      const boughtQuantity = parseInt(existingOrders?.total || '0', 10);
+      if (boughtQuantity + dto.quantity > ticketType.maxPerUser) {
+        throw new ConflictException(`Bạn chỉ được mua tối đa ${ticketType.maxPerUser} vé loại này.`);
+      }
+
+      // 4. Khởi tạo và lưu đơn hàng trong transaction
       const order = new Order();
       order.userId = userId;
       order.concertId = dto.concertId;
@@ -44,13 +54,14 @@ export class OrdersService {
       order.quantity = dto.quantity;
       order.totalAmount = Number(ticketType.price) * dto.quantity;
       order.status = OrderStatus.PENDING_PAYMENT;
+      order.expiresAt = new Date(Date.now() + 10 * 60 * 1000); // +10 phút
 
       const savedOrder = await manager.save(order);
 
-      // 4. Enqueue job hủy đơn tự động sau 15 phút
+      // 5. Enqueue job hủy đơn tự động sau 10 phút
       await this.ordersQueue.add('expire-order', 
         { orderId: savedOrder.id }, 
-        { delay: 15 * 60 * 1000 }
+        { delay: 10 * 60 * 1000 }
       );
 
       return savedOrder;

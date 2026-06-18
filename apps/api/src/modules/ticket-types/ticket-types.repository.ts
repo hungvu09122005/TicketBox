@@ -17,4 +17,14 @@ export class TicketTypesRepository {
   async findOne(options: any): Promise<TicketType | null> {
     return await this.repo.findOne(options);
   }
+
+  async createTicketType(data: Partial<TicketType>): Promise<TicketType> {
+    const ticketType = this.repo.create(data);
+    return await this.repo.save(ticketType);
+  }
+
+  async updateTicketType(id: string, data: Partial<TicketType>): Promise<TicketType> {
+    await this.repo.update(id, data);
+    return (await this.repo.findOne({ where: { id } }))!;
+  }
 }

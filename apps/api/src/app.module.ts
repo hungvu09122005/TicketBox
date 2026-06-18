@@ -67,7 +67,7 @@ import { BootstrapService } from '@database/bootstrap.service';
     }),
 
     QueueModule,
-    
+
     CacheModule.registerAsync({
       isGlobal: true,
       useFactory: () => ({

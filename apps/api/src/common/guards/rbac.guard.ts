@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  UnauthorizedException,
   Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -11,6 +12,8 @@ import { Cache } from 'cache-manager';
 import { DataSource } from 'typeorm';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { Permission } from '../constants/permissions.enum';
+import { Role } from '../constants/roles.enum';
+import { ROLE_PERMISSIONS_MAPPING } from '../constants/role-permissions.mapping';
 import { AuthenticatedUser } from '../decorators/current-user.decorator';
 
 /**
@@ -19,7 +22,7 @@ import { AuthenticatedUser } from '../decorators/current-user.decorator';
  * Authorization flow per request:
  *   1. Read required permissions from route metadata (@RequirePermissions).
  *   2. Resolve user's permissions via Redis cache keyed by userId + permissionVersion.
- *   3. On cache miss: query PostgreSQL user_roles → role_permissions → permissions.
+ *   3. On cache miss: query PostgreSQL users -> roles -> map to permissions.
  *   4. Compare required vs. actual permissions.
  *   5. Return 403 Forbidden if insufficient.
  *
@@ -53,8 +56,14 @@ export class RbacGuard implements CanActivate {
     let userPermissions: string[] | undefined = await this.cache.get<string[]>(cacheKey);
 
     if (!userPermissions) {
-      // Cache miss — load from PostgreSQL
-      userPermissions = await this.loadPermissionsFromDb(user.sub);
+      // Cache miss — load from PostgreSQL and map to permissions
+      const { permissions, permissionVersion } = await this.loadUserAndPermissionsFromDb(user.sub);
+      
+      if (permissionVersion > user.permissionVersion) {
+        throw new UnauthorizedException('Token permissions expired. Please login again.');
+      }
+
+      userPermissions = permissions;
       // Cache for ~5 minutes; immediate invalidation happens on RBAC change via cache.del()
       await this.cache.set(cacheKey, userPermissions, 300_000);
     }
@@ -69,27 +78,33 @@ export class RbacGuard implements CanActivate {
     return true;
   }
 
-  private async loadPermissionsFromDb(userId: string): Promise<string[]> {
-    // 1. Định nghĩa câu SQL khớp 100% với tên cột trong Database của bạn
-    const sql = `
-      SELECT DISTINCT p.code
+  private async loadUserAndPermissionsFromDb(userId: string): Promise<{ permissions: string[], permissionVersion: number }> {
+    const rows = await this.dataSource.query<{ permission_version: number, permission_name: string }[]>(
+      `
+      SELECT u.permission_version, p.name AS permission_name
       FROM users u
-      JOIN user_roles ur ON ur.user_id = u.id
-      JOIN role_permissions rp ON rp."rolesId" = ur.role_id
-      JOIN permissions p ON p.id = rp."permissionsId"
+      LEFT JOIN user_roles ur ON ur.user_id = u.id
+      LEFT JOIN roles r ON r.id = ur.role_id
+      LEFT JOIN role_permissions rp ON rp.role_id = r.id
+      LEFT JOIN permissions p ON p.id = rp.permission_id
       WHERE u.id = $1
-    `;
+      `,
+      [userId],
+    );
 
-    // 2. Thực thi query và xử lý lỗi
-    try {
-      // Lưu ý: TypeORM query trả về mảng các dòng
-      const rows = await this.dataSource.query(sql, [userId]);
-      
-      // 3. Map kết quả sang mảng string code
-      return rows.map((r: { code: string }) => r.code);
-    } catch (error) {
-      console.error('--- LỖI DB THỰC SỰ LÀ: ---', error);
-      throw error; // Ném lỗi để hệ thống ghi log 500
+    if (!rows || rows.length === 0) {
+      return { permissions: [], permissionVersion: 0 };
     }
+    
+    const permissionVersion = rows[0].permission_version;
+    const permissions = new Set<string>();
+    
+    for (const row of rows) {
+      if (row.permission_name) {
+        permissions.add(row.permission_name);
+      }
+    }
+
+    return { permissions: Array.from(permissions), permissionVersion };
   }
 }

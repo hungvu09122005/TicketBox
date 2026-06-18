@@ -18,8 +18,7 @@ export class TicketsController {
   @Get('me')
   @RequirePermissions(Permission.TICKET_VIEW_OWN)
   findMine(@CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 3
-    return [];
+    return this.ticketsService.findMine(user.sub);
   }
 
   @Get()
