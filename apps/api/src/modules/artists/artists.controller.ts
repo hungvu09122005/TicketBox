@@ -7,7 +7,7 @@ import { Permission } from '../../common/constants/permissions.enum';
 import { ArtistsService } from './artists.service';
 
 @ApiTags('artists')
-@Controller('api/v1/artists')
+@Controller('artists')
 @UseGuards(JwtAuthGuard, RbacGuard)
 export class ArtistsController {
   constructor(private readonly artistsService: ArtistsService) {}

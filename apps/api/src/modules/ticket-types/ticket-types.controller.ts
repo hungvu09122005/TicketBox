@@ -8,7 +8,7 @@ import { TicketTypesService } from './ticket-types.service';
 
 @ApiTags('ticket-types')
 @ApiBearerAuth()
-@Controller('api/v1/concerts/:concertId/ticket-types')
+@Controller('concerts/:concertId/ticket-types')
 @UseGuards(JwtAuthGuard, RbacGuard)
 export class TicketTypesController {
   constructor(private readonly ticketTypesService: TicketTypesService) {}

@@ -8,7 +8,7 @@ import { ReportingService } from './reporting.service';
 
 @ApiTags('reporting')
 @ApiBearerAuth()
-@Controller('api/v1/reports')
+@Controller('reports')
 @UseGuards(JwtAuthGuard, RbacGuard)
 export class ReportingController {
   constructor(private readonly reportingService: ReportingService) {}

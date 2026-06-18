@@ -22,7 +22,7 @@ import { UsersModule } from '../modules/users/users.module';
           max: config.get<number>('app.database.poolMax'),
         },
 
-        synchronize: config.get<string>('app.nodeEnv') === 'development',
+        synchronize: false,
         logging: config.get<string>('app.nodeEnv') === 'development',
         autoLoadEntities: true,
         migrationsTableName: 'typeorm_migrations',

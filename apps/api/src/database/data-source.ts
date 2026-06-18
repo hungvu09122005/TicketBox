@@ -13,6 +13,6 @@ export const AppDataSource = new DataSource({
   password: process.env.DATABASE_PASSWORD,
   database: process.env.DATABASE_NAME,
   synchronize: false,
-  entities: [join(process.cwd(), 'src/**/*.entity{.ts,.js}')], // Trỏ thẳng vào file ts
-  migrations: [join(process.cwd(), 'src/database/migrations/**/*{.ts,.js}')],
+  entities: [resolve(process.cwd(), 'src/modules/**/*.entity{.ts,.js}')],
+  migrations: [resolve(process.cwd(), 'src/database/migrations/*{.ts,.js}')],
 });

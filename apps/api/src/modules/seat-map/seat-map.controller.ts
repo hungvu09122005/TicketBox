@@ -8,7 +8,7 @@ import { SeatMapService } from './seat-map.service';
 
 @ApiTags('seat-map')
 @ApiBearerAuth()
-@Controller('api/v1/concerts/:concertId/seat-map')
+@Controller('concerts/:concertId/seat-map')
 @UseGuards(JwtAuthGuard, RbacGuard)
 export class SeatMapController {
   constructor(private readonly seatMapService: SeatMapService) {}

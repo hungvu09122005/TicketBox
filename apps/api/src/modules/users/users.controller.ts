@@ -9,7 +9,7 @@ import { UsersService } from './users.service';
 
 @ApiTags('users')
 @ApiBearerAuth()
-@Controller('api/v1/users')
+@Controller('users')
 @UseGuards(JwtAuthGuard, RbacGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}

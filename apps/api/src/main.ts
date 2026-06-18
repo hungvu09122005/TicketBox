@@ -54,6 +54,16 @@ async function bootstrap() {
   const port = process.env.API_PORT ?? 3001;
   await app.listen(port);
   logger.log(`API listening on port ${port}`);
+
+  const server = app.getHttpServer();
+  const router = server._events.request._router;
+  const availableRoutes = router.stack
+    .filter((r: any) => r.route)
+    .map((r: any) => ({
+      method: Object.keys(r.route.methods)[0].toUpperCase(),
+      path: r.route.path,
+    }));
+  console.table(availableRoutes);
 }
 
 bootstrap();

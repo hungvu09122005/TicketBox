@@ -10,7 +10,7 @@ import { CsvImportService } from './csv-import.service';
 
 @ApiTags('csv-import')
 @ApiBearerAuth()
-@Controller('api/v1/imports')
+@Controller('imports')
 @UseGuards(JwtAuthGuard, RbacGuard)
 export class CsvImportController {
   constructor(private readonly csvImportService: CsvImportService) {}

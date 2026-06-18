@@ -70,15 +70,26 @@ export class RbacGuard implements CanActivate {
   }
 
   private async loadPermissionsFromDb(userId: string): Promise<string[]> {
-    const rows = await this.dataSource.query<{ code: string }[]>(
-      `SELECT DISTINCT p.code
-       FROM users u
-       JOIN user_roles ur ON ur.user_id = u.id
-       JOIN role_permissions rp ON rp.role_id = ur.role_id
-       JOIN permissions p ON p.id = rp.permission_id
-       WHERE u.id = $1`,
-      [userId],
-    );
-    return rows.map((r) => r.code);
+    // 1. Định nghĩa câu SQL khớp 100% với tên cột trong Database của bạn
+    const sql = `
+      SELECT DISTINCT p.code
+      FROM users u
+      JOIN user_roles ur ON ur.user_id = u.id
+      JOIN role_permissions rp ON rp."rolesId" = ur.role_id
+      JOIN permissions p ON p.id = rp."permissionsId"
+      WHERE u.id = $1
+    `;
+
+    // 2. Thực thi query và xử lý lỗi
+    try {
+      // Lưu ý: TypeORM query trả về mảng các dòng
+      const rows = await this.dataSource.query(sql, [userId]);
+      
+      // 3. Map kết quả sang mảng string code
+      return rows.map((r: { code: string }) => r.code);
+    } catch (error) {
+      console.error('--- LỖI DB THỰC SỰ LÀ: ---', error);
+      throw error; // Ném lỗi để hệ thống ghi log 500
+    }
   }
 }
