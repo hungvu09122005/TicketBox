@@ -2,7 +2,7 @@ import {
   Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn
 } from 'typeorm';
 import { Order } from '../../orders/entities/order.entity';
-import { TicketType } from '../../concerts/entities/ticket-type.entity';
+import { TicketType } from '../../ticket-types/entities/ticket-type.entity';
 
 export enum TicketStatus {
   ACTIVE = 'ACTIVE',

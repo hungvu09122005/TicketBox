@@ -1,6 +1,7 @@
 import { 
   Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, 
-  UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator 
+  UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator,
+  Query, DefaultValuePipe, ParseIntPipe
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
@@ -82,7 +83,7 @@ export class ConcertsController {
   @UseGuards(JwtAuthGuard, RbacGuard)
   @RequirePermissions(Permission.CONCERT_UPDATE)
   update(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: UpdateConcertDto) {
-    const isAdmin = user.roles?.includes('ADMIN') ?? false;
+    const isAdmin = user.roles?.includes('SYSTEM_ADMIN') ?? false;
     return this.concertsService.update(id, user.sub, isAdmin, body);
   }
 
@@ -90,7 +91,7 @@ export class ConcertsController {
   @UseGuards(JwtAuthGuard, RbacGuard)
   @RequirePermissions(Permission.CONCERT_UPDATE)
   publish(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    const isAdmin = user.roles?.includes('ADMIN') ?? false;
+    const isAdmin = user.roles?.includes('SYSTEM_ADMIN') ?? false;
     return this.concertsService.publish(id, user.sub, isAdmin);
   }
 
@@ -98,7 +99,7 @@ export class ConcertsController {
   @UseGuards(JwtAuthGuard, RbacGuard)
   @RequirePermissions(Permission.CONCERT_UPDATE)
   cancel(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    const isAdmin = user.roles?.includes('ADMIN') ?? false;
+    const isAdmin = user.roles?.includes('SYSTEM_ADMIN') ?? false;
     return this.concertsService.cancel(id, user.sub, isAdmin);
   }
 }

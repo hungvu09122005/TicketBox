@@ -9,8 +9,14 @@ export class MinioObjectStorageAdapter implements ObjectStoragePort {
   private bucket = process.env.MINIO_BUCKET_NAME || 'ticketbox';
 
   constructor() {
+    const rawEndpoint = process.env.MINIO_ENDPOINT || '127.0.0.1';
+    const port = process.env.MINIO_PORT || '9000';
+    const endpoint = /^https?:\/\//i.test(rawEndpoint)
+      ? rawEndpoint
+      : `http://${rawEndpoint}:${port}`;
+
     this.s3 = new S3Client({
-      endpoint: process.env.MINIO_ENDPOINT,
+      endpoint,
       region: 'us-east-1',
       credentials: {
         accessKeyId: process.env.MINIO_ACCESS_KEY!,

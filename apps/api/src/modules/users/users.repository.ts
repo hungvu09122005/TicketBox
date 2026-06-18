@@ -23,20 +23,36 @@ export class UsersRepository {
   ) {}
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.repo.findOne({ where: { email } });
+    return this.repo.findOne({
+      where: { email },
+      relations: { roles: true },
+    });
   }
 
   async findById(id: string): Promise<User | null> {
-    return this.repo.findOne({ where: { id } });
+    return this.repo.findOne({
+      where: { id },
+      relations: { roles: true },
+    });
   }
 
   async create(data: CreateUserData): Promise<User> {
-    const user = this.repo.create({
-  ...data,
-    roles: (data.roles || []).map((roleName) => ({ name: roleName })) as Role[],
-});
+    let roleEntities: Role[] = [];
+    if (data.roles && data.roles.length > 0) {
+      roleEntities = await this.repo.manager
+        .createQueryBuilder(Role, 'role')
+        .where('role.name IN (:...roles)', { roles: data.roles })
+        .getMany();
+    }
 
-return this.repo.save(user);
+    const user = this.repo.create({
+      email: data.email,
+      name: data.name,
+      passwordHash: data.passwordHash,
+      roles: roleEntities,
+    });
+
+    return this.repo.save(user);
   }
 
   async incrementPermissionVersion(userId: string): Promise<void> {
@@ -44,9 +60,19 @@ return this.repo.save(user);
   }
 
   async updateRoles(userId: string, roles: string[]): Promise<void> {
-    await this.repo.query(
-      `UPDATE users SET roles = $1, permission_version = permission_version + 1 WHERE id = $2`,
-      [JSON.stringify(roles), userId],
-    );
+    let roleEntities: Role[] = [];
+    if (roles && roles.length > 0) {
+      roleEntities = await this.repo.manager
+        .createQueryBuilder(Role, 'role')
+        .where('role.name IN (:...roles)', { roles })
+        .getMany();
+    }
+
+    const user = await this.repo.findOne({ where: { id: userId } });
+    if (user) {
+      user.roles = roleEntities;
+      user.permissionVersion += 1;
+      await this.repo.save(user);
+    }
   }
 }

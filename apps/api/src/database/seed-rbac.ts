@@ -1,27 +1,45 @@
 import { DataSource } from 'typeorm';
-import { Role } from '../modules/users/entities/role.entity';
-import { Permission } from '../modules/users/entities/permission.entity';
+import { In } from 'typeorm';
+import { Role as RoleEntity } from '../modules/users/entities/role.entity';
+import { Permission as PermissionEntity } from '../modules/users/entities/permission.entity';
+import { Permission } from '../common/constants/permissions.enum';
+import { Role } from '../common/constants/roles.enum';
+import { ROLE_PERMISSIONS_MAPPING } from '../common/constants/role-permissions.mapping';
 
 export async function seedRbac(dataSource: DataSource) {
-  const roleRepo = dataSource.getRepository(Role);
-  const permRepo = dataSource.getRepository(Permission);
+  const roleRepo = dataSource.getRepository(RoleEntity);
+  const permRepo = dataSource.getRepository(PermissionEntity);
 
-  const permissions = [
-    { name: 'TICKET_CREATE' },
-    { name: 'TICKET_VALIDATE' },
-    { name: 'CONCERT_MANAGE' },
-    { name: 'USER_BAN' }
-  ];
+  const permissionNames = Object.values(Permission);
+  await permRepo.upsert(
+    permissionNames.map((name) => ({ name })),
+    ['name'],
+  );
 
-  const savedPermissions = await permRepo.save(permissions);
+  const savedPermissions = await permRepo.find({
+    where: { name: In(permissionNames) },
+  });
+  const permissionByName = new Map(savedPermissions.map((permission) => [permission.name, permission]));
   console.log('✅ Permissions seeded:', savedPermissions.length);
 
-  const roles = [
-    { name: 'ADMIN', permissions: savedPermissions },
-    { name: 'STAFF', permissions: savedPermissions.filter(p => p.name === 'TICKET_VALIDATE') },
-    { name: 'AUDIENCE', permissions: [] }
-  ];
+  const roleNames = Object.values(Role);
+  await roleRepo.upsert(
+    roleNames.map((name) => ({ name })),
+    ['name'],
+  );
 
-  await roleRepo.save(roles);
-  console.log('✅ Roles seeded successfully!');
+  const savedRoles = await roleRepo.find({
+    where: { name: In(roleNames) },
+    relations: { permissions: true },
+  });
+
+  for (const role of savedRoles) {
+    const permissionNamesForRole = ROLE_PERMISSIONS_MAPPING[role.name as Role];
+    role.permissions = permissionNamesForRole
+      .map((name) => permissionByName.get(name))
+      .filter((permission): permission is PermissionEntity => Boolean(permission));
+    await roleRepo.save(role);
+  }
+
+  console.log('✅ Roles seeded successfully:', savedRoles.length);
 }

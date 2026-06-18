@@ -1,453 +1,942 @@
-'use client';
-/* eslint-disable @next/next/no-img-element */
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { motion } from 'motion/react';
+import { use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowClockwise,
+  ArrowLeft,
+  ArrowRight,
   CalendarBlank,
-  CurrencyDollar,
+  Info,
+  MusicNotes,
   Ticket,
   WarningCircle,
-} from '@phosphor-icons/react';
-import { Header } from '@/components/Header';
-import { hasStoredSession } from '@/lib/auth-store';
-import { extractApiMessages } from '@/lib/api-errors';
-import { concertService } from '@/lib/services/concert.service';
-import { ticketTypesService } from '@/lib/services/ticket-types.service';
-import { ordersService } from '@/lib/services/orders.service';
-import { paymentsService } from '@/lib/services/payments.service';
-import type { PublicConcert, TicketTypeAvailability } from '@/lib/types';
+  XCircle,
+} from "@phosphor-icons/react";
+import { Header } from "../../../components/Header";
+import { concertService } from "@/lib/services/concert.service";
+import {
+  CreateOrderPayload,
+  OrderSummary,
+  PublicArtistDetail,
+  PublicConcert,
+  PublicTicketType,
+  SeatMapResponse,
+  TicketSummary,
+} from "@/lib/types";
+import { extractApiMessages } from "@/lib/api-errors";
+import { hasStoredSession } from "@/lib/auth-store";
 
-type LoadState = 'loading' | 'ready' | 'empty' | 'error';
+type LoadState = "loading" | "ready" | "empty" | "error";
 
-const dateFormatter = new Intl.DateTimeFormat('vi-VN', {
-  weekday: 'short',
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
+const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
+  weekday: "short",
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
 });
 
-const timeFormatter = new Intl.DateTimeFormat('vi-VN', {
-  hour: '2-digit',
-  minute: '2-digit',
+const timeFormatter = new Intl.DateTimeFormat("vi-VN", {
+  hour: "2-digit",
+  minute: "2-digit",
 });
 
-const moneyFormatter = new Intl.NumberFormat('vi-VN', {
-  style: 'currency',
-  currency: 'VND',
-  maximumFractionDigits: 0,
-});
-
-function formatSchedule(concert: PublicConcert) {
-  const start = new Date(concert.startsAt);
-  const end = new Date(concert.endsAt);
-  return `${dateFormatter.format(start)} • ${timeFormatter.format(start)} - ${timeFormatter.format(end)}`;
+function formatDateTime(isoString: string) {
+  const date = new Date(isoString);
+  return `${dateFormatter.format(date)} • ${timeFormatter.format(date)}`;
 }
 
-function formatDateTime(value?: string | null) {
-  if (!value) return 'Đang cập nhật';
-  return `${dateFormatter.format(new Date(value))} • ${timeFormatter.format(new Date(value))}`;
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0,
+  }).format(amount);
 }
 
-function getUuidFallback() {
-  return globalThis.crypto?.randomUUID?.() ?? `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+function getStatusBadge(status: PublicConcert["status"]) {
+  switch (status) {
+    case "PUBLISHED":
+      return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
+    case "CANCELLED":
+      return "border-rose-400/30 bg-rose-400/10 text-rose-200";
+    case "COMPLETED":
+      return "border-sky-400/30 bg-sky-400/10 text-sky-200";
+    default:
+      return "border-white/15 bg-white/5 text-white/70";
+  }
 }
 
-export default function ConcertDetailPage() {
+function summarizeByTicketType(
+  orders: OrderSummary[],
+  tickets: TicketSummary[],
+  ticketTypeId: string,
+) {
+  const paid = orders.reduce((total, order) => {
+    if (order.ticketTypeId !== ticketTypeId || order.status !== "PAID") {
+      return total;
+    }
+
+    return total + order.quantity;
+  }, 0);
+
+  const held = orders.reduce((total, order) => {
+    if (order.ticketTypeId !== ticketTypeId || order.status !== "PENDING_PAYMENT") {
+      return total;
+    }
+
+    return total + order.quantity;
+  }, 0);
+
+  const activeTickets = tickets.filter(
+    (ticket) => ticket.ticketTypeId === ticketTypeId && ticket.status === "ACTIVE",
+  ).length;
+
+  return {
+    paid,
+    held,
+    activeTickets,
+  };
+}
+
+function InlineStateCard({
+  title,
+  description,
+  icon,
+  action,
+}: Readonly<{
+  title: string;
+  description: string;
+  icon: ReactNode;
+  action?: ReactNode;
+}>) {
+  return (
+    <div className="rounded-[28px] border border-white/10 bg-white/5 p-6 text-center backdrop-blur-xl">
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl border border-white/10 bg-white/10 text-white/80">
+        {icon}
+      </div>
+      <h2 className="mt-5 text-2xl font-semibold text-white">{title}</h2>
+      <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/68">{description}</p>
+      {action ? <div className="mt-6">{action}</div> : null}
+    </div>
+  );
+}
+
+export default function ConcertDetailPage({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
   const router = useRouter();
-  const params = useParams<{ id: string }>();
-  const concertId = params.id;
-  const hasSession = hasStoredSession();
-
+  const { id } = use(params);
+  const svgContainerRef = useRef<HTMLDivElement | null>(null);
   const [concert, setConcert] = useState<PublicConcert | null>(null);
-  const [ticketTypes, setTicketTypes] = useState<TicketTypeAvailability[]>([]);
-  const [state, setState] = useState<LoadState>('loading');
-  const [errorMessage, setErrorMessage] = useState('Không thể tải thông tin concert.');
-  const [selectedTicketTypeId, setSelectedTicketTypeId] = useState('');
+  const [artist, setArtist] = useState<PublicArtistDetail | null>(null);
+  const [seatMap, setSeatMap] = useState<SeatMapResponse | null>(null);
+  const [ticketTypes, setTicketTypes] = useState<PublicTicketType[]>([]);
+  const [orders, setOrders] = useState<OrderSummary[]>([]);
+  const [tickets, setTickets] = useState<TicketSummary[]>([]);
+  const [svgMarkup, setSvgMarkup] = useState<string | null>(null);
+  const [svgError, setSvgError] = useState(false);
+  const [bannerError, setBannerError] = useState(false);
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+  const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [state, setState] = useState<LoadState>("loading");
+  const [errorMessage, setErrorMessage] = useState("Không thể tải concert.");
+  const [submitError, setSubmitError] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [checkoutNote, setCheckoutNote] = useState<string | null>(null);
-  const [orderSummary, setOrderSummary] = useState<{
-    orderId: string;
-    paymentUrl?: string | null;
-    paymentId?: string;
-    status?: string;
-    message?: string;
-  } | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
   const selectedTicketType = useMemo(
-    () => ticketTypes.find((ticketType) => ticketType.id === selectedTicketTypeId) ?? null,
+    () => ticketTypes.find((item) => item.id === selectedTicketTypeId) ?? null,
     [selectedTicketTypeId, ticketTypes],
   );
 
+  const selectedZone = useMemo(
+    () => seatMap?.zones.find((item) => item.id === selectedZoneId) ?? null,
+    [seatMap, selectedZoneId],
+  );
+
   const loadConcert = useCallback(async () => {
-    setState('loading');
-    setCheckoutNote(null);
+    setState("loading");
+    setSubmitError([]);
+    setSubmitSuccess(null);
+    setArtist(null);
+    setBannerError(false);
+
     try {
-      const [concertData, availabilityData] = await Promise.all([
-        concertService.getConcert(concertId),
-        ticketTypesService.getAvailability(concertId),
+      const concertData = await concertService.getConcert(id);
+      if (concertData.status === "CANCELLED") {
+        setConcert(concertData);
+        setArtist(null);
+        setSeatMap(null);
+        setTicketTypes([]);
+        setOrders([]);
+        setTickets([]);
+        setSvgMarkup(null);
+        setSvgError(false);
+        setBannerError(false);
+        setState("empty");
+        setErrorMessage("Concert này đã bị hủy.");
+        return;
+      }
+
+      if (concertData.status !== "PUBLISHED") {
+        throw Object.assign(new Error("Concert is not published"), {
+          response: { status: 404 },
+        });
+      }
+
+      const [seatMapData, ticketTypeData, orderData, ticketData] = await Promise.all([
+        concertService.getSeatMap(id).catch(() => null),
+        concertService.getAvailability(id).catch(() => []),
+        concertService.getMyOrders().catch(() => []),
+        concertService.getMyTickets().catch(() => []),
       ]);
+      const artistData = await concertService.getArtist(concertData.artist.id).catch(() => null);
 
       setConcert(concertData);
-      setTicketTypes(availabilityData);
+      setArtist(artistData);
+      setSeatMap(seatMapData);
+      setTicketTypes(ticketTypeData);
+      setOrders(orderData.filter((order) => order.concertId === concertData.id));
+      setTickets(ticketData.filter((ticket) => ticket.concertId === concertData.id));
+      setSvgError(false);
+      setState("ready");
 
-      const firstAvailable = availabilityData.find((ticketType) => ticketType.status === 'AVAILABLE') ?? availabilityData[0] ?? null;
-      setSelectedTicketTypeId(firstAvailable?.id ?? '');
+      const firstTicketTypeId = ticketTypeData.find((item) => item.status === "AVAILABLE")?.id ?? ticketTypeData[0]?.id ?? null;
+      setSelectedTicketTypeId(firstTicketTypeId);
+      setSelectedZoneId(seatMapData?.zones[0]?.id ?? null);
       setQuantity(1);
-      setState('ready');
-    } catch (error: unknown) {
+    } catch (error) {
+      console.error("Failed to load concert detail", error);
+      const status = typeof error === "object" && error !== null && "response" in error
+        ? (error as { response?: { status?: number } }).response?.status
+        : undefined;
+
       setConcert(null);
+      setArtist(null);
+      setSeatMap(null);
       setTicketTypes([]);
-      setState('error');
-      setErrorMessage(extractApiMessages(error, 'Không thể kết nối API concert hoặc ticket type.').join(' '));
+      setOrders([]);
+      setTickets([]);
+      setSvgMarkup(null);
+      setSvgError(false);
+      setBannerError(false);
+      setState("error");
+      setErrorMessage(
+        status === 404
+          ? "Concert không tồn tại."
+          : "Không thể kết nối API concert. Vui lòng thử lại.",
+      );
     }
-  }, [concertId]);
+  }, [id]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadConcert();
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [loadConcert]);
-
-  const handleCheckout = async () => {
-    if (!concert || !selectedTicketType) {
+    if (!hasStoredSession()) {
+      router.replace(`/login?next=/concerts/${id}`);
       return;
     }
 
-    if (!hasSession) {
-      router.push(`/login?next=${encodeURIComponent(`/concerts/${concertId}`)}`);
+    void loadConcert();
+  }, [id, loadConcert, router]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    const loadSvg = async () => {
+      if (!seatMap?.svgUrl) {
+        setSvgMarkup(null);
+        setSvgError(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(seatMap.svgUrl);
+        if (!response.ok) {
+          throw new Error(`SVG fetch failed with ${response.status}`);
+        }
+
+        const markup = await response.text();
+        if (!isCancelled) {
+          setSvgMarkup(markup);
+          setSvgError(false);
+        }
+      } catch (error) {
+        console.error("Failed to load SVG markup", error);
+        if (!isCancelled) {
+          setSvgMarkup(null);
+          setSvgError(true);
+        }
+      }
+    };
+
+    void loadSvg();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [seatMap?.svgUrl]);
+
+  useEffect(() => {
+    if (state !== "ready") {
       return;
     }
 
-    if (selectedTicketType.availableQuantity <= 0) {
-      setCheckoutNote('Hạng vé này đã hết vé. Vui lòng chọn hạng khác.');
+    const timer = window.setInterval(() => {
+      void (async () => {
+        try {
+          const [availability, orderData, ticketData] = await Promise.all([
+            concertService.getAvailability(id).catch(() => []),
+            concertService.getMyOrders().catch(() => []),
+            concertService.getMyTickets().catch(() => []),
+          ]);
+
+          setTicketTypes(availability);
+          setOrders(orderData.filter((order) => order.concertId === id));
+          setTickets(ticketData.filter((ticket) => ticket.concertId === id));
+        } catch (error) {
+          console.error("Failed to refresh availability", error);
+        }
+      })();
+    }, 10000);
+
+    return () => window.clearInterval(timer);
+  }, [id, state]);
+
+  useEffect(() => {
+      if (!seatMap || !svgMarkup || !svgContainerRef.current) {
+        return;
+      }
+
+    const activeIds = new Set(seatMap.zones.map((zone) => zone.id));
+    const nodes = Array.from(svgContainerRef.current.querySelectorAll<SVGElement>("[id]"));
+    const cleanup: Array<() => void> = [];
+
+    nodes.forEach((node) => {
+      const zoneId = node.id;
+      if (!activeIds.has(zoneId)) {
+        return;
+      }
+
+      const zone = seatMap.zones.find((item) => item.id === zoneId);
+      if (!zone) {
+        return;
+      }
+
+      const handleClick = () => {
+        setSelectedZoneId(zoneId);
+        if (zone.ticketTypeId) {
+          setSelectedTicketTypeId(zone.ticketTypeId);
+        }
+      };
+
+      node.style.cursor = "pointer";
+      node.style.transition = "opacity 180ms ease, filter 180ms ease, transform 180ms ease";
+      node.addEventListener("click", handleClick);
+      cleanup.push(() => node.removeEventListener("click", handleClick));
+    });
+
+    return () => {
+      cleanup.forEach((fn) => fn());
+    };
+  }, [seatMap, svgMarkup]);
+
+  useEffect(() => {
+    if (!seatMap || !svgContainerRef.current) {
       return;
     }
+
+    const elements = Array.from(svgContainerRef.current.querySelectorAll<SVGElement>("[id]"));
+    elements.forEach((element) => {
+      const zone = seatMap.zones.find((item) => item.id === element.id);
+      if (!zone) {
+        return;
+      }
+
+      const isSelected = zone.id === selectedZoneId;
+      const shouldDim = selectedZoneId !== null && !isSelected;
+
+      element.style.opacity = shouldDim ? "0.36" : "1";
+      element.style.filter = isSelected ? "drop-shadow(0 0 16px rgba(251, 191, 36, 0.45))" : "none";
+      element.style.stroke = isSelected ? "rgba(251, 191, 36, 1)" : element.style.stroke || "";
+      element.style.strokeWidth = isSelected ? "3" : "1.5";
+      element.style.transformOrigin = "center";
+      element.style.transform = isSelected ? "scale(1.01)" : "scale(1)";
+    });
+  }, [seatMap, selectedZoneId, svgMarkup]);
+
+  useEffect(() => {
+    if (!selectedTicketType && ticketTypes.length > 0) {
+      setSelectedTicketTypeId(ticketTypes[0].id);
+    }
+  }, [selectedTicketType, ticketTypes]);
+
+  const selectedSummary = selectedTicketType
+    ? summarizeByTicketType(orders, tickets, selectedTicketType.id)
+    : null;
+
+  const userLimit = selectedTicketType
+    ? Math.max(
+      0,
+      selectedTicketType.maxPerUser - (selectedSummary?.paid ?? 0) - (selectedSummary?.held ?? 0),
+    )
+    : 0;
+
+  const maxSelectable = selectedTicketType
+    ? Math.min(userLimit, selectedTicketType.availableQuantity)
+    : 0;
+
+  useEffect(() => {
+    if (quantity > maxSelectable) {
+      setQuantity(maxSelectable > 0 ? maxSelectable : 1);
+    }
+  }, [maxSelectable, quantity]);
+
+  const handleCreateOrder = async () => {
+    if (!selectedTicketType || !concert || quantity < 1) {
+      return;
+    }
+
+    const payload: CreateOrderPayload = {
+      concertId: concert.id,
+      ticketTypeId: selectedTicketType.id,
+      quantity,
+    };
 
     setIsSubmitting(true);
-    setCheckoutNote(null);
-    setOrderSummary(null);
-
-    const idempotencyKey = getUuidFallback();
+    setSubmitError([]);
+    setSubmitSuccess(null);
 
     try {
-      const order = await ordersService.createOrder(
-        {
-          concertId: concert.id,
-          ticketTypeId: selectedTicketType.id,
-          quantity,
-        },
-        idempotencyKey,
-      );
-
-      const payment = await paymentsService.initiatePayment(order.id, idempotencyKey);
-      setOrderSummary({
-        orderId: order.id,
-        paymentUrl: payment.paymentUrl ?? null,
-        paymentId: payment.paymentId,
-        status: payment.status,
-        message: payment.message,
-      });
-
-      if (payment.paymentUrl) {
-        setCheckoutNote('Đang chuyển bạn tới cổng thanh toán sandbox thật.');
-        window.setTimeout(() => {
-          window.location.assign(payment.paymentUrl as string);
-        }, 700);
-      } else {
-        setCheckoutNote('Đơn hàng đã được tạo. Hãy kiểm tra trạng thái thanh toán ở trang kết quả.');
-      }
-    } catch (error: unknown) {
-      setCheckoutNote(extractApiMessages(error, 'Không thể tạo order hoặc khởi tạo thanh toán.').join(' '));
+      const response = await concertService.createOrder(payload);
+      setSubmitSuccess(`Đã tạo đơn giữ vé ${response.id}.`);
+      await loadConcert();
+    } catch (error) {
+      setSubmitError(extractApiMessages(error, "Không thể giữ vé lúc này."));
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (!hasStoredSession()) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-[#050816] text-white selection:bg-amber-300/30">
       <Header />
 
       <main className="relative overflow-hidden pt-20">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(249,115,22,0.22),_transparent_32%),radial-gradient(circle_at_top_right,_rgba(14,165,233,0.18),_transparent_28%),linear-gradient(180deg,_#020617_0%,_#050816_45%,_#09090b_100%)]" />
-        <div className="absolute inset-x-0 top-0 h-[420px] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(249,115,22,0.24),_transparent_32%),radial-gradient(circle_at_top_right,_rgba(14,165,233,0.2),_transparent_28%),linear-gradient(180deg,_#020617_0%,_#050816_45%,_#09090b_100%)]" />
 
-        <section className="relative mx-auto max-w-[1400px] px-6 pb-24 pt-10 lg:px-8 lg:pt-14">
-          {state === 'loading' && (
-            <div className="rounded-[32px] border border-white/10 bg-white/5 p-10 text-center backdrop-blur-xl">
-              <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-              <p className="mt-4 text-sm text-white/65">Đang tải concert và availability thật từ API...</p>
+        <section className="relative mx-auto max-w-[1400px] px-6 pb-12 pt-10 lg:px-8 lg:pt-16">
+          <Link
+            href="/concerts"
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/75 backdrop-blur-md transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <ArrowLeft size={16} />
+            Quay lại concert
+          </Link>
+
+          <div className="mt-6 grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+            <div className="max-w-3xl">
+              {concert?.status ? (
+                <div className={`mb-5 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] ${getStatusBadge(concert.status)}`}>
+                  <span className="h-2 w-2 rounded-full bg-current" />
+                  {concert.status}
+                </div>
+              ) : null}
+
+              <h1 className="max-w-4xl text-4xl font-semibold tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">
+                {concert?.name ?? "Đang tải concert"}
+              </h1>
+
+              <p className="mt-5 max-w-2xl text-base leading-7 text-white/72 sm:text-lg">
+                {concert?.description || "Mở sự kiện để xem nghệ sĩ, sơ đồ chỗ ngồi, loại vé khả dụng và giữ vé theo giới hạn mua."}
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 backdrop-blur-xl">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-white/55">Thời gian</p>
+                <p className="mt-2 text-sm font-medium text-white">{concert ? formatDateTime(concert.startsAt) : "--"}</p>
+                <p className="mt-1 text-sm text-white/65">{concert ? formatDateTime(concert.endsAt) : "--"}</p>
+              </div>
+              <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 backdrop-blur-xl">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-white/55">Venue</p>
+                <p className="mt-2 line-clamp-2 text-sm font-medium text-white">{concert?.venue || "Đang cập nhật venue"}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="relative mx-auto max-w-[1400px] px-6 pb-8 lg:px-8">
+          {state === "loading" && (
+            <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+              <div className="space-y-4 rounded-[32px] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+                <div className="h-8 w-1/2 animate-pulse rounded-full bg-white/10" />
+                <div className="aspect-[16/9] animate-pulse rounded-[24px] bg-white/10" />
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="h-16 animate-pulse rounded-[20px] bg-white/10" />
+                  <div className="h-16 animate-pulse rounded-[20px] bg-white/10" />
+                  <div className="h-16 animate-pulse rounded-[20px] bg-white/10" />
+                </div>
+              </div>
+              <div className="space-y-4 rounded-[32px] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+                <div className="h-6 w-1/3 animate-pulse rounded-full bg-white/10" />
+                <div className="h-4 w-2/3 animate-pulse rounded-full bg-white/10" />
+                <div className="h-28 animate-pulse rounded-[24px] bg-white/10" />
+                <div className="h-14 animate-pulse rounded-[20px] bg-white/10" />
+              </div>
             </div>
           )}
 
-          {state === 'error' && (
-            <div className="rounded-[32px] border border-rose-500/20 bg-rose-500/10 p-8 text-center backdrop-blur-xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-rose-200">Error</p>
-              <h1 className="mt-3 text-2xl font-semibold text-white">Không tải được concert</h1>
-              <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/68">{errorMessage}</p>
-              <button
-                onClick={() => void loadConcert()}
-                className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5"
-              >
-                <ArrowClockwise size={16} weight="bold" />
-                Thử lại
-              </button>
-            </div>
+          {state === "error" && (
+            <InlineStateCard
+              title="Không tải được concert"
+              description={errorMessage}
+              icon={<WarningCircle size={32} />}
+              action={(
+                <button
+                  onClick={() => void loadConcert()}
+                  className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5"
+                >
+                  <ArrowClockwise size={16} weight="bold" />
+                  Thử lại
+                </button>
+              )}
+            />
           )}
 
-          {state === 'ready' && concert && (
-            <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-              <motion.section
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-                className="overflow-hidden rounded-[32px] border border-white/10 bg-white/5 shadow-[0_24px_80px_rgba(15,23,42,0.22)] backdrop-blur-xl"
-              >
-                <div className="relative aspect-[16/9] overflow-hidden bg-zinc-900">
-                  {concert.bannerUrl ? (
-                    <img
-                      src={concert.bannerUrl}
-                      alt={concert.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,#f97316_0%,#0f172a_42%,#020617_100%)]">
-                      <Ticket size={72} weight="light" className="text-white/70" />
+          {state === "empty" && concert?.status === "CANCELLED" && (
+            <InlineStateCard
+              title="Concert đã bị hủy"
+              description="Concert này không còn mở bán. Dữ liệu chi tiết vẫn được giữ để khách tham khảo nhưng không thể đặt vé mới."
+              icon={<XCircle size={32} />}
+              action={(
+                <Link
+                  href="/concerts"
+                  className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5"
+                >
+                  <ArrowLeft size={16} weight="bold" />
+                  Về danh sách
+                </Link>
+              )}
+            />
+          )}
+
+          {state === "ready" && concert && (
+            <div className="grid gap-6 xl:grid-cols-[1.42fr_0.58fr]">
+              <div className="space-y-6">
+                <article className="overflow-hidden rounded-[32px] border border-white/10 bg-white/5 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+                  <div className="relative aspect-[16/9] bg-zinc-900">
+                    {concert.bannerUrl && !bannerError ? (
+                      <img
+                        src={concert.bannerUrl}
+                        alt={concert.name}
+                        className="h-full w-full object-cover"
+                        onError={() => setBannerError(true)}
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,#f97316_0%,#0f172a_42%,#020617_100%)]">
+                        <MusicNotes size={64} weight="light" className="text-white/70" />
+                      </div>
+                    )}
+
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
+
+                    <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/30 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/90 backdrop-blur-md">
+                      <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                      Đang mở bán
                     </div>
-                  )}
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/30 to-transparent" />
-
-                  <div className="absolute left-5 top-5 flex items-center gap-2 rounded-full border border-white/15 bg-black/30 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/90 backdrop-blur-md">
-                    <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                    {concert.status}
+                    <div className="absolute inset-x-0 bottom-0 p-5">
+                      <p className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-white/70">
+                        <CalendarBlank size={14} />
+                        {formatDateTime(concert.startsAt)}
+                      </p>
+                      <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">
+                        {concert.name}
+                      </h2>
+                    </div>
                   </div>
 
-                  <div className="absolute inset-x-0 bottom-0 p-6">
-                    <p className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-white/72">
-                      <CalendarBlank size={14} />
-                      {formatSchedule(concert)}
-                    </p>
-                    <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-                      {concert.name}
-                    </h1>
-                    <p className="mt-3 max-w-2xl text-sm leading-6 text-white/72 sm:text-base">
-                      {concert.description || 'Đang cập nhật mô tả chương trình.'}
-                    </p>
+                  <div className="grid gap-4 p-5 md:grid-cols-3">
+                    <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-white/55">Artist</p>
+                      <p className="mt-2 text-sm font-semibold text-white">{concert.artist.name}</p>
+                    </div>
+                    <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-white/55">Venue</p>
+                      <p className="mt-2 line-clamp-2 text-sm font-semibold text-white">{concert.venue || "Đang cập nhật"}</p>
+                    </div>
+                    <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-white/55">Sơ đồ chỗ ngồi</p>
+                      <div className="mt-2 flex min-h-[56px] items-center justify-center rounded-[16px] border border-white/10 bg-black/20 px-3 py-2 text-center">
+                        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-white">
+                          {seatMap?.zones.length ? `${seatMap.zones.length} khu vực` : "Chưa có"}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </article>
 
-                <div className="grid gap-4 p-6 sm:grid-cols-3">
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Artist</p>
-                    <p className="mt-2 text-sm font-semibold text-white">{concert.artist.name}</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Venue</p>
-                    <p className="mt-2 line-clamp-2 text-sm font-semibold text-white">{concert.venue || 'Địa điểm đang cập nhật'}</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Sale window</p>
-                    <p className="mt-2 text-sm font-semibold text-white">{formatDateTime(concert.saleStartsAt)}</p>
-                    <p className="mt-1 text-xs text-white/60">to {formatDateTime(concert.saleEndsAt)}</p>
-                  </div>
-                </div>
-
-                <div className="border-t border-white/10 p-6">
+                <article className="rounded-[32px] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
-                      <WarningCircle size={22} className="text-amber-300" />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10">
+                      <Info size={22} className="text-white/85" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-white">Idempotency and double-submit protection</p>
-                      <p className="text-sm leading-6 text-white/65">
-                        Every checkout request sends a UUID through `Idempotency-Key` and the submit button is disabled while the request is in flight.
-                      </p>
+                      <h3 className="text-xl font-semibold text-white">Bio nghệ sĩ</h3>
+                      <p className="text-sm text-white/60">Chỉ hiển thị nội dung công khai của nghệ sĩ.</p>
                     </div>
                   </div>
-                </div>
-              </motion.section>
 
-              <motion.aside
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-                className="space-y-6"
-              >
-                <div className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+                  {artist ? (
+                    <div className="mt-5 grid gap-5 lg:grid-cols-[176px_1fr]">
+                      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/5">
+                        {artist.avatarUrl ? (
+                          <img
+                            src={artist.avatarUrl}
+                            alt={artist.name}
+                            className="h-full min-h-[220px] w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex min-h-[220px] items-center justify-center bg-[radial-gradient(circle_at_top,#f97316_0%,#0f172a_52%,#020617_100%)]">
+                            <MusicNotes size={36} weight="light" className="text-white/70" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="rounded-[24px] border border-dashed border-white/10 bg-white/5 p-5">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Nghệ sĩ</p>
+                          <h4 className="mt-2 text-2xl font-semibold text-white">{artist.name}</h4>
+                          <p className="mt-3 text-sm leading-7 text-white/70">
+                            {artist.shortBio?.trim() || artist.description?.trim() || 'Nghệ sĩ này chưa có bio công khai.'}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.18em] text-white/55">
+                          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                            {artist.shortBio?.trim() ? 'Bio sẵn sàng' : 'Chưa có bio'}
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                            {artist.avatarUrl ? 'Ảnh sẵn sàng' : 'Chưa có ảnh'}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-3">
+                          <Link
+                            href={`/artists/${artist.id}`}
+                            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5"
+                          >
+                            Xem nghệ sĩ
+                            <ArrowRight size={16} weight="bold" />
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </article>
+
+                <article className="rounded-[32px] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Checkout</p>
-                      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">Chọn hạng vé và thanh toán</h2>
-                    </div>
-                    <CurrencyDollar size={28} className="text-emerald-300" />
-                  </div>
-
-                  {!hasSession && (
-                    <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm leading-6 text-amber-100">
-                      Bạn cần đăng nhập để tạo order và khởi tạo payment thật.
-                      <div className="mt-3">
-                        <Link
-                          href={`/login?next=${encodeURIComponent(`/concerts/${concertId}`)}`}
-                          className="inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5"
-                        >
-                          Đăng nhập để đặt vé
-                        </Link>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="mt-5 space-y-3">
-                    {ticketTypes.length === 0 ? (
-                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-6 text-white/70">
-                        Chưa có ticket type nào được cấu hình cho concert này.
-                      </div>
-                    ) : (
-                      ticketTypes.map((ticketType) => {
-                        const isSelected = ticketType.id === selectedTicketTypeId;
-                        const isSoldOut = ticketType.status === 'SOLD_OUT';
-                        return (
-                          <button
-                            key={ticketType.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedTicketTypeId(ticketType.id);
-                              setQuantity(1);
-                            }}
-                            className={`w-full rounded-2xl border p-4 text-left transition-colors ${
-                              isSelected
-                                ? 'border-emerald-400/40 bg-emerald-400/10'
-                                : 'border-white/10 bg-white/5 hover:border-white/20'
-                            } ${isSoldOut ? 'opacity-70' : ''}`}
-                          >
-                            <div className="flex items-start justify-between gap-4">
-                              <div>
-                                <p className="text-base font-semibold text-white">{ticketType.name}</p>
-                                <p className="mt-1 text-sm text-white/70">
-                                  {moneyFormatter.format(Number(ticketType.price))} · Max {ticketType.maxPerUser}/user
-                                </p>
-                              </div>
-                              <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
-                                ticketType.status === 'AVAILABLE'
-                                  ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100'
-                                  : 'border-white/10 bg-white/5 text-white/55'
-                              }`}>
-                                {ticketType.availableQuantity} left
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  <div className="mt-6 grid gap-4 sm:grid-cols-[1fr_160px]">
-                    <div>
-                      <label htmlFor="quantity" className="block text-sm font-medium text-white">
-                        Quantity
-                      </label>
-                      <input
-                        id="quantity"
-                        type="number"
-                        min={1}
-                        max={selectedTicketType ? Math.min(selectedTicketType.maxPerUser, selectedTicketType.availableQuantity || 1) : 1}
-                        value={quantity}
-                        onChange={(event) => {
-                          const nextValue = Number(event.target.value);
-                          if (!selectedTicketType) {
-                            setQuantity(nextValue);
-                            return;
-                          }
-
-                          const maxQuantity = Math.min(
-                            selectedTicketType.maxPerUser,
-                            Math.max(selectedTicketType.availableQuantity, 1),
-                          );
-                          setQuantity(Math.min(Math.max(nextValue || 1, 1), maxQuantity));
-                        }}
-                        className="mt-2 w-full rounded-2xl border border-white/10 bg-background px-4 py-3 text-sm text-primary outline-none transition-colors placeholder:text-muted focus:border-primary"
-                      />
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Subtotal</p>
-                      <p className="mt-2 text-lg font-semibold text-white">
-                        {selectedTicketType ? moneyFormatter.format(Number(selectedTicketType.price) * quantity) : '0 đ'}
-                      </p>
-                      <p className="mt-1 text-xs text-white/60">
-                        Idempotency-Key is generated client-side per submit.
+                      <h3 className="text-xl font-semibold text-white">Sơ đồ chỗ ngồi tương tác</h3>
+                      <p className="mt-1 text-sm text-white/60">
+                        Chọn khu vực trực tiếp trên sơ đồ hoặc từ danh sách bên dưới để xem loại vé, giá và giới hạn mua.
                       </p>
                     </div>
+                    <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.18em] text-white/60">
+                      {seatMap?.zones.length ?? 0} zones
+                    </div>
                   </div>
 
-                  {checkoutNote && (
-                    <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-6 text-white/75">
-                      {checkoutNote}
-                    </div>
-                  )}
-
-                  {orderSummary && (
-                    <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm leading-6 text-emerald-50">
-                      <p className="font-semibold">Order created: {orderSummary.orderId}</p>
-                      <p className="mt-1">Payment status: {orderSummary.status ?? 'PENDING'}</p>
-                      {orderSummary.paymentId && <p className="mt-1">Payment ID: {orderSummary.paymentId}</p>}
-                      {orderSummary.message && <p className="mt-1">{orderSummary.message}</p>}
-                      {!orderSummary.paymentUrl && (
-                        <div className="mt-3">
-                          <Link
-                            href={`/payments/return?orderId=${encodeURIComponent(orderSummary.orderId)}&status=pending`}
-                            className="inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5"
-                          >
-                            Open payment result
-                          </Link>
+                  <div className="mt-5 space-y-5">
+                    <div className="overflow-hidden rounded-[24px] border border-white/10 bg-zinc-950/70">
+                      {svgMarkup ? (
+                        <div
+                          ref={svgContainerRef}
+                          className="min-h-[520px] w-full overflow-auto p-5 [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-full [&_svg]:min-h-[520px]"
+                          dangerouslySetInnerHTML={{ __html: svgMarkup }}
+                        />
+                      ) : seatMap?.svgUrl && !svgError ? (
+                        <img
+                          src={seatMap.svgUrl}
+                          alt="Seat map"
+                          className="h-full min-h-[520px] w-full object-contain"
+                          onError={() => setSvgError(true)}
+                        />
+                      ) : (
+                        <div className="flex min-h-[520px] items-center justify-center bg-white/5 text-white/55">
+                          {svgError ? "Không thể hiển thị sơ đồ chỗ ngồi." : "Chưa có sơ đồ chỗ ngồi"}
                         </div>
                       )}
                     </div>
-                  )}
 
-                  <button
-                    type="button"
-                    onClick={() => void handleCheckout()}
-                    disabled={isSubmitting || !selectedTicketType || ticketTypes.length === 0 || selectedTicketType?.availableQuantity === 0}
-                    className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-400 border-t-zinc-950" />
-                        Đang xử lý...
-                      </>
-                    ) : (
-                      <>
-                        <Ticket size={18} weight="bold" />
-                        Create order and initiate payment
-                      </>
-                    )}
-                  </button>
-                </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {seatMap?.zones.length ? (
+                        seatMap.zones.map((zone) => {
+                          const ticketType = ticketTypes.find((item) => item.id === zone.ticketTypeId) ?? null;
+                          const isActive = zone.id === selectedZoneId;
 
-                <div className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Availability notes</p>
-                  <div className="mt-4 space-y-3 text-sm leading-6 text-white/70">
-                    <p>• The page reads live ticket availability from the public API.</p>
-                    <p>• The checkout request is protected with a client-generated UUID header.</p>
-                    <p>• If paymentUrl is returned, the browser is redirected to the sandbox gateway instead of faking success in the frontend.</p>
+                          return (
+                            <button
+                              key={zone.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedZoneId(zone.id);
+                                if (zone.ticketTypeId) {
+                                  setSelectedTicketTypeId(zone.ticketTypeId);
+                                }
+                              }}
+                              className={`w-full rounded-[20px] border p-4 text-left transition-colors ${
+                                isActive
+                                  ? "border-amber-400/40 bg-amber-400/10"
+                                  : "border-white/10 bg-white/5 hover:bg-white/10"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                <div>
+                                  <p className="text-sm font-semibold text-white">{zone.name}</p>
+                                  <p className="mt-1 text-xs uppercase tracking-[0.18em] text-white/45">
+                                    {zone.id}
+                                  </p>
+                                </div>
+                                <div className="min-w-[96px] rounded-full border border-white/10 bg-white/5 px-3 py-2 text-center text-[11px] uppercase tracking-[0.22em] text-white/60">
+                                  {ticketType?.name ?? "Chưa gán"}
+                                </div>
+                              </div>
+
+                              {ticketType ? (
+                                <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/68">
+                                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                                    {formatCurrency(ticketType.price)}
+                                  </span>
+                                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                                    Còn {ticketType.availableQuantity}
+                                  </span>
+                                </div>
+                              ) : null}
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <div className="rounded-[24px] border border-dashed border-white/10 bg-white/5 p-5 text-sm text-white/60">
+                          Chưa có khu vực nào được cấu hình cho sơ đồ này.
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </motion.aside>
-            </div>
-          )}
+                </article>
+              </div>
 
-          {state === 'empty' && (
-            <div className="rounded-[32px] border border-white/10 bg-white/5 p-10 text-center backdrop-blur-xl">
-              <h2 className="text-2xl font-semibold text-white">Chưa có dữ liệu concert</h2>
-              <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/68">
-                Khi backend trả về concert PUBLISHED thật cùng availability, trang chi tiết này sẽ hiển thị toàn bộ checkout flow.
-              </p>
+              <aside className="space-y-6">
+                <article className="rounded-[32px] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10">
+                      <Ticket size={22} className="text-white/85" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">Chọn vé</h3>
+                      <p className="text-sm text-white/60">Chọn số lượng trong giới hạn cho phép và tồn kho hiện có.</p>
+                    </div>
+                  </div>
+
+                  {selectedTicketType ? (
+                    <div className="mt-5 space-y-4">
+                      <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Loại vé</p>
+                        <p className="mt-2 text-lg font-semibold text-white">{selectedTicketType.name}</p>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/70">
+                          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                            {formatCurrency(selectedTicketType.price)}
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                            Max/user {selectedTicketType.maxPerUser}
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                            Còn {selectedTicketType.availableQuantity}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Đã mua</p>
+                          <p className="mt-2 text-2xl font-semibold text-white">
+                            {selectedSummary?.paid ?? 0}
+                          </p>
+                          <p className="mt-1 text-xs text-white/55">Từ các đơn đã thanh toán</p>
+                        </div>
+                        <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Đang giữ</p>
+                          <p className="mt-2 text-2xl font-semibold text-white">
+                            {selectedSummary?.held ?? 0}
+                          </p>
+                          <p className="mt-1 text-xs text-white/55">Đơn chờ thanh toán</p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm font-medium text-white">Số lượng</span>
+                          <span className="text-xs text-white/55">
+                            Tối đa còn mua: {maxSelectable}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white transition-colors hover:bg-white/10"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min={1}
+                            max={maxSelectable || 1}
+                            value={quantity}
+                            onChange={(event) => {
+                              const nextValue = Number(event.target.value);
+                              if (Number.isNaN(nextValue)) {
+                                return;
+                              }
+
+                              const clamped = Math.max(1, Math.min(nextValue, Math.max(1, maxSelectable || 1)));
+                              setQuantity(clamped);
+                            }}
+                            className="h-11 w-full rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-center text-base font-semibold text-white outline-none ring-0 [appearance:textfield]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setQuantity((current) => Math.min(Math.max(1, maxSelectable || 1), current + 1))}
+                            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white transition-colors hover:bg-white/10"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <p className="mt-3 text-xs leading-5 text-white/55">
+                          {userLimit === 0
+                            ? "Bạn đã chạm giới hạn mua hoặc ticket type đã hết."
+                            : `Bạn còn có thể mua thêm ${userLimit} vé ở ticket type này.`}
+                        </p>
+                      </div>
+
+                      <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm text-white/65">Tổng tiền</span>
+                          <span className="text-xl font-semibold text-white">
+                            {formatCurrency(selectedTicketType.price * quantity)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {selectedZone ? (
+                        <div className="rounded-[24px] border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
+                          <p className="font-semibold">Zone đang chọn: {selectedZone.name}</p>
+                          <p className="mt-1 text-amber-100/75">
+                            {selectedZone.ticketTypeId ? "Zone này đã được gán loại vé." : "Zone chưa được gán."}
+                          </p>
+                        </div>
+                      ) : null}
+
+                      {submitError.length > 0 ? (
+                        <div className="rounded-[24px] border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-100">
+                          <p className="font-semibold">Lỗi</p>
+                          <ul className="mt-2 list-disc space-y-1 pl-5">
+                            {submitError.map((message) => (
+                              <li key={message}>{message}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+
+                      {submitSuccess ? (
+                        <div className="rounded-[24px] border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+                          {submitSuccess}
+                        </div>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        onClick={() => void handleCreateOrder()}
+                        disabled={isSubmitting || maxSelectable < 1 || quantity > maxSelectable}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isSubmitting ? <ArrowClockwise size={16} className="animate-spin" /> : null}
+                        {isSubmitting ? "Đang giữ vé..." : "Giữ vé"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-5 rounded-[24px] border border-dashed border-white/10 bg-white/5 p-5 text-sm text-white/60">
+                      Chưa có loại vé khả dụng. Vui lòng chờ admin cấu hình thêm.
+                    </div>
+                  )}
+                </article>
+
+                <article className="rounded-[32px] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+                      <h3 className="text-xl font-semibold text-white">Số lượng vé còn lại</h3>
+                  <p className="mt-2 text-sm text-white/60">
+                    Thông tin này được cập nhật theo dữ liệu mới nhất.
+                  </p>
+
+                  <div className="mt-5 space-y-3">
+                    {ticketTypes.length ? ticketTypes.map((ticketType) => {
+                      const summary = summarizeByTicketType(orders, tickets, ticketType.id);
+                      const remainingForYou = Math.max(
+                        0,
+                        ticketType.maxPerUser - summary.paid - summary.held,
+                      );
+                      const isSelected = ticketType.id === selectedTicketTypeId;
+
+                      return (
+                        <button
+                          key={ticketType.id}
+                          type="button"
+                          onClick={() => setSelectedTicketTypeId(ticketType.id)}
+                          className={`w-full rounded-[20px] border p-4 text-left transition-colors ${
+                            isSelected
+                              ? "border-emerald-400/30 bg-emerald-400/10"
+                              : "border-white/10 bg-white/5 hover:bg-white/10"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <p className="text-sm font-semibold text-white">{ticketType.name}</p>
+                              <p className="mt-1 text-xs text-white/50">
+                                {ticketType.status === "AVAILABLE" ? "Còn vé" : "Hết vé"}
+                              </p>
+                            </div>
+                            <p className="text-sm font-semibold text-white">{formatCurrency(ticketType.price)}</p>
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/70">
+                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                              Còn {ticketType.availableQuantity}
+                            </span>
+                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                              Đã mua {summary.paid}
+                            </span>
+                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                              Đang giữ {summary.held}
+                            </span>
+                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                              Tối đa còn {remainingForYou}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    }) : (
+                      <div className="rounded-[24px] border border-dashed border-white/10 bg-white/5 p-5 text-sm text-white/60">
+                        API chưa trả ticket type availability cho concert này.
+                      </div>
+                    )}
+                  </div>
+                </article>
+              </aside>
             </div>
           )}
         </section>

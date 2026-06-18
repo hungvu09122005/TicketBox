@@ -4,6 +4,14 @@ export interface PublicConcertArtist {
   avatarUrl?: string | null;
 }
 
+export interface PublicArtistDetail {
+  id: string;
+  name: string;
+  description?: string | null;
+  shortBio?: string | null;
+  avatarUrl?: string | null;
+}
+
 export interface PublicConcert {
   id: string;
   name: string;
@@ -18,7 +26,20 @@ export interface PublicConcert {
   artist: PublicConcertArtist;
 }
 
-export interface TicketTypeAvailability {
+export interface SeatZone {
+  id: string;
+  name: string;
+  svgObjectKey?: string | null;
+  ticketTypeId?: string | null;
+  createdAt?: string;
+}
+
+export interface SeatMapResponse {
+  svgUrl: string | null;
+  zones: SeatZone[];
+}
+
+export interface PublicTicketType {
   id: string;
   name: string;
   price: number;
@@ -27,36 +48,29 @@ export interface TicketTypeAvailability {
   status: 'AVAILABLE' | 'SOLD_OUT';
 }
 
-export interface AudienceOrder {
+export interface OrderSummary {
   id: string;
-  userId?: string;
   concertId: string;
   ticketTypeId: string;
   quantity: number;
   totalAmount: number;
   status: 'PENDING_PAYMENT' | 'PAID' | 'EXPIRED' | 'PAYMENT_FAILED';
-  expiresAt?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt: string;
+  expiresAt: string;
 }
 
-export interface AudienceTicket {
+export interface TicketSummary {
   id: string;
   orderId: string;
   ticketTypeId: string;
+  userId: string;
   concertId: string;
-  qrToken: string;
   status: 'ACTIVE' | 'USED' | 'CANCELLED' | 'TRANSFERRED';
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt: string;
 }
 
-export interface PaymentInitiationResult {
-  paymentUrl?: string | null;
-  orderId?: string;
-  paymentId?: string;
-  status?: 'PENDING' | 'SUCCESS' | 'FAILED' | 'EXPIRED';
-  message?: string;
+export interface CreateOrderPayload {
+  concertId: string;
+  ticketTypeId: string;
+  quantity: number;
 }
-
-export type PaymentReturnStatus = 'pending' | 'success' | 'failed' | 'expired';

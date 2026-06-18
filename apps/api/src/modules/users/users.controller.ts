@@ -19,15 +19,15 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get('me')
-  @RequirePermissions(Permission.ORDER_READ_OWN) // Any authenticated user
   getMe(@CurrentUser() user: AuthenticatedUser) {
     return this.usersService.findById(user.sub).then((profile) => {
       if (!profile) return null;
 
+      const roles = profile.roles ?? [];
       const permissions = Array.from(
         new Set(
-          profile.roles.flatMap((role) => {
-            const key = role as Role;
+          roles.flatMap((role) => {
+            const key = role.name as Role;
             return ROLE_PERMISSIONS_MAPPING[key] ?? [];
           }),
         ),
@@ -37,7 +37,7 @@ export class UsersController {
         id: profile.id,
         email: profile.email,
         name: profile.name,
-        roles: profile.roles,
+        roles: roles.map((role) => role.name),
         permissionVersion: profile.permissionVersion,
         permissions,
       };

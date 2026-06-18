@@ -31,6 +31,7 @@ function formatSchedule(concert: PublicConcert) {
 }
 
 function ConcertCard({ concert, index }: Readonly<{ concert: PublicConcert; index: number }>) {
+  const [bannerError, setBannerError] = useState(false);
   const hasBanner = Boolean(concert.bannerUrl);
 
   return (
@@ -41,11 +42,12 @@ function ConcertCard({ concert, index }: Readonly<{ concert: PublicConcert; inde
       className="group overflow-hidden rounded-[28px] border border-white/10 bg-white/5 shadow-[0_24px_80px_rgba(15,23,42,0.22)] backdrop-blur-xl"
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-zinc-900">
-        {hasBanner ? (
+        {hasBanner && !bannerError ? (
           <img
             src={concert.bannerUrl ?? ""}
             alt={concert.name}
             className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+            onError={() => setBannerError(true)}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,#f97316_0%,#0f172a_42%,#020617_100%)]">
@@ -57,7 +59,7 @@ function ConcertCard({ concert, index }: Readonly<{ concert: PublicConcert; inde
 
         <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full border border-white/15 bg-black/30 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/90 backdrop-blur-md">
           <span className="h-2 w-2 rounded-full bg-emerald-400" />
-          {' '}PUBLISHED
+          {' '}Đang mở bán
         </div>
 
         <div className="absolute inset-x-0 bottom-0 p-5">
@@ -79,9 +81,9 @@ function ConcertCard({ concert, index }: Readonly<{ concert: PublicConcert; inde
               {concert.description || "Đang cập nhật mô tả chương trình."}
             </p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-right">
+          <div className="min-w-[138px] rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-center">
             <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Thời lượng</p>
-            <p className="mt-1 text-sm font-semibold text-white">
+            <p className="mt-1 text-sm font-semibold leading-6 text-white">
               {timeFormatter.format(new Date(concert.startsAt))} - {timeFormatter.format(new Date(concert.endsAt))}
             </p>
           </div>
@@ -100,9 +102,9 @@ function ConcertCard({ concert, index }: Readonly<{ concert: PublicConcert; inde
 
         <Link
           href={`/concerts/${concert.id}`}
-          className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+          className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 hover:bg-white/10"
         >
-          Xem chi tiết & đặt vé
+          Xem chi tiết
         </Link>
       </div>
     </motion.article>
@@ -184,15 +186,17 @@ export default function ConcertsPage() {
             >
               <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium uppercase tracking-[0.22em] text-white/75 backdrop-blur-md">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                {' '}Concerts PUBLISHED từ API thật
+                {' '}Những đêm diễn đang mở bán
               </div>
 
               <h1 className="max-w-4xl text-4xl font-semibold tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">
-                Danh sách concert đang mở bán, ảnh thật và thời gian thật.
+                Những sự kiện đỉnh cao,
+                <br />
+                chỉ cách bạn một tấm vé.
               </h1>
 
               <p className="mt-5 max-w-2xl text-base leading-7 text-white/72 sm:text-lg">
-                Trang audience lấy trực tiếp các concert trạng thái PUBLISHED từ API, hiển thị ảnh từ Object Storage và kèm thông tin thời gian, địa điểm để người xem quyết định nhanh hơn.
+                Khám phá những đêm diễn đáng chờ nhất, xem ảnh, thời gian và địa điểm ngay trước khi quyết định.
               </p>
             </motion.div>
           </div>
@@ -231,7 +235,7 @@ export default function ConcertsPage() {
               </div>
               <h2 className="mt-5 text-2xl font-semibold text-white">Chưa có concert nào được public</h2>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/68">
-                Khi có concert trạng thái PUBLISHED trong API, trang này sẽ tự động hiển thị mà không cần dữ liệu giả ở local.
+                Khi có sự kiện phù hợp, danh sách sẽ tự động xuất hiện ở đây.
               </p>
             </div>
           )}

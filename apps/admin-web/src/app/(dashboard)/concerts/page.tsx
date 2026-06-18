@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Plus, MagnifyingGlass, Funnel, DotsThree, CheckCircle, XCircle } from '@phosphor-icons/react';
+import { Plus, MagnifyingGlass, Funnel, DotsThree, CheckCircle, XCircle, Ticket } from '@phosphor-icons/react';
 import { concertService } from '@/lib/services/concert.service';
 import { Concert } from '@/lib/types';
 
@@ -17,9 +17,21 @@ function getStatusClasses(status: string) {
   }
 }
 
+function getPublishMissingFields(concert: Concert) {
+  const missing: string[] = [];
+  if (!concert.venue) missing.push('venue');
+  if (!concert.description) missing.push('description');
+  if (!concert.saleStartsAt) missing.push('saleStartsAt');
+  if (!concert.saleEndsAt) missing.push('saleEndsAt');
+  if (!concert.bannerObjectKey && !concert.bannerUrl) missing.push('banner');
+  return missing;
+}
+
 export default function ConcertsPage() {
   const [concerts, setConcerts] = useState<Concert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | Concert['status']>('all');
 
   useEffect(() => {
     async function load() {
@@ -35,9 +47,30 @@ export default function ConcertsPage() {
     load();
   }, []);
 
+  const filteredConcerts = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    return concerts.filter((concert) => {
+      const matchesStatus = statusFilter === 'all' || concert.status === statusFilter;
+      if (!matchesStatus) return false;
+
+      if (!normalizedQuery) return true;
+
+      return [concert.name, concert.artist?.name, concert.venue]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+    });
+  }, [concerts, searchQuery, statusFilter]);
+
   const handleUpdateStatus = async (id: string, newStatus: 'PUBLISHED' | 'CANCELLED') => {
     try {
       if (newStatus === 'PUBLISHED') {
+        const targetConcert = concerts.find((concert) => concert.id === id);
+        const missing = targetConcert ? getPublishMissingFields(targetConcert) : [];
+        if (missing.length > 0) {
+          alert(`Cannot publish this concert yet. Missing: ${missing.join(', ')}`);
+          return;
+        }
         await concertService.publishConcert(id);
       } else {
         await concertService.cancelConcert(id);
@@ -71,19 +104,44 @@ export default function ConcertsPage() {
         </Link>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center gap-4">
-        <div className="relative w-full sm:flex-1 max-w-md">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+        <div className="relative w-full max-w-2xl">
           <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={18} />
           <input 
             type="text" 
             placeholder="Search concerts..." 
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
             className="w-full rounded-lg border border-border bg-surface pl-10 pr-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
-        <button className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5">
-          <Funnel size={16} />
-          Filter
-        </button>
+        <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+          <div className="inline-flex w-full items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-primary sm:w-auto">
+            <Funnel size={16} className="shrink-0 text-muted" />
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as 'all' | Concert['status'])}
+              className="w-full min-w-[160px] bg-transparent text-sm font-medium text-primary outline-none sm:w-auto"
+            >
+              <option value="all">All statuses</option>
+              <option value="DRAFT">Draft</option>
+              <option value="PUBLISHED">Published</option>
+              <option value="CANCELLED">Cancelled</option>
+              <option value="COMPLETED">Completed</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery('');
+              setStatusFilter('all');
+            }}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5 sm:w-auto"
+          >
+            <XCircle size={16} />
+            Reset
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-sm">
@@ -108,15 +166,15 @@ export default function ConcertsPage() {
                     </div>
                   </td>
                 </tr>
-              ) : concerts.length === 0 ? (
+              ) : filteredConcerts.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-16 text-center">
                     <p className="text-primary font-medium">No concerts found</p>
-                    <p className="text-muted text-sm mt-1">Click create to add your first event.</p>
+                    <p className="text-muted text-sm mt-1">Thử đổi từ khóa hoặc bộ lọc trạng thái.</p>
                   </td>
                 </tr>
               ) : (
-                concerts.map(concert => (
+                filteredConcerts.map(concert => (
                   <tr key={concert.id} className="hover:bg-primary/5 transition-colors group">
                     <td className="px-6 py-4 font-medium text-primary">{concert.name}</td>
                     <td className="px-6 py-4 text-muted">{concert.artist?.name || 'Unknown'}</td>
@@ -133,8 +191,9 @@ export default function ConcertsPage() {
                         {concert.status === 'DRAFT' && (
                           <button 
                             onClick={() => handleUpdateStatus(concert.id, 'PUBLISHED')}
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-md"
-                            title="Publish"
+                            disabled={getPublishMissingFields(concert).length > 0}
+                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-md disabled:cursor-not-allowed disabled:opacity-40"
+                            title={getPublishMissingFields(concert).length > 0 ? `Missing: ${getPublishMissingFields(concert).join(', ')}` : 'Publish'}
                           >
                             <CheckCircle size={18} />
                           </button>
@@ -153,6 +212,13 @@ export default function ConcertsPage() {
                           className="p-2 text-muted hover:text-primary hover:bg-primary/5 rounded-md"
                         >
                           <DotsThree size={20} weight="bold" />
+                        </Link>
+                        <Link
+                          href={`/concerts/${concert.id}/ticketing`}
+                          className="p-2 text-muted hover:text-primary hover:bg-primary/5 rounded-md"
+                          title="Ticketing"
+                        >
+                          <Ticket size={20} />
                         </Link>
                       </div>
                     </td>

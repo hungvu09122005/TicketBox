@@ -5,7 +5,7 @@ import { Logger } from '@nestjs/common';
 export const CSV_IMPORT_JOB = 'csv.import';
 
 /**
- * CsvImportProcessor — BullMQ worker. Blueprint §05 §3.6.
+ * CsvImportProcessor — bullmqMQ worker. Blueprint §05 §3.6.
  * Processes CSV row-by-row (streaming), supports partial success.
  * Retry is idempotent via VipGuest dedup_key UNIQUE constraint.
  */

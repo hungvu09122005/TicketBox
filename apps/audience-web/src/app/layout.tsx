@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "TicketBox Audience",
-  description: "Hiển thị concert PUBLISHED từ API thật và Object Storage.",
+  description: "Khám phá những sự kiện đang mở bán trên TicketBox.",
 };
 
 export default function RootLayout({

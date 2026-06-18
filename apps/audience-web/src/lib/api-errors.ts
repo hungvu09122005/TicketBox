@@ -22,4 +22,3 @@ export function extractApiMessages(error: unknown, fallback: string): string[] {
 
   return [fallback];
 }
-
