@@ -11,7 +11,7 @@ import { CheckinDto } from './dto/checkin.dto';
 @ApiTags('checkin')
 @ApiBearerAuth()
 @Controller('checkin')
-//@UseGuards(JwtAuthGuard, RbacGuard)
+@UseGuards(JwtAuthGuard, RbacGuard)
 export class CheckinController {
   constructor(private readonly checkinService: CheckinService) {}
 

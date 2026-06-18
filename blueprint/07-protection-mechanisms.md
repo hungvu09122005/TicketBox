@@ -213,14 +213,14 @@ sequenceDiagram
 
 ## 6. Xử Lý Tác Vụ Ngầm Qua Hàng Đợi (Queue Processing)
 
-Các tác vụ tốn thời gian như xử lý file CSV khách VIP, trích xuất text từ PDF nghệ sĩ rồi gửi AI, và gửi email e-ticket sẽ được đẩy vào hàng đợi **BullMQ** (chạy trên nền Redis) để xử lý bất đồng bộ, giúp giải phóng luồng xử lý chính của Backend API.
+Các tác vụ tốn thời gian như xử lý file CSV khách VIP, trích xuất text từ PDF nghệ sĩ rồi gửi AI, và gửi email e-ticket sẽ được đẩy vào hàng đợi **bullMQ** (chạy trên nền Redis) để xử lý bất đồng bộ, giúp giải phóng luồng xử lý chính của Backend API.
 
 ### 6.1. Quy trình quản lý tác vụ ngầm
 ```
 [Client Request] --> [Backend API]
                          │
                          ▼ (Đẩy Job vào Queue)
-                  [Redis - BullMQ]
+                  [Redis - bullMQ]
                          │
                          ▼ (Worker lấy Job xử lý ngầm)
                   [Queue Worker] ──> [Gửi Email / Gọi AI / Đọc CSV]

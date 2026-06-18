@@ -23,7 +23,10 @@ export class UsersRepository {
   ) {}
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.repo.findOne({ where: { email } });
+    return this.repo.findOne({ 
+      where: { email },
+      relations: ['roles'] // 
+    });
   }
 
   async findById(id: string): Promise<User | null> {
