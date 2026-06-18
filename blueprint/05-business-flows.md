@@ -29,7 +29,7 @@ Các luồng nghiệp vụ tương tác qua các thành phần công nghệ sau:
 4. **Backend API**: Hệ thống API Core xử lý nghiệp vụ chính của TicketBox.
 5. **PostgreSQL Database**: Bộ lưu trữ dữ liệu quan hệ chính (Concerts, Orders, Tickets, Users, Roles).
 6. **Redis**: Bộ nhớ đệm availability, rate limiting, waiting room, idempotency tạm thời và short-lived coordination. PostgreSQL transaction vẫn là cơ chế quyết định cuối cùng khi giữ/trừ vé.
-7. **Message Queue (BullMQ)**: Hàng đợi xử lý tác vụ ngầm chạy trên nền Redis.
+7. **Message Queue (bullMQ)**: Hàng đợi xử lý tác vụ ngầm chạy trên nền Redis.
 8. **Queue Worker**: Bộ xử lý bất đồng bộ các tác vụ ngầm (gửi mail, parse CSV, gọi AI).
 9. **Object Storage**: Bộ lưu trữ tệp tin (ảnh concert, file PDF nghệ sĩ, file CSV khách VIP).
 
@@ -105,12 +105,12 @@ Các luồng nghiệp vụ tương tác qua các thành phần công nghệ sau:
 ### 3.2. Luồng 2: Thông Báo Xác Nhận và Nhắc Nhở (Notifications)
 
 * **Tác nhân tham gia (Actors):** Khán giả (Audience), Dịch vụ gửi Email (Email Service).
-* **Thành phần tham gia (Components):** Backend API, Redis (BullMQ), Queue Worker, PostgreSQL Database, Email Service.
+* **Thành phần tham gia (Components):** Backend API, Redis (bullMQ), Queue Worker, PostgreSQL Database, Email Service.
 
 #### A. Luồng xử lý nghiệp vụ (Business Flow)
 * **Main Flow (Luồng chính):**
   1. Khi đơn hàng của Khán giả được xác nhận thanh toán thành công, Backend API tiến hành sinh mã QR e-ticket.
-  2. Backend API tạo một tác vụ gửi email xác nhận mua vé thành công kèm mã QR vé và đẩy vào hàng đợi `Message Queue` (BullMQ chạy trên nền Redis).
+  2. Backend API tạo một tác vụ gửi email xác nhận mua vé thành công kèm mã QR vé và đẩy vào hàng đợi `Message Queue` (bullMQ chạy trên nền Redis).
   3. `Queue Worker` lấy tác vụ ra khỏi hàng đợi.
   4. Worker gọi API sang dịch vụ gửi email ngoài (SendGrid/Mailgun) để chuyển e-ticket đến hòm thư Khán giả.
   5. Định kỳ hàng giờ, tác vụ lịch quét PostgreSQL tìm các vé có concert diễn ra sau 24 giờ tới và tự động đẩy các tác vụ nhắc nhở vào `Message Queue`.
@@ -134,7 +134,7 @@ Các luồng nghiệp vụ tương tác qua các thành phần công nghệ sau:
   - **E1 (API bên thứ ba bị sập/timeout):**
     1. Worker gọi API Email Service trong bước 4 hoặc bước 6 của Main Flow nhưng yêu cầu bị quá thời gian chờ hoặc nhận lỗi phía nhà cung cấp.
     2. Worker đánh dấu lần gửi hiện tại là thất bại tạm thời và lưu thông tin lỗi vào lịch sử thông báo.
-    3. BullMQ áp dụng chính sách thử lại, ví dụ thử lại sau 5 phút và tối đa 3 lần.
+    3. bullMQ áp dụng chính sách thử lại, ví dụ thử lại sau 5 phút và tối đa 3 lần.
     4. Nếu lần thử lại tiếp theo thành công, Worker cập nhật lịch sử gửi thành công và kết thúc tác vụ.
     5. Nếu đủ số lần thử lại vẫn thất bại, tác vụ được chuyển vào hàng đợi lỗi để xử lý sau.
     6. Hệ thống gửi cảnh báo vận hành cho Admin hệ thống để kiểm tra provider hoặc gửi thủ công cho các vé bị ảnh hưởng.
@@ -153,7 +153,7 @@ Các luồng nghiệp vụ tương tác qua các thành phần công nghệ sau:
     5. Hệ thống ghi log để audit việc chống gửi email trùng cho cùng một vé.
 
 #### B. Quyết định thiết kế (Design Decisions)
-* **Giải pháp lựa chọn (What):** Sử dụng kiến trúc **Event-Driven & Queue Processing** (BullMQ/Redis) kết hợp mẫu thiết kế **Adapter Pattern** cho Notification Service.
+* **Giải pháp lựa chọn (What):** Sử dụng kiến trúc **Event-Driven & Queue Processing** (bullMQ/Redis) kết hợp mẫu thiết kế **Adapter Pattern** cho Notification Service.
 * **Lý do lựa chọn (Why):** 
   - Gửi email và thông báo đẩy (push) phụ thuộc vào API bên thứ ba, tốc độ xử lý chậm và dễ lỗi. Việc xử lý bất đồng bộ qua Queue giúp giải phóng luồng chính của Backend API ngay lập tức, giảm tối đa thời gian phản hồi cho Khán giả khi mua vé.
   - Mẫu Adapter giúp hệ thống dễ dàng tích hợp thêm các kênh thông báo mới như SMS, Zalo OA trong tương lai mà không cần chỉnh sửa logic cốt lõi.
@@ -295,13 +295,13 @@ Các luồng nghiệp vụ tương tác qua các thành phần công nghệ sau:
 ### 3.5. Luồng 5: Tạo Artist Bio Tự Động (AI Artist Bio)
 
 * **Tác nhân tham gia (Actors):** Ban tổ chức (Organizer), Dịch vụ AI (AI Service).
-* **Thành phần tham gia (Components):** Admin Web App, Backend API, Object Storage, Redis (BullMQ), Queue Worker, PostgreSQL Database, AI Service.
+* **Thành phần tham gia (Components):** Admin Web App, Backend API, Object Storage, Redis (bullMQ), Queue Worker, PostgreSQL Database, AI Service.
 
 #### A. Luồng xử lý nghiệp vụ (Business Flow)
 * **Main Flow (Luồng chính):**
   1. Ban tổ chức upload file PDF hồ sơ giới thiệu nghệ sĩ lên `Admin Web App`.
   2. Backend API lưu PDF vào `Object Storage` và tạo tác vụ xử lý đang chờ trong PostgreSQL.
-  3. Backend đẩy một tác vụ xử lý PDF vào `Message Queue` (BullMQ/Redis).
+  3. Backend đẩy một tác vụ xử lý PDF vào `Message Queue` (bullMQ/Redis).
   4. `Queue Worker` nhận tác vụ, thực hiện trích xuất text từ file PDF và làm sạch văn bản thô.
   5. Worker gửi văn bản đã làm sạch sang `AI Service` (OpenAI/Gemini) kèm prompt tóm tắt.
   6. AI phản hồi kết quả. Worker lưu kết quả tóm tắt vào database dưới dạng bản nháp bio của concert và đánh dấu tác vụ hoàn tất.
@@ -363,12 +363,12 @@ Các luồng nghiệp vụ tương tác qua các thành phần công nghệ sau:
 ### 3.6. Luồng 6: Đồng Bộ Danh Sách Khách Mời VIP (VIP Guest Sync)
 
 * **Tác nhân tham gia (Actors):** Ban tổ chức (Organizer).
-* **Thành phần tham gia (Components):** Admin Web App, Backend API, Redis (BullMQ), Queue Worker, PostgreSQL Database.
+* **Thành phần tham gia (Components):** Admin Web App, Backend API, Redis (bullMQ), Queue Worker, PostgreSQL Database.
 
 #### A. Luồng xử lý nghiệp vụ (Business Flow)
 * **Main Flow (Luồng chính):**
   1. Ban tổ chức upload file CSV danh sách khách VIP (họ tên, email, sđt, hạng vé VIP) từ nhãn hàng tài trợ lên `Admin Web App`.
-  2. Backend lưu file, tạo tác vụ xử lý đang chờ trong PostgreSQL, và đẩy tác vụ vào queue (BullMQ/Redis).
+  2. Backend lưu file, tạo tác vụ xử lý đang chờ trong PostgreSQL, và đẩy tác vụ vào queue (bullMQ/Redis).
   3. `Queue Worker` lấy tác vụ ra và tiến hành đọc file CSV theo từng khối.
   4. Worker validate định dạng dữ liệu từng dòng (email hợp lệ, sđt đúng định dạng, hạng vé có tồn tại).
   5. Worker ghi dữ liệu khách hợp lệ vào danh sách khách VIP và tự động sinh e-ticket tương ứng.
