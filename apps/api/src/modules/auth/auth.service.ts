@@ -39,7 +39,7 @@ export class AuthService {
       passwordHash,
     });
 
-    return this.issueTokens(user.id, user.email, user.permissionVersion, user.roles);
+    return this.issueTokens(user.id, user.email, user.permissionVersion, user.roles.map((role: any) => role.name));
   }
 
   async login(dto: LoginDto) {
@@ -51,7 +51,7 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('Invalid credentials.');
 
-    return this.issueTokens(user.id, user.email, user.permissionVersion, user.roles);
+    return this.issueTokens(user.id, user.email, user.permissionVersion, (user.roles || []).map((role: any) => role.name));
   }
 
   async refresh(refreshToken: string) {
@@ -78,7 +78,7 @@ export class AuthService {
         await this.cacheManager.set(`revoked_token:${payload.jti}`, true, ttl);
       }
 
-      return this.issueTokens(user.id, user.email, user.permissionVersion, user.roles);
+      return this.issueTokens(user.id, user.email, user.permissionVersion, user.roles.map((role: any) => role.name));
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;
