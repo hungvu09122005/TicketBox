@@ -27,7 +27,7 @@ export class TicketTypesController {
     @Body() dto: CreateTicketTypeDto,
     @Request() req: any,
   ) {
-    const isAdmin = req.user.roles.includes('ADMIN');
+    const isAdmin = req.user.roles.includes('SYSTEM_ADMIN');
     await this.concertsService.checkOwnership(concertId, req.user.sub, isAdmin);
     return this.ticketTypesService.create(concertId, dto, req.user.sub);
   }
@@ -41,7 +41,7 @@ export class TicketTypesController {
     @Body() dto: UpdateTicketTypeDto,
     @Request() req: any,
   ) {
-    const isAdmin = req.user.roles.includes('ADMIN');
+    const isAdmin = req.user.roles.includes('SYSTEM_ADMIN');
     await this.concertsService.checkOwnership(concertId, req.user.sub, isAdmin);
     return this.ticketTypesService.update(ticketTypeId, dto, req.user.sub);
   }

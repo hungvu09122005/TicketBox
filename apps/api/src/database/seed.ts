@@ -1,33 +1,18 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from '../app.module';
-import { DataSource } from 'typeorm';
+import { AppDataSource } from './data-source';
 import { seedRbac } from './seed-rbac';
-import { Ticket, TicketStatus } from '../modules/tickets/entities/ticket.entity';
+import { seedAdmin } from './seed-admin';
+import { seedUsers } from './seed-users';
 
 async function seed() {
-  const appContext = await NestFactory.createApplicationContext(AppModule);
-  const dataSource = appContext.get(DataSource);
+  await AppDataSource.initialize();
 
-  // Seed RBAC data
-  await seedRbac(dataSource);
-
-  
-  const ticketRepo = dataSource.getRepository(Ticket);
-  
-  // Dữ liệu thật, đúng định dạng Entity
-  const newTicket = ticketRepo.create({
-    orderId: 'ORD-2026-001',
-    ticketTypeId: 'TYPE-VIP-01',
-    userId: 'USER-123',
-    concertId: 'CONCERT-2026-SG',
-    qrToken: 'HMAC_TOKEN_SAMPLE_XYZ_123', // Phải khớp với thuộc tính qrToken
-    status: TicketStatus.ACTIVE,           // Dùng Enum đúng chuẩn
-  });
-
-  await ticketRepo.save(newTicket);
-  console.log('✅ Dữ liệu thật đã được nạp vào bảng tickets!');
-  
-  await appContext.close();
+  try {
+    await seedRbac(AppDataSource);
+    await seedAdmin(AppDataSource);
+    await seedUsers(AppDataSource);
+  } finally {
+    await AppDataSource.destroy();
+  }
 }
 
 seed().catch((err) => {

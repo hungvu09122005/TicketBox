@@ -15,6 +15,7 @@ import { Permission } from '../constants/permissions.enum';
 import { Role } from '../constants/roles.enum';
 import { ROLE_PERMISSIONS_MAPPING } from '../constants/role-permissions.mapping';
 import { AuthenticatedUser } from '../decorators/current-user.decorator';
+import { User } from '../../modules/users/entities/user.entity';
 
 /**
  * RBAC Guard — Blueprint §06-rbac-design §4.2
@@ -79,51 +80,33 @@ export class RbacGuard implements CanActivate {
   }
 
   private async loadUserAndPermissionsFromDb(userId: string): Promise<{ permissions: string[], permissionVersion: number }> {
-    const rows = await this.dataSource.query<{ roles: string, permission_version: number }[]>(
-      `SELECT roles, permission_version FROM users WHERE id = $1`,
-      [userId],
-    );
-    if (!rows || rows.length === 0) return { permissions: [], permissionVersion: 0 };
-    
-    // Parse roles if it's a string, otherwise it's an array/object depending on TypeORM
-    const rolesData = rows[0].roles;
-    let roles: string[] = [];
-    if (typeof rolesData === 'string') {
-      try {
-        roles = JSON.parse(rolesData);
-      } catch (e) {
-        roles = [];
-      }
-    } else if (Array.isArray(rolesData)) {
-      roles = rolesData;
+    const userRepo = this.dataSource.getRepository(User);
+    const user = await userRepo.findOne({
+      where: { id: userId },
+      relations: { roles: { permissions: true } },
+    });
+
+    if (!user) {
+      return { permissions: [], permissionVersion: 0 };
     }
 
     const permissions = new Set<string>();
-    
-    for (const role of roles) {
-      const upperRole = role.toUpperCase();
-      if (upperRole === 'SYSTEM_ADMIN') {
-        Object.values(Permission).forEach(p => permissions.add(p));
-      } else if (upperRole === 'ORGANIZER') {
-        permissions.add(Permission.CONCERT_READ);
-        permissions.add(Permission.CONCERT_CREATE);
-        permissions.add(Permission.CONCERT_UPDATE);
-        permissions.add(Permission.ORDER_READ_ALL);
-        permissions.add(Permission.VIP_IMPORT);
-        permissions.add(Permission.AI_GENERATE_BIO);
-        permissions.add(Permission.REPORT_VIEW);
-      } else if (upperRole === 'CHECKIN_STAFF') {
-        permissions.add(Permission.CONCERT_READ);
-        permissions.add(Permission.TICKET_VALIDATE);
-      } else {
-        // Audience defaults
-        permissions.add(Permission.CONCERT_READ);
-        permissions.add(Permission.ORDER_CREATE);
-        permissions.add(Permission.ORDER_READ_OWN);
-        permissions.add(Permission.TICKET_VIEW_OWN);
+
+    for (const role of user.roles ?? []) {
+      const blueprintPermissions = ROLE_PERMISSIONS_MAPPING[role.name as Role];
+      if (blueprintPermissions) {
+        blueprintPermissions.forEach((permission) => permissions.add(permission));
+        continue;
+      }
+
+      for (const permission of role.permissions ?? []) {
+        permissions.add(permission.name as Permission);
       }
     }
 
-    return { permissions: Array.from(permissions), permissionVersion: rows[0].permission_version };
+    return {
+      permissions: Array.from(permissions),
+      permissionVersion: user.permissionVersion,
+    };
   }
 }
