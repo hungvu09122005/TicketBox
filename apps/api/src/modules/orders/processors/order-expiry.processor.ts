@@ -4,7 +4,7 @@ import { Logger } from '@nestjs/common';
 import { OrderStatus } from '../enums/order-status.enum';
 import { OrdersService } from '../orders.service';
 
-@Processor('order-expiry')
+@Processor('orders-expiry')
 export class OrderExpiryProcessor {
   private readonly logger = new Logger(OrderExpiryProcessor.name);
 
