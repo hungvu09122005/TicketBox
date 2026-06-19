@@ -10,6 +10,7 @@ import { Logo } from "@/components/Logo";
 import { authService } from "@/lib/services/auth.service";
 import { hasStoredAdminSession, useAuthStore } from "@/lib/auth-store";
 import { setStoredAdminTokens } from "@/lib/auth-session";
+import { hasAdminAccess } from "@/lib/authz";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Email không hợp lệ" }),
@@ -44,6 +45,14 @@ function AdminLoginForm() {
       const tokens = await authService.login(data);
       setStoredAdminTokens(tokens.accessToken, tokens.refreshToken);
       const profile = await authService.me();
+
+      if (!hasAdminAccess(profile)) {
+        logout();
+        setSubmitError("Tài khoản này không có quyền truy cập admin.");
+        router.replace("/forbidden");
+        return;
+      }
+
       login(profile, tokens.accessToken, tokens.refreshToken);
       const nextPath = searchParams.get("next") || "/concerts";
       router.replace(nextPath);

@@ -9,7 +9,7 @@ export default function ForbiddenPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/55">403 Forbidden</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight">Bạn không có quyền truy cập trang này</h1>
         <p className="mt-3 text-sm leading-6 text-white/70">
-          Yêu cầu này bị backend từ chối vì tài khoản hiện tại chưa đủ quyền.
+          Yêu cầu này không được phép vì tài khoản hiện tại chưa đủ quyền.
         </p>
         <div className="mt-6 flex items-center justify-center gap-3">
           <Link

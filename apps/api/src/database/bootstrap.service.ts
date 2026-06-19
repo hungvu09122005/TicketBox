@@ -2,6 +2,9 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { RolesService } from '../modules/users/roles.service';
 import { PermissionsService } from '../modules/users/permissions.service';
+import { Permission } from '../common/constants/permissions.enum';
+import { Role } from '../common/constants/roles.enum';
+import { ROLE_PERMISSIONS_MAPPING } from '../common/constants/role-permissions.mapping';
 
 @Injectable()
 export class BootstrapService implements OnModuleInit {
@@ -16,13 +19,11 @@ export class BootstrapService implements OnModuleInit {
     this.logger.log('Khởi tạo dữ liệu hệ thống...');
     await this.ensureRolesExist();
     await this.ensurePermissionsExist();
-    
-    // Ví dụ: Gán quyền mặc định cho Admin
-    await this.rolesService.assignPermissionToRole('Admin', 'concert:create');
+    await this.ensureRolePermissionMapping();
   }
 
   private async ensureRolesExist() {
-    const roles = ['Admin', 'Audience', 'Organizer', 'Staff'];
+    const roles = Object.values(Role);
     for (const name of roles) {
       await this.rolesService.createRoleIfNotExists(name);
     }
@@ -30,14 +31,16 @@ export class BootstrapService implements OnModuleInit {
   }
 
   private async ensurePermissionsExist() {
-  const permissions = [
-      { code: 'concert:create', name: 'Create Concert' },
-      { code: 'ticket:book', name: 'Book Ticket' }
-  ];
-  
-  for (const p of permissions) {
-      // Truyền p.code (tham số 1) và p.name (tham số 2)
-      await this.permissionsService.createPermissionIfNotExists(p.code, p.name);
+    for (const permission of Object.values(Permission)) {
+      await this.permissionsService.createPermissionIfNotExists(permission);
+    }
   }
-}
+
+  private async ensureRolePermissionMapping() {
+    for (const [roleName, permissions] of Object.entries(ROLE_PERMISSIONS_MAPPING)) {
+      for (const permission of permissions) {
+        await this.rolesService.assignPermissionToRole(roleName as Role, permission);
+      }
+    }
+  }
 }

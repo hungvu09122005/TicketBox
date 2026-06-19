@@ -71,9 +71,8 @@ export class SeatMapController {
       throw new BadRequestException('Mapping must be a JSON object');
     }
 
-    const isAdmin = req.user.roles?.includes('ADMIN') || false;
+    const isAdmin = req.user.roles?.includes('SYSTEM_ADMIN') || false;
     
     return this.seatMapService.uploadSvgAndMapZones(concertId, file, mapping, req.user.sub, isAdmin);
   }
 }
-

@@ -6,18 +6,19 @@
   "scripts": {
     "dev": "ts-node -r tsconfig-paths/register src/main.ts",
     "build": "nest build",
-    "start": "node dist/apps/api/main.js",
+    "start": "node dist/main.js",
     "lint": "eslint \"{src,test}/**/*.ts\" --fix",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config jest.e2e.config.ts --runInBand",
-    "migration:run": "ts-node -P tsconfig.json -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d src/database/data-source.ts",
-    "migration:generate": "ts-node -P tsconfig.json -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate -d src/database/data-source.ts",
-    "migration:revert": "ts-node -P tsconfig.json -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d src/database/data-source.ts",
-    "migration:show": "ts-node -P tsconfig.json -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:show -d src/database/data-source.ts",
-    "typeorm": "npx typeorm-ts-node-commonjs",
-    "seed:run": "ts-node -P tsconfig.json -r tsconfig-paths/register src/database/seed.ts"
+    "seed": "ts-node -r tsconfig-paths/register --project tsconfig.json src/database/seed.ts",
+    "seed:run": "ts-node -r tsconfig-paths/register --project tsconfig.json src/database/seed.ts",
+    "migration:generate": "npx typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
+    "migration:run": "npx typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
+    "migration:revert": "npx typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
+    "migration:show": "npx typeorm-ts-node-commonjs migration:show -d src/database/data-source.ts",
+    "typeorm": "npx typeorm-ts-node-commonjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1069.0",

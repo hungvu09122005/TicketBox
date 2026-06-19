@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
-import { ArrowLeft, SpinnerGap } from '@phosphor-icons/react';
+import { ArrowLeft, CheckCircle, SpinnerGap, Ticket, UploadSimple } from '@phosphor-icons/react';
 import { concertService } from '@/lib/services/concert.service';
 import { Artist } from '@/lib/types';
 import { extractApiMessages } from '@/lib/api-errors';
@@ -30,6 +30,10 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
   
   const [artists, setArtists] = useState<Artist[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [bannerFileName, setBannerFileName] = useState<string | null>(null);
+  const [bannerObjectKey, setBannerObjectKey] = useState<string | null>(null);
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [serverErrors, setServerErrors] = useState<string[] | null>(null);
 
@@ -69,10 +73,11 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
             saleStartsAt: concertData.saleStartsAt ? formatForInput(concertData.saleStartsAt) : '',
             saleEndsAt: concertData.saleEndsAt ? formatForInput(concertData.saleEndsAt) : '',
           });
+          setBannerPreviewUrl(concertData.bannerUrl ?? null);
         }
       } catch (err) {
         console.error('Failed to load data', err);
-        setServerErrors(['Failed to load concert details. Please ensure backend is running.']);
+        setServerErrors(['Không thể tải thông tin sự kiện. Vui lòng thử lại.']);
       } finally {
         setIsLoading(false);
       }
@@ -80,11 +85,33 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
     loadData();
   }, [id, reset]);
 
+  const handleBannerUpload = async (file?: File) => {
+    if (!file) return;
+    setIsUploadingBanner(true);
+    setServerErrors(null);
+    if (bannerPreviewUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(bannerPreviewUrl);
+    }
+    setBannerPreviewUrl(URL.createObjectURL(file));
+    try {
+      const objectKey = await concertService.uploadBannerAsset(file);
+      setBannerFileName(file.name);
+      setBannerObjectKey(objectKey);
+    } catch (err: unknown) {
+      setServerErrors(extractApiMessages(err, 'Không thể upload banner.'));
+    } finally {
+      setIsUploadingBanner(false);
+    }
+  };
+
   const onSubmit = async (data: ConcertFormValues) => {
     setIsSubmitting(true);
     setServerErrors(null);
     try {
-      await concertService.updateConcert(id, data);
+      await concertService.updateConcert(id, {
+        ...data,
+        ...(bannerObjectKey ? { bannerObjectKey } : {}),
+      });
       router.push('/concerts');
     } catch (err: unknown) {
       setServerErrors(extractApiMessages(err, 'An unexpected error occurred while saving.'));
@@ -104,13 +131,22 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
-        <Link 
-          href="/concerts"
-          className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary mb-4 transition-colors"
-        >
-          <ArrowLeft size={16} />
-          Back to concerts
-        </Link>
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <Link
+            href="/concerts"
+            className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary transition-colors"
+          >
+            <ArrowLeft size={16} />
+            Back to concerts
+          </Link>
+          <Link
+            href={`/concerts/${id}/ticketing`}
+            className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
+          >
+            <Ticket size={16} />
+            Ticketing
+          </Link>
+        </div>
         <h1 className="text-2xl font-semibold tracking-tight text-primary">Edit Concert</h1>
         <p className="text-sm text-muted mt-1">Update the details of this event.</p>
       </div>
@@ -239,6 +275,49 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
               }`}
             />
             {errors.description && <p className="mt-1.5 text-xs text-red-600">{errors.description.message}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="banner" className="block text-sm font-medium text-primary mb-1.5">Banner image</label>
+            <div className="rounded-lg border border-dashed border-border bg-surface/60 p-4">
+              <input
+                id="banner"
+                type="file"
+                accept="image/*"
+                onChange={(event) => handleBannerUpload(event.target.files?.[0])}
+                className="block w-full text-sm text-muted file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-surface hover:file:opacity-90"
+              />
+              <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
+                {bannerPreviewUrl ? (
+                  <img src={bannerPreviewUrl} alt="Banner preview" className="h-56 w-full object-cover" />
+                ) : (
+                  <div className="flex h-56 items-center justify-center px-4 text-center text-sm text-muted">
+                    Ảnh bìa hiện tại sẽ hiện ở đây sau khi tải lại.
+                  </div>
+                )}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
+                {isUploadingBanner ? (
+                  <>
+                    <SpinnerGap size={14} className="animate-spin" />
+                    <span>Đang tải ảnh bìa...</span>
+                  </>
+                ) : bannerObjectKey ? (
+                  <>
+                    <CheckCircle size={14} className="text-emerald-600" />
+                    <span>Đã chọn ảnh bìa: {bannerFileName}</span>
+                    <span className="rounded-full border border-border bg-background px-2 py-1 text-[11px] text-primary">
+                      {bannerObjectKey}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <UploadSimple size={14} />
+                    <span>Chọn ảnh bìa mới nếu sự kiện chưa có ảnh.</span>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 

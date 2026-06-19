@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/Header';
 import { authService } from '@/lib/services/auth.service';
 import { hasStoredAdminSession, useAuthStore } from '@/lib/auth-store';
 import { getStoredAdminAccessToken, getStoredAdminRefreshToken } from '@/lib/auth-session';
+import { hasAdminAccess } from '@/lib/authz';
 
 export default function DashboardLayout({
   children,
@@ -32,6 +33,13 @@ export default function DashboardLayout({
 
       try {
         const profile = await authService.me();
+        if (!hasAdminAccess(profile)) {
+          logout();
+          router.replace('/forbidden');
+          if (isMounted) setIsBootstrapping(false);
+          return;
+        }
+
         const accessToken = getStoredAdminAccessToken() ?? '';
         const refreshToken = getStoredAdminRefreshToken() ?? undefined;
         if (isMounted) {

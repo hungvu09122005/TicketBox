@@ -22,16 +22,16 @@ export class RolesService {
   }
 
   // Hàm này giúp bạn gán quyền (vd: 'concert:create') cho Role (vd: 'Admin')
-  async assignPermissionToRole(roleName: string, permissionCode: string) {
+  async assignPermissionToRole(roleName: string, permissionName: string) {
     const role = await this.roleRepository.findOne({ 
         where: { name: roleName },
         relations: ['permissions'] // Phải load mối quan hệ này lên
     });
-    const permission = await this.permissionRepository.findOne({ where: { code: permissionCode } });
+    const permission = await this.permissionRepository.findOne({ where: { name: permissionName } });
 
     if (role && permission) {
         // Kiểm tra xem đã có quyền này chưa để tránh trùng lặp
-        const hasPermission = role.permissions.some(p => p.code === permission.code);
+        const hasPermission = role.permissions.some(p => p.name === permission.name);
         if (!hasPermission) {
             role.permissions.push(permission);
             await this.roleRepository.save(role);

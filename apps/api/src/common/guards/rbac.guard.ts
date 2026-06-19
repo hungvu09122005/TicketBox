@@ -15,6 +15,7 @@ import { Permission } from '../constants/permissions.enum';
 import { Role } from '../constants/roles.enum';
 import { ROLE_PERMISSIONS_MAPPING } from '../constants/role-permissions.mapping';
 import { AuthenticatedUser } from '../decorators/current-user.decorator';
+import { User } from '../../modules/users/entities/user.entity';
 
 /**
  * RBAC Guard — Blueprint §06-rbac-design §4.2
@@ -79,32 +80,33 @@ export class RbacGuard implements CanActivate {
   }
 
   private async loadUserAndPermissionsFromDb(userId: string): Promise<{ permissions: string[], permissionVersion: number }> {
-    const rows = await this.dataSource.query<{ permission_version: number, permission_name: string }[]>(
-      `
-      SELECT u.permission_version, p.name AS permission_name
-      FROM users u
-      LEFT JOIN user_roles ur ON ur.user_id = u.id
-      LEFT JOIN roles r ON r.id = ur.role_id
-      LEFT JOIN role_permissions rp ON rp.role_id = r.id
-      LEFT JOIN permissions p ON p.id = rp.permission_id
-      WHERE u.id = $1
-      `,
-      [userId],
-    );
+    const userRepo = this.dataSource.getRepository(User);
+    const user = await userRepo.findOne({
+      where: { id: userId },
+      relations: { roles: { permissions: true } },
+    });
 
-    if (!rows || rows.length === 0) {
+    if (!user) {
       return { permissions: [], permissionVersion: 0 };
     }
-    
-    const permissionVersion = rows[0].permission_version;
+
     const permissions = new Set<string>();
-    
-    for (const row of rows) {
-      if (row.permission_name) {
-        permissions.add(row.permission_name);
+
+    for (const role of user.roles ?? []) {
+      const blueprintPermissions = ROLE_PERMISSIONS_MAPPING[role.name as Role];
+      if (blueprintPermissions) {
+        blueprintPermissions.forEach((permission) => permissions.add(permission));
+        continue;
+      }
+
+      for (const permission of role.permissions ?? []) {
+        permissions.add(permission.name as Permission);
       }
     }
 
-    return { permissions: Array.from(permissions), permissionVersion };
+    return {
+      permissions: Array.from(permissions),
+      permissionVersion: user.permissionVersion,
+    };
   }
 }
