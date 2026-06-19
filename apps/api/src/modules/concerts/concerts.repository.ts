@@ -18,11 +18,11 @@ export class ConcertsRepository {
   }
 
   findById(id: string): Promise<Concert | null> {
-    return this.repo.findOne({ where: { id }, relations: ['artist'] });
+    return this.repo.findOne({ where: { id }, relations: ['artists'] });
   }
 
   findByOrganizer(organizerId: string): Promise<Concert[]> {
-    return this.repo.find({ where: { organizerId } });
+    return this.repo.find({ where: { organizerId }, relations: ['artists'] });
   }
 
   create(data: Partial<Concert>): Promise<Concert> {

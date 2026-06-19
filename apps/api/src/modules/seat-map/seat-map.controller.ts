@@ -14,7 +14,7 @@ export class SeatMapController {
   constructor(private readonly seatMapService: SeatMapService) {}
 
   @Get()
-  @RequirePermissions(Permission.CONCERT_READ)
+  @RequirePermissions(Permission.SEATMAP_READ)
   getZones(@Param('concertId') concertId: string) {
     // TODO Phase 2 — returns zone list with presigned SVG URL
     return [];

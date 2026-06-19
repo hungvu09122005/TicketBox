@@ -20,20 +20,19 @@ export class ConcertsController {
   constructor(private readonly concertsService: ConcertsService) {}
 
   @Get()
-  //@RequirePermissions(Permission.CONCERT_READ)
+  @RequirePermissions(Permission.CONCERT_READ_PUBLIC)
   findAll() {
     return this.concertsService.findPublished();
   }
 
   @Get(':id')
-  //@RequirePermissions(Permission.CONCERT_READ)
+  @RequirePermissions(Permission.CONCERT_READ_PUBLIC)
   findOne(@Param('id') id: string) {
     return this.concertsService.findById(id);
   }
 
-  // --- Logic Upload SeatMap cho Task 6 ---
   @Post(':concertId/zones/:zoneId/seat-map')
-  @RequirePermissions(Permission.CONCERT_UPDATE)
+  @RequirePermissions(Permission.SEATMAP_UPDATE)
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -66,13 +65,13 @@ export class ConcertsController {
   }
 
   @Patch(':id')
-  @RequirePermissions(Permission.CONCERT_UPDATE)
+  @RequirePermissions(Permission.CONCERT_UPDATE_OWN)
   update(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
     return { message: 'Not implemented — Phase 2' };
   }
 
   @Delete(':id')
-  @RequirePermissions(Permission.CONCERT_UPDATE)
+  @RequirePermissions(Permission.CONCERT_UPDATE_OWN)
   cancel(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return { message: 'Not implemented — Phase 2' };
   }

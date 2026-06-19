@@ -13,10 +13,10 @@ export class ArtistsController {
   constructor(private readonly artistsService: ArtistsService) {}
 
   @Get()
-  @RequirePermissions(Permission.CONCERT_READ)
+  @RequirePermissions(Permission.ARTIST_READ)
   findAll() { return this.artistsService.findAll(); }
 
   @Get(':id')
-  @RequirePermissions(Permission.CONCERT_READ)
+  @RequirePermissions(Permission.ARTIST_READ)
   findOne(@Param('id') id: string) { return this.artistsService.findById(id); }
 }

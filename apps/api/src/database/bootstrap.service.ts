@@ -1,7 +1,8 @@
-// src/database/bootstrap.service.ts
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { RolesService } from '../modules/users/roles.service';
 import { PermissionsService } from '../modules/users/permissions.service';
+import { ROLE_PERMISSIONS_MAPPING } from '../common/constants/role-permissions.mapping';
+import { Role } from '../common/constants/roles.enum';
 
 @Injectable()
 export class BootstrapService implements OnModuleInit {
@@ -13,31 +14,24 @@ export class BootstrapService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    this.logger.log('Khởi tạo dữ liệu hệ thống...');
-    await this.ensureRolesExist();
-    await this.ensurePermissionsExist();
+    this.logger.log('Bắt đầu đồng bộ RBAC từ Mapping...');
     
-    // Ví dụ: Gán quyền mặc định cho Admin
-    await this.rolesService.assignPermissionToRole('Admin', 'concert:create');
-  }
-
-  private async ensureRolesExist() {
-    const roles = ['Admin', 'Audience', 'Organizer', 'Staff'];
-    for (const name of roles) {
-      await this.rolesService.createRoleIfNotExists(name);
+    // 1. Đồng bộ Roles
+    for (const roleName of Object.values(Role)) {
+      await this.rolesService.createRoleIfNotExists(roleName);
     }
-    this.logger.log('Roles đã sẵn sàng!');
-  }
 
-  private async ensurePermissionsExist() {
-  const permissions = [
-      { code: 'concert:create', name: 'Create Concert' },
-      { code: 'ticket:book', name: 'Book Ticket' }
-  ];
-  
-  for (const p of permissions) {
-      // Truyền p.code (tham số 1) và p.name (tham số 2)
-      await this.permissionsService.createPermissionIfNotExists(p.code, p.name);
+    // 2. Đồng bộ Permissions và gán vào Roles
+    for (const [roleName, permissions] of Object.entries(ROLE_PERMISSIONS_MAPPING)) {
+      for (const permCode of permissions) {
+        // Tạo permission (dùng code làm name tạm thời nếu chưa có name cụ thể)
+        await this.permissionsService.createPermissionIfNotExists(permCode, permCode);
+        
+        // Gán quyền vào Role
+        await this.rolesService.assignPermissionToRole(roleName, permCode);
+      }
+    }
+    
+    this.logger.log('RBAC Bootstrap hoàn tất! Hệ thống đã đồng bộ với ROLE_PERMISSIONS_MAPPING.');
   }
-}
 }

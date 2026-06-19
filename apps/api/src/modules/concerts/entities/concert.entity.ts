@@ -1,9 +1,10 @@
 import {
   Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
-  UpdateDateColumn, Index, ManyToOne, JoinColumn, OneToMany,
+  UpdateDateColumn, Index, ManyToMany, JoinTable, OneToMany,
 } from 'typeorm';
 import { Artist } from '../../artists/entities/artist.entity';
 import { SeatZone } from './seat-zone.entity';
+
 export enum ConcertStatus {
   DRAFT = 'DRAFT',
   PUBLISHED = 'PUBLISHED',
@@ -11,10 +12,6 @@ export enum ConcertStatus {
   COMPLETED = 'COMPLETED',
 }
 
-/**
- * Concert entity — Blueprint §04-database-design
- * owned exclusively by ConcertsModule.
- */
 @Entity('concerts')
 export class Concert {
   @PrimaryGeneratedColumn('uuid')
@@ -23,21 +20,19 @@ export class Concert {
   @Column({ length: 300 })
   name!: string;
 
-  @ManyToOne(() => Artist, (a) => a.concerts, { nullable: false })
-  @JoinColumn({ name: 'artist_id' })
-  artist!: Artist;
-
-  @Column({ name: 'artist_id' })
-  artistId!: string;
+  // Sử dụng ManyToMany với JoinTable
+  @ManyToMany(() => Artist, (artist) => artist.concerts)
+  @JoinTable({
+    name: 'concert_artists', // Tên bảng trung gian
+    joinColumn: { name: 'concert_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'artist_id', referencedColumnName: 'id' },
+  })
+  artists!: Artist[];
 
   @Column({ name: 'organizer_id' })
-  organizerId!: string; // Reference to users.id — ownership check in service
+  organizerId!: string;
 
-  @Column({
-    type: 'enum',
-    enum: ConcertStatus,
-    default: ConcertStatus.DRAFT,
-  })
+  @Column({ type: 'enum', enum: ConcertStatus, default: ConcertStatus.DRAFT })
   @Index()
   status!: ConcertStatus;
 
@@ -47,21 +42,6 @@ export class Concert {
 
   @Column({ type: 'timestamptz', name: 'ends_at' })
   endsAt!: Date;
-
-  @Column({ type: 'timestamptz', name: 'sale_starts_at', nullable: true })
-  saleStartsAt?: Date;
-
-  @Column({ type: 'timestamptz', name: 'sale_ends_at', nullable: true })
-  saleEndsAt?: Date;
-
-  @Column({ length: 500, nullable: true })
-  venue?: string;
-
-  @Column({ type: 'text', nullable: true })
-  description?: string;
-
-  @Column({ name: 'banner_object_key', nullable: true })
-  bannerObjectKey?: string;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

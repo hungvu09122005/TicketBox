@@ -14,14 +14,14 @@ export class TicketTypesController {
   constructor(private readonly ticketTypesService: TicketTypesService) {}
 
   @Get()
-  @RequirePermissions(Permission.CONCERT_READ)
+  @RequirePermissions(Permission.TICKET_TYPE_READ)
   findByConcert(@Param('concertId') concertId: string) {
     // TODO Phase 2
     return [];
   }
 
   @Get('availability')
-  @RequirePermissions(Permission.CONCERT_READ)
+  @RequirePermissions(Permission.TICKET_TYPE_READ)
   getAvailability(@Param('concertId') concertId: string) {
     // TODO Phase 2 — reads from Redis cache (TTL 5–10s), DB fallback
     return [];
