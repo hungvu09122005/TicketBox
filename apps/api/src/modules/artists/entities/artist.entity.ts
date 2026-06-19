@@ -1,6 +1,6 @@
-import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
-  UpdateDateColumn, OneToMany,
+import { 
+  Entity, PrimaryGeneratedColumn, Column, ManyToMany, 
+  CreateDateColumn, UpdateDateColumn 
 } from 'typeorm';
 import { Concert } from '../../concerts/entities/concert.entity';
 
@@ -15,10 +15,7 @@ export class Artist {
   @Column({ type: 'text', nullable: true })
   shortBio?: string;
 
-  @Column({ name: 'avatar_object_key', nullable: true })
-  avatarObjectKey?: string;
-
-  @OneToMany(() => Concert, (c) => c.artist)
+  @ManyToMany(() => Concert, (concert) => concert.artists)
   concerts!: Concert[];
 
   @CreateDateColumn({ name: 'created_at' })

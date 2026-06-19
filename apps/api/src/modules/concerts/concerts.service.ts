@@ -28,10 +28,37 @@ export class ConcertsService {
     private readonly config: ConfigService,
   ) { }
 
+<<<<<<< HEAD
   private async toPublicDto(concert: Concert): Promise<PublicConcertDto> {
     const bannerUrl = concert.bannerObjectKey
       ? await this.storage.getPresignedUrl(concert.bannerObjectKey, 3600)
       : null;
+=======
+  // Thêm vào class ConcertsService
+  
+  /** * Kiểm tra xem user có phải là người sở hữu concert không.
+   * Dùng cho các tác vụ: update, cancel, publish
+   */
+  async assertUserOwnsConcert(userId: string, concertId: string): Promise<Concert> {
+    const concert = await this.concertsRepository.findById(concertId);
+    
+    if (!concert) {
+      throw new NotFoundException(`Concert ${concertId} not found.`);
+    }
+
+    // Kiểm tra quyền sở hữu (organizerId là trường lưu ID người tạo/sở hữu)
+    if (concert.organizerId !== userId) {
+      throw new ForbiddenException('You do not have permission to modify this concert.');
+    }
+
+    return concert;
+  }
+
+  async findPublished(): Promise<Concert[]> {
+    const cacheKey = 'concerts:published:list';
+    const cached = await this.cache.get<Concert[]>(cacheKey);
+    if (cached) return cached;
+>>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)
 
     const artistAvatarUrl = concert.artist?.avatarObjectKey
       ? await this.storage.getPresignedUrl(concert.artist.avatarObjectKey, 3600)
@@ -93,10 +120,10 @@ export class ConcertsService {
       throw new NotFoundException('Concert not available for purchase.');
     }
     const now = new Date();
-    if (concert.saleStartsAt && now < concert.saleStartsAt) {
+    if (concert.startsAt && now < concert.startsAt) {
       throw new ForbiddenException('Sale has not started yet.');
     }
-    if (concert.saleEndsAt && now > concert.saleEndsAt) {
+    if (concert.endsAt && now > concert.endsAt) {
       throw new ForbiddenException('Sale has ended.');
     }
     return concert;
