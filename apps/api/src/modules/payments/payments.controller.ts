@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Param, Query, UseGuards, Ip } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
@@ -16,15 +16,19 @@ export class PaymentsController {
   @Post(':orderId/initiate')
   @UseGuards(JwtAuthGuard, RbacGuard)
   @RequirePermissions(Permission.ORDER_CREATE)
-  initiatePayment(@Param('orderId') orderId: string, @CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 3 — returns { paymentUrl }
-    return { message: 'Not implemented — Phase 3' };
+  async initiatePayment(
+    @Param('orderId') orderId: string, 
+    @CurrentUser() user: AuthenticatedUser,
+    @Ip() ipAddress: string
+  ) {
+    // We should pass the real IP, but for now we fallback to '127.0.0.1' if undefined
+    return await this.paymentsService.initiatePayment(orderId, ipAddress || '127.0.0.1');
   }
 
   /** Public — IPN callback from VNPAY. Signature verified inside service, NOT in controller. */
   @Get('callback/vnpay')
-  handleVnpayCallback(@Query() query: Record<string, string>) {
-    // TODO Phase 3 — no auth guard; service verifies VNPAY HMAC signature
-    return { message: 'Not implemented — Phase 3' };
+  async handleVnpayCallback(@Query() query: Record<string, string>) {
+    await this.paymentsService.handleVnpayCallback(query);
+    return { message: 'Callback received and processed' };
   }
 }
