@@ -55,6 +55,8 @@ export class AddPermissionCode1781844698099 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "ticket_types" ADD CONSTRAINT "CHK_3679a297c91368649a2214406a" CHECK (total_quantity >= 0)`);
         await queryRunner.query(`ALTER TABLE "ticket_types" ADD CONSTRAINT "CHK_8724d3bc7eca86910601da5cf0" CHECK (price >= 0)`);
         await queryRunner.query(`ALTER TABLE "ticket_types" ADD CONSTRAINT "FK_bcb2c8c129a8b1673bddd479df9" FOREIGN KEY ("concert_id") REFERENCES "concerts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "payments" ADD CONSTRAINT "UQ_provider_tx_id" UNIQUE ("provider_tx_id")`);
+        await queryRunner.query(`ALTER TABLE "payments" ALTER COLUMN "order_id" TYPE uuid USING "order_id"::uuid`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {

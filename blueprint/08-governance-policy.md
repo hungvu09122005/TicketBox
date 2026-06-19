@@ -23,11 +23,5 @@ Mục tiêu là duy trì tính chân thực, dễ debug và sát với môi trư
 - [ ] Mobile App chỉ seed dữ liệu mẫu khi development (và có comment rõ ràng hoặc toggle bằng env variable).
 - [ ] Khi code review, kiểm tra xem có dùng MSW (Mock Service Worker) hay không (nếu có, phải dựa trên contract API thật).
 
-**Trạng thái:** ✅ Đã áp dụng
 
----
-
-**File này nên đặt ở đâu?**
-- Đặt chung với các file blueprint: `blueprint/08-governance-policy.md`
-- Hoặc thêm vào `README.md` của root project.
 
