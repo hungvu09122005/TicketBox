@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Plus, MagnifyingGlass, Funnel, DotsThree, CheckCircle, XCircle, Ticket } from '@phosphor-icons/react';
 import { concertService } from '@/lib/services/concert.service';
 import { Concert } from '@/lib/types';
@@ -28,6 +29,7 @@ function getPublishMissingFields(concert: Concert) {
 }
 
 export default function ConcertsPage() {
+  const router = useRouter();
   const [concerts, setConcerts] = useState<Concert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -175,8 +177,20 @@ export default function ConcertsPage() {
                 </tr>
               ) : (
                 filteredConcerts.map(concert => (
-                  <tr key={concert.id} className="hover:bg-primary/5 transition-colors group">
-                    <td className="px-6 py-4 font-medium text-primary">{concert.name}</td>
+                  <tr
+                    key={concert.id}
+                    className="cursor-pointer hover:bg-primary/5 transition-colors group"
+                    onClick={() => router.push(`/concerts/${concert.id}/edit`)}
+                  >
+                    <td className="px-6 py-4 font-medium text-primary">
+                      <Link
+                        href={`/concerts/${concert.id}/edit`}
+                        onClick={(event) => event.stopPropagation()}
+                        className="hover:underline underline-offset-4"
+                      >
+                        {concert.name}
+                      </Link>
+                    </td>
                     <td className="px-6 py-4 text-muted">{concert.artist?.name || 'Unknown'}</td>
                     <td className="px-6 py-4 text-muted">
                       {new Date(concert.startsAt).toLocaleDateString()}
@@ -209,12 +223,14 @@ export default function ConcertsPage() {
                         )}
                         <Link 
                           href={`/concerts/${concert.id}/edit`}
+                          onClick={(event) => event.stopPropagation()}
                           className="p-2 text-muted hover:text-primary hover:bg-primary/5 rounded-md"
                         >
                           <DotsThree size={20} weight="bold" />
                         </Link>
                         <Link
                           href={`/concerts/${concert.id}/ticketing`}
+                          onClick={(event) => event.stopPropagation()}
                           className="p-2 text-muted hover:text-primary hover:bg-primary/5 rounded-md"
                           title="Ticketing"
                         >

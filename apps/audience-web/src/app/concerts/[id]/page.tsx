@@ -144,6 +144,8 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
   const [submitError, setSubmitError] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  const [paymentReviewHref, setPaymentReviewHref] = useState<string | null>(null);
+  const checkoutLockRef = useRef<string | null>(null);
 
   const selectedTicketType = useMemo(
     () => ticketTypes.find((item) => item.id === selectedTicketTypeId) ?? null,
@@ -236,7 +238,11 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
       return;
     }
 
-    void loadConcert();
+    const timer = window.setTimeout(() => {
+      void loadConcert();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [id, loadConcert, router]);
 
   useEffect(() => {
@@ -323,6 +329,7 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
 
       const handleClick = () => {
         setSelectedZoneId(zoneId);
+        setPaymentReviewHref(null);
         if (zone.ticketTypeId) {
           setSelectedTicketTypeId(zone.ticketTypeId);
         }
@@ -363,12 +370,6 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
     });
   }, [seatMap, selectedZoneId, svgMarkup]);
 
-  useEffect(() => {
-    if (!selectedTicketType && ticketTypes.length > 0) {
-      setSelectedTicketTypeId(ticketTypes[0].id);
-    }
-  }, [selectedTicketType, ticketTypes]);
-
   const selectedSummary = selectedTicketType
     ? summarizeByTicketType(orders, tickets, selectedTicketType.id)
     : null;
@@ -383,17 +384,26 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
   const maxSelectable = selectedTicketType
     ? Math.min(userLimit, selectedTicketType.availableQuantity)
     : 0;
+  const displayQuantity = selectedTicketType ? Math.min(quantity, maxSelectable || 1) : quantity;
 
-  useEffect(() => {
-    if (quantity > maxSelectable) {
-      setQuantity(maxSelectable > 0 ? maxSelectable : 1);
+  const buildCheckoutKey = () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
     }
-  }, [maxSelectable, quantity]);
+
+    return `checkout-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  };
+
+  const extractPaymentUrl = (result: Awaited<ReturnType<typeof concertService.initiatePayment>>) =>
+    result.paymentUrl ?? result.redirectUrl ?? result.url ?? null;
 
   const handleCreateOrder = async () => {
-    if (!selectedTicketType || !concert || quantity < 1) {
+    if (!selectedTicketType || !concert || quantity < 1 || checkoutLockRef.current) {
       return;
     }
+
+    const checkoutIdempotencyKey = buildCheckoutKey();
+    checkoutLockRef.current = checkoutIdempotencyKey;
 
     const payload: CreateOrderPayload = {
       concertId: concert.id,
@@ -404,15 +414,28 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
     setIsSubmitting(true);
     setSubmitError([]);
     setSubmitSuccess(null);
+    setPaymentReviewHref(null);
 
     try {
-      const response = await concertService.createOrder(payload);
-      setSubmitSuccess(`Đã tạo đơn giữ vé ${response.id}.`);
+      const response = await concertService.createOrder(payload, checkoutIdempotencyKey);
+      const paymentResult = await concertService.initiatePayment(response.id, checkoutIdempotencyKey);
+      const paymentUrl = extractPaymentUrl(paymentResult);
+
+      setSubmitSuccess(`Đã tạo đơn giữ vé ${response.id}. Đang chuyển sang cổng thanh toán thật.`);
       await loadConcert();
+
+      if (paymentUrl) {
+        window.location.assign(paymentUrl);
+        return;
+      }
+
+      setPaymentReviewHref(`/payments/return?orderId=${encodeURIComponent(response.id)}&status=pending`);
+      setSubmitSuccess(`Đã tạo order ${response.id}. Backend chưa trả payment URL, bạn có thể kiểm tra lại trạng thái trên trang return.`);
     } catch (error) {
-      setSubmitError(extractApiMessages(error, "Không thể giữ vé lúc này."));
+      setSubmitError(extractApiMessages(error, 'Không thể giữ vé hoặc khởi tạo thanh toán lúc này.'));
     } finally {
       setIsSubmitting(false);
+      checkoutLockRef.current = null;
     }
   };
 
@@ -685,6 +708,7 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                               type="button"
                               onClick={() => {
                                 setSelectedZoneId(zone.id);
+                                setPaymentReviewHref(null);
                                 if (zone.ticketTypeId) {
                                   setSelectedTicketTypeId(zone.ticketTypeId);
                                 }
@@ -788,7 +812,10 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                         <div className="mt-3 flex items-center gap-3">
                           <button
                             type="button"
-                            onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                            onClick={() => {
+                              setPaymentReviewHref(null);
+                              setQuantity((current) => Math.max(1, current - 1));
+                            }}
                             className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white transition-colors hover:bg-white/10"
                           >
                             -
@@ -797,7 +824,7 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                             type="number"
                             min={1}
                             max={maxSelectable || 1}
-                            value={quantity}
+                            value={displayQuantity}
                             onChange={(event) => {
                               const nextValue = Number(event.target.value);
                               if (Number.isNaN(nextValue)) {
@@ -805,13 +832,17 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                               }
 
                               const clamped = Math.max(1, Math.min(nextValue, Math.max(1, maxSelectable || 1)));
+                              setPaymentReviewHref(null);
                               setQuantity(clamped);
                             }}
                             className="h-11 w-full rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-center text-base font-semibold text-white outline-none ring-0 [appearance:textfield]"
                           />
                           <button
                             type="button"
-                            onClick={() => setQuantity((current) => Math.min(Math.max(1, maxSelectable || 1), current + 1))}
+                            onClick={() => {
+                              setPaymentReviewHref(null);
+                              setQuantity((current) => Math.min(Math.max(1, maxSelectable || 1), current + 1));
+                            }}
                             className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white transition-colors hover:bg-white/10"
                           >
                             +
@@ -829,7 +860,7 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-sm text-white/65">Tổng tiền</span>
                           <span className="text-xl font-semibold text-white">
-                            {formatCurrency(selectedTicketType.price * quantity)}
+                            {formatCurrency(selectedTicketType.price * displayQuantity)}
                           </span>
                         </div>
                       </div>
@@ -857,6 +888,21 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                       {submitSuccess ? (
                         <div className="rounded-[24px] border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
                           {submitSuccess}
+                        </div>
+                      ) : null}
+
+                      {paymentReviewHref ? (
+                        <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 text-sm leading-6 text-white/75">
+                          <p className="font-semibold text-white">Không nhận được payment URL từ backend.</p>
+                          <p className="mt-2">
+                            Bạn vẫn có thể kiểm tra trạng thái order thật trên trang return.
+                          </p>
+                          <Link
+                            href={paymentReviewHref}
+                            className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5"
+                          >
+                            Mở payment return
+                          </Link>
                         </div>
                       ) : null}
 
@@ -893,14 +939,17 @@ export default function ConcertDetailPage({ params }: Readonly<{ params: Promise
                       const isSelected = ticketType.id === selectedTicketTypeId;
 
                       return (
-                        <button
-                          key={ticketType.id}
-                          type="button"
-                          onClick={() => setSelectedTicketTypeId(ticketType.id)}
-                          className={`w-full rounded-[20px] border p-4 text-left transition-colors ${
-                            isSelected
-                              ? "border-emerald-400/30 bg-emerald-400/10"
-                              : "border-white/10 bg-white/5 hover:bg-white/10"
+                          <button
+                            key={ticketType.id}
+                            type="button"
+                            onClick={() => {
+                              setPaymentReviewHref(null);
+                              setSelectedTicketTypeId(ticketType.id);
+                            }}
+                            className={`w-full rounded-[20px] border p-4 text-left transition-colors ${
+                              isSelected
+                                ? "border-emerald-400/30 bg-emerald-400/10"
+                                : "border-white/10 bg-white/5 hover:bg-white/10"
                           }`}
                         >
                           <div className="flex items-start justify-between gap-4">

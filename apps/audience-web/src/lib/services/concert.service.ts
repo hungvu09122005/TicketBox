@@ -2,6 +2,7 @@ import { getStoredAccessToken } from '../auth-session';
 import { apiClient } from '../api-client';
 import {
   CreateOrderPayload,
+  PaymentInitiationResult,
   OrderSummary,
   PublicArtistDetail,
   PublicConcert,
@@ -62,8 +63,21 @@ export const concertService = {
     return response.data.data;
   },
 
-  createOrder: async (data: CreateOrderPayload): Promise<{ id: string }> => {
-    const response = await apiClient.post('/orders', data);
+  createOrder: async (data: CreateOrderPayload, idempotencyKey: string): Promise<{ id: string }> => {
+    const response = await apiClient.post('/orders', data, {
+      headers: {
+        'Idempotency-Key': idempotencyKey,
+      },
+    });
     return response.data.data;
+  },
+
+  initiatePayment: async (orderId: string, idempotencyKey: string): Promise<PaymentInitiationResult> => {
+    const response = await apiClient.post(`/payments/${orderId}/initiate`, null, {
+      headers: {
+        'Idempotency-Key': idempotencyKey,
+      },
+    });
+    return response.data.data ?? response.data;
   },
 };

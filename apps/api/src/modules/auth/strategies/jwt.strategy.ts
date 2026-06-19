@@ -5,12 +5,14 @@ import { ConfigService } from '@nestjs/config';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { AuthenticatedUser } from '../../../common/decorators/current-user.decorator';
+import { UsersService } from '../../users/users.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     config: ConfigService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly usersService: UsersService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -31,6 +33,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       if (isRevoked) {
         throw new UnauthorizedException('Token has been revoked.');
       }
+    }
+
+    const user = await this.usersService.findById(payload.sub);
+    if (!user?.isActive) {
+      throw new UnauthorizedException('Account is inactive.');
     }
 
     // Payload validated by Passport; attach to request.user

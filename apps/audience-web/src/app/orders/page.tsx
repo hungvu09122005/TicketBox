@@ -134,6 +134,21 @@ export default function OrdersPage() {
   }, [router]);
 
   const activeOrders = useMemo(() => orders.filter((order) => order.status === 'PENDING_PAYMENT'), [orders]);
+  const orderedOrders = useMemo(
+    () =>
+      [...orders].sort((left, right) => {
+        if (left.status === right.status) {
+          return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+        }
+
+        if (left.status === 'PENDING_PAYMENT') return -1;
+        if (right.status === 'PENDING_PAYMENT') return 1;
+        if (left.status === 'PAID') return -1;
+        if (right.status === 'PAID') return 1;
+        return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+      }),
+    [orders],
+  );
 
   return (
     <div className="min-h-screen bg-[#050816] text-white selection:bg-amber-300/30">
@@ -208,15 +223,25 @@ export default function OrdersPage() {
                     <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Summary</p>
                     <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">Owned orders only</h2>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.18em] text-white/55">Pending orders</p>
-                    <p className="mt-1 text-xl font-semibold text-white">{activeOrders.length}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                      <p className="text-xs uppercase tracking-[0.18em] text-white/55">Pending orders</p>
+                      <p className="mt-1 text-xl font-semibold text-white">{activeOrders.length}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void loadOrders()}
+                      className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                    >
+                      <ArrowClockwise size={16} />
+                      Refresh
+                    </button>
                   </div>
                 </div>
               </div>
 
               <div className="grid gap-6">
-                {orders.map((order) => (
+                {orderedOrders.map((order) => (
                   <OrderCard key={order.id} order={order} />
                 ))}
               </div>

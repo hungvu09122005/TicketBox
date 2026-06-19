@@ -116,6 +116,15 @@ export default function TicketsPage() {
     }
   };
 
+  const summary = useMemo(
+    () => ({
+      active: tickets.filter((ticket) => ticket.status === 'ACTIVE').length,
+      checkedIn: tickets.filter((ticket) => ticket.status === 'USED').length,
+      cancelled: tickets.filter((ticket) => ticket.status === 'CANCELLED').length,
+    }),
+    [tickets],
+  );
+
   useEffect(() => {
     if (!hasStoredSession()) {
       router.replace('/login?next=/tickets');
@@ -202,11 +211,19 @@ export default function TicketsPage() {
                     <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Summary</p>
                     <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">Owned tickets only</h2>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.18em] text-white/55">Active tickets</p>
-                    <p className="mt-1 text-xl font-semibold text-white">
-                      {tickets.filter((ticket) => ticket.status === 'ACTIVE').length}
-                    </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Active</p>
+                      <p className="mt-1 text-xl font-semibold text-white">{summary.active}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Checked in</p>
+                      <p className="mt-1 text-xl font-semibold text-white">{summary.checkedIn}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Cancelled</p>
+                      <p className="mt-1 text-xl font-semibold text-white">{summary.cancelled}</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -240,6 +257,9 @@ export default function TicketsPage() {
                           <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                             <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">QR token</p>
                             <p className="mt-2 break-all font-mono text-xs leading-6 text-white/75">{ticket.qrToken}</p>
+                            <p className="mt-2 text-xs leading-5 text-white/55">
+                              The preview is rendered from the backend-signed token. The frontend does not fabricate a fake ticket identifier.
+                            </p>
                           </div>
                           <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                             <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Created</p>

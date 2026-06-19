@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
@@ -83,7 +83,7 @@ function PaymentOrderSummary({ order }: Readonly<{ order: AudienceOrder }>) {
   );
 }
 
-export default function PaymentReturnPage() {
+function PaymentReturnPageContent() {
   const searchParams = useSearchParams();
   const paymentStatus = normalizeStatus(searchParams.get('status') ?? searchParams.get('paymentStatus') ?? searchParams.get('orderStatus'));
   const orderId = searchParams.get('orderId') ?? searchParams.get('order_id') ?? '';
@@ -129,6 +129,24 @@ export default function PaymentReturnPage() {
   }, [order?.status, paymentStatus]);
 
   const derivedConfig = statusConfig[derivedStatus];
+  const statusPills: Record<PaymentReturnStatus, string> = {
+    pending: 'đang chờ callback',
+    success: 'backend đã ghi nhận PAID',
+    failed: 'backend ghi nhận thất bại',
+    expired: 'đơn đã hết hạn giữ vé',
+  };
+
+  useEffect(() => {
+    if (!orderId || derivedStatus !== 'pending') {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void loadOrder();
+    }, 15000);
+
+    return () => window.clearInterval(timer);
+  }, [derivedStatus, loadOrder, orderId]);
 
   return (
     <div className="min-h-screen bg-[#050816] text-white selection:bg-amber-300/30">
@@ -159,6 +177,9 @@ export default function PaymentReturnPage() {
                 <p className="mt-4 text-sm leading-6 text-white/75">{derivedConfig.description}</p>
                 {message && <p className="mt-3 text-sm leading-6 text-white/85">{message}</p>}
                 {paymentId && <p className="mt-3 text-xs uppercase tracking-[0.22em] text-white/55">Payment ID: {paymentId}</p>}
+                <p className="mt-3 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.18em] text-white/65">
+                  {statusPills[derivedStatus]}
+                </p>
               </div>
               <Link
                 href="/orders"
@@ -227,6 +248,25 @@ export default function PaymentReturnPage() {
                   <p>• If the status is success, the order should be eligible for ticket issuance.</p>
                   <p>• If the status is expired or failed, return to the concert page and create a new order.</p>
                 </div>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void loadOrder()}
+                    disabled={!orderId || isLoading}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <ArrowClockwise size={16} />
+                    {isLoading ? 'Refreshing...' : 'Check again'}
+                  </button>
+                  {orderId ? (
+                    <Link
+                      href="/orders"
+                      className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                    >
+                      Open order detail
+                    </Link>
+                  ) : null}
+                </div>
               </div>
 
               <div className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
@@ -252,5 +292,24 @@ export default function PaymentReturnPage() {
         </section>
       </main>
     </div>
+  );
+}
+
+export default function PaymentReturnPage() {
+  return (
+    <Suspense
+      fallback={(
+        <div className="min-h-screen bg-[#050816] text-white">
+          <Header />
+          <main className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-4xl items-center justify-center px-6 pt-20">
+            <div className="rounded-[32px] border border-white/10 bg-white/5 px-6 py-8 text-sm text-white/70">
+              Loading payment return...
+            </div>
+          </main>
+        </div>
+      )}
+    >
+      <PaymentReturnPageContent />
+    </Suspense>
   );
 }
