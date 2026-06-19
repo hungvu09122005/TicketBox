@@ -139,6 +139,11 @@ export class ConcertsService {
     return Promise.all(concerts.map(c => this.toPublicDto(c)));
   }
 
+  async findAllConcerts(): Promise<PublicConcertDto[]> {
+    const concerts = await this.concertsRepository.findAllConcerts();
+    return Promise.all(concerts.map((concert) => this.toPublicDto(concert)));
+  }
+
   async create(organizerId: string, dto: CreateConcertDto): Promise<Concert> {
     const concert = await this.concertsRepository.create({
       ...dto,

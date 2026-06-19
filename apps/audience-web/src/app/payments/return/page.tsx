@@ -15,6 +15,7 @@ import {
 import { Header } from '@/components/Header';
 import { extractApiMessages } from '@/lib/api-errors';
 import { ordersService } from '@/lib/services/orders.service';
+import { paymentsService } from '@/lib/services/payments.service';
 import type { AudienceOrder, PaymentReturnStatus } from '@/lib/types';
 
 const statusConfig: Record<PaymentReturnStatus, { title: string; description: string; icon: React.ReactNode; accent: string }> = {
@@ -92,6 +93,8 @@ function PaymentReturnPageContent() {
   const [order, setOrder] = useState<AudienceOrder | null>(null);
   const [isLoading, setIsLoading] = useState(Boolean(orderId));
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isOpeningPayment, setIsOpeningPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const loadOrder = useCallback(async () => {
     if (!orderId) {
@@ -147,6 +150,30 @@ function PaymentReturnPageContent() {
 
     return () => window.clearInterval(timer);
   }, [derivedStatus, loadOrder, orderId]);
+
+  const handleOpenSandboxPayment = async () => {
+    if (!orderId) {
+      return;
+    }
+
+    try {
+      setIsOpeningPayment(true);
+      setPaymentError(null);
+      const result = await paymentsService.initiatePayment(orderId, crypto.randomUUID());
+      const paymentUrl = result.paymentUrl ?? result.redirectUrl ?? result.url ?? null;
+
+      if (!paymentUrl) {
+        setPaymentError('Backend chưa trả payment URL cho order này.');
+        return;
+      }
+
+      window.location.assign(paymentUrl);
+    } catch (error) {
+      setPaymentError(extractApiMessages(error, 'Không thể mở cổng thanh toán.').join(' '));
+    } finally {
+      setIsOpeningPayment(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#050816] text-white selection:bg-amber-300/30">
@@ -266,7 +293,22 @@ function PaymentReturnPageContent() {
                       Open order detail
                     </Link>
                   ) : null}
+                  {orderId && derivedStatus === 'pending' ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleOpenSandboxPayment()}
+                      disabled={isOpeningPayment}
+                      className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isOpeningPayment ? 'Opening payment...' : 'Open sandbox payment'}
+                    </button>
+                  ) : null}
                 </div>
+                {paymentError ? (
+                  <div className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm leading-6 text-rose-50">
+                    {paymentError}
+                  </div>
+                ) : null}
               </div>
 
               <div className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">

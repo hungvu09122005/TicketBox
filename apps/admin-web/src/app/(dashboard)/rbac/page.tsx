@@ -8,12 +8,12 @@ import {
   Plus,
   ShieldCheck,
   SpinnerGap,
-  UserCircle,
 } from '@phosphor-icons/react';
 import { useAuthStore } from '@/lib/auth-store';
 import { Permission } from '@/lib/permissions';
 import { roleOrder, roleOptions } from '@/lib/rbac';
 import type { RbacPermissionSummary, RbacRoleSummary, RbacUsersPage } from '@/lib/rbac.types';
+import { authService } from '@/lib/services/auth.service';
 import { rbacService } from '@/lib/services/rbac.service';
 import { userService } from '@/lib/services/user.service';
 
@@ -41,10 +41,12 @@ function StatCard({
   hint: string;
 }>) {
   return (
-    <div className="rounded-[24px] border border-border bg-background px-4 py-4 shadow-sm">
-      <p className="text-[11px] uppercase tracking-[0.2em] text-muted">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tracking-tight text-primary">{value}</p>
-      <p className="mt-1 text-xs leading-5 text-muted">{hint}</p>
+    <div className="min-w-0 rounded-[24px] border border-border bg-background px-4 py-4 shadow-sm">
+      <p className="break-words text-[11px] uppercase tracking-[0.18em] text-muted">{label}</p>
+      <p className="mt-2 break-words text-xl font-semibold tracking-tight text-primary sm:text-2xl">
+        {value}
+      </p>
+      <p className="mt-1 break-words text-xs leading-5 text-muted">{hint}</p>
     </div>
   );
 }
@@ -91,13 +93,18 @@ export default function RbacPage() {
   const [isSavingRolePermissions, setIsSavingRolePermissions] = useState<Record<string, boolean>>({});
   const [isSavingUserActive, setIsSavingUserActive] = useState<Record<string, boolean>>({});
   const [isCreatingPermission, setIsCreatingPermission] = useState(false);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [newPermissionName, setNewPermissionName] = useState('');
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRoles, setNewUserRoles] = useState<string[]>(['AUDIENCE']);
   const [draftUserRoles, setDraftUserRoles] = useState<string[]>([]);
 
-  const users = usersPage?.items ?? [];
+  const users = useMemo(() => usersPage?.items ?? [], [usersPage]);
   const selectedUser = useMemo(
     () => users.find((user) => user.id === selectedUserId) ?? users[0] ?? null,
     [selectedUserId, users],
@@ -115,16 +122,39 @@ export default function RbacPage() {
   }, [roles]);
 
   const permissionCatalog = useMemo(() => {
-    const catalog = permissions.length > 0 ? permissions : roleOptions.flatMap((option) => option.permissions.map((permission) => ({ id: permission, name: permission })));
-    return [...catalog].sort((left, right) => left.name.localeCompare(right.name));
+    const catalog =
+      permissions.length > 0
+        ? permissions
+        : roleOptions.flatMap((option) =>
+            option.permissions.map((permission) => ({ id: permission, name: permission })),
+          );
+
+    const uniquePermissions = new Map<string, (typeof catalog)[number]>();
+    for (const permission of catalog) {
+      if (!uniquePermissions.has(permission.name)) {
+        uniquePermissions.set(permission.name, permission);
+      }
+    }
+
+    return Array.from(uniquePermissions.values()).sort((left, right) =>
+      left.name.localeCompare(right.name),
+    );
   }, [permissions]);
 
-  const selectedUserPermissions = selectedUser?.permissions ?? [];
+  const selectedUserPermissions = useMemo(() => selectedUser?.permissions ?? [], [selectedUser]);
   const selectedUserPermissionSet = useMemo(() => new Set(selectedUserPermissions), [selectedUserPermissions]);
 
   const totalPermissionVersion = users.reduce((sum, user) => sum + user.permissionVersion, 0);
 
   const refreshAll = () => setReloadNonce((value) => value + 1);
+
+  const confirmSensitiveAction = (message: string) => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return window.confirm(message);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -201,11 +231,16 @@ export default function RbacPage() {
   }, [page, query, roleFilter, limit, reloadNonce]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- keep draft roles in sync with the selected user
     setDraftUserRoles(selectedUser?.roles ?? []);
   }, [selectedUser]);
 
   const handleSaveUserRoles = async () => {
     if (!selectedUser) return;
+
+    if (!confirmSensitiveAction(`Cập nhật role cho ${selectedUser.email}?`)) {
+      return;
+    }
 
     try {
       setIsSavingUserRoles(true);
@@ -228,6 +263,10 @@ export default function RbacPage() {
   };
 
   const handleToggleUserActive = async (userId: string, isActive: boolean) => {
+    if (!confirmSensitiveAction(`Bạn có chắc muốn ${isActive ? 'kích hoạt' : 'vô hiệu hóa'} tài khoản này?`)) {
+      return;
+    }
+
     try {
       setIsSavingUserActive((current) => ({ ...current, [userId]: true }));
       setNoticeMessage(null);
@@ -245,6 +284,14 @@ export default function RbacPage() {
   const handleToggleRolePermission = async (roleName: string, permissionName: string) => {
     const role = roleLookup.get(roleName);
     if (!role) return;
+
+    if (
+      !confirmSensitiveAction(
+        `${role.permissions.includes(permissionName) ? 'Gỡ' : 'Gán'} permission ${permissionName} cho role ${roleLabel(roleName)}?`,
+      )
+    ) {
+      return;
+    }
 
     const nextPermissions = role.permissions.includes(permissionName)
       ? role.permissions.filter((value) => value !== permissionName)
@@ -272,6 +319,10 @@ export default function RbacPage() {
     const nextName = newPermissionName.trim();
     if (!nextName) return;
 
+    if (!confirmSensitiveAction(`Tạo permission mới "${nextName}"?`)) {
+      return;
+    }
+
     try {
       setIsCreatingPermission(true);
       setNoticeMessage(null);
@@ -284,6 +335,64 @@ export default function RbacPage() {
       setErrorMessage('Không thể tạo permission mới. Kiểm tra lại format module:action.');
     } finally {
       setIsCreatingPermission(false);
+    }
+  };
+
+  const handleCreateUser = async () => {
+    const nextName = newUserName.trim();
+    const nextEmail = newUserEmail.trim();
+    const nextPassword = newUserPassword.trim();
+
+    if (!nextName || !nextEmail || !nextPassword) {
+      setErrorMessage('Vui lòng nhập đầy đủ tên, email và mật khẩu.');
+      return;
+    }
+
+    if (!confirmSensitiveAction(`Tạo user ${nextEmail} với ${newUserRoles.length} role đã chọn?`)) {
+      return;
+    }
+
+    try {
+      setIsCreatingUser(true);
+      setNoticeMessage(null);
+      setErrorMessage(null);
+
+      await authService.register({
+        name: nextName,
+        email: nextEmail,
+        password: nextPassword,
+      });
+
+      const createdUsersPage = await rbacService.getUsers({
+        query: nextEmail,
+        page: 1,
+        limit: 20,
+      });
+
+      const createdUser =
+        createdUsersPage.items.find((item) => item.email.toLowerCase() === nextEmail.toLowerCase()) ??
+        createdUsersPage.items[0] ??
+        null;
+
+      if (createdUser && newUserRoles.length > 0) {
+        await userService.updateRoles(createdUser.id, { roles: newUserRoles });
+      }
+
+      setNewUserName('');
+      setNewUserEmail('');
+      setNewUserPassword('');
+      setNewUserRoles(['AUDIENCE']);
+      setNoticeMessage(
+        createdUser
+          ? `Đã tạo user ${nextEmail}${newUserRoles.length > 0 ? ' và gán role thành công.' : '.'}`
+          : `Đã tạo user ${nextEmail}.`,
+      );
+      refreshAll();
+    } catch (error) {
+      console.error('Failed to create user', error);
+      setErrorMessage('Không thể tạo user mới. Kiểm tra lại email hoặc mật khẩu.');
+    } finally {
+      setIsCreatingUser(false);
     }
   };
 
@@ -303,8 +412,8 @@ export default function RbacPage() {
   return (
     <div className="space-y-6">
       <div className="rounded-[32px] border border-border bg-surface p-6 shadow-sm">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
+        <div className="grid gap-6 lg:items-start xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+          <div className="min-w-0 max-w-2xl">
             <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Access control</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">RBAC</h1>
             <p className="mt-3 text-sm leading-6 text-muted">
@@ -314,7 +423,7 @@ export default function RbacPage() {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid min-w-0 gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 xl:max-w-[760px]">
             <StatCard label="Current admin" value={admin?.name ?? '--'} hint={admin?.email ?? 'No active profile'} />
             <StatCard label="Visible users" value={usersPage?.total ?? 0} hint="Filtered result count" />
             <StatCard label="Roles" value={roles.length} hint="Editable role catalog" />
@@ -523,6 +632,123 @@ export default function RbacPage() {
           </div>
         </div>
 
+        <div className="mt-5 rounded-[24px] border border-border bg-background p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-primary">Add user</p>
+              <p className="mt-1 text-sm leading-6 text-muted">
+                Tạo user bằng <code className="rounded bg-surface px-1 py-0.5">/auth/register</code>, sau đó gán role ngay trong panel này.
+              </p>
+            </div>
+            <Pill tone="accent">{newUserRoles.length} selected roles</Pill>
+          </div>
+
+          <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] xl:items-start">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-primary">Name</span>
+                <input
+                  type="text"
+                  name="rbac-new-user-name"
+                  autoComplete="off"
+                  value={newUserName}
+                  onChange={(event) => setNewUserName(event.target.value)}
+                  placeholder="Nguyen Van A"
+                  spellCheck={false}
+                  autoCapitalize="words"
+                  className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] outline-none placeholder:text-muted/60 focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-primary">Email</span>
+                <input
+                  type="email"
+                  name="rbac-new-user-email"
+                  autoComplete="off"
+                  value={newUserEmail}
+                  onChange={(event) => setNewUserEmail(event.target.value)}
+                  placeholder="user@example.com"
+                  spellCheck={false}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] outline-none placeholder:text-muted/60 focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="mb-2 block text-sm font-medium text-primary">Password</span>
+                <input
+                  type="password"
+                  name="rbac-new-user-password"
+                  autoComplete="new-password"
+                  value={newUserPassword}
+                  onChange={(event) => setNewUserPassword(event.target.value)}
+                  placeholder="Minimum 8 characters"
+                  spellCheck={false}
+                  className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] outline-none placeholder:text-muted/60 focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+              </label>
+              <div className="sm:col-span-2 flex flex-wrap items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={handleCreateUser}
+                  disabled={isCreatingUser}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-surface transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isCreatingUser ? <SpinnerGap size={16} className="animate-spin" /> : <Plus size={16} />}
+                  Create user
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewUserName('');
+                    setNewUserEmail('');
+                    setNewUserPassword('');
+                    setNewUserRoles(['AUDIENCE']);
+                  }}
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-border bg-surface px-4 text-sm font-medium text-primary hover:bg-primary/5"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-[20px] border border-border bg-surface p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-primary">Roles</p>
+                <span className="text-xs uppercase tracking-[0.18em] text-muted">Pick one or more</span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {availableRoles.map((roleName) => {
+                  const checked = newUserRoles.includes(roleName);
+                  return (
+                    <button
+                      key={roleName}
+                      type="button"
+                      onClick={() => {
+                        setNewUserRoles((current) =>
+                          current.includes(roleName)
+                            ? current.filter((value) => value !== roleName)
+                            : [...current, roleName],
+                        );
+                      }}
+                      className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        checked
+                          ? 'border-primary bg-primary text-surface'
+                          : 'border-border bg-background text-primary hover:bg-primary/5'
+                      }`}
+                    >
+                      {roleLabel(roleName)}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-sm leading-6 text-muted">
+                Chọn role cho user mới trước khi tạo. Audience là lựa chọn mặc định cho tài khoản người dùng bình thường.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="mt-5 overflow-hidden rounded-[24px] border border-border bg-background">
           <div className="w-full overflow-x-auto">
             <table className="min-w-[1120px] w-full text-left text-sm">
@@ -590,12 +816,12 @@ export default function RbacPage() {
                           <span className="font-medium text-primary">{user.permissionVersion}</span>
                         </td>
                         <td className="px-4 py-4 text-muted">{formatDateTime(user.updatedAt)}</td>
-                        <td className="px-4 py-4">
-                          <div className="flex justify-end gap-2">
+                        <td className="px-4 py-4 align-middle whitespace-nowrap">
+                          <div className="flex flex-wrap justify-end gap-2">
                             <button
                               type="button"
                               onClick={() => setSelectedUserId(user.id)}
-                              className="rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-primary hover:bg-primary/5"
+                              className="inline-flex h-10 min-w-[108px] items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-primary hover:bg-primary/5"
                             >
                               Edit roles
                             </button>
@@ -603,7 +829,7 @@ export default function RbacPage() {
                               type="button"
                               onClick={() => handleToggleUserActive(user.id, !user.isActive)}
                               disabled={isBusy}
-                              className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                              className={`inline-flex h-10 min-w-[108px] items-center justify-center rounded-lg border px-3 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                                 user.isActive
                                   ? 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
                                   : 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
@@ -712,7 +938,7 @@ export default function RbacPage() {
                 })}
               </div>
               <p className="mt-3 text-sm leading-6 text-muted">
-                Chọn role từ các nút phía trên rồi lưu lại. Role nào bật sẽ được áp dụng ngay khi lưu.
+                Chọn role cho user đang được chọn rồi lưu lại. Đây là role của user, không phải role của admin đang thao tác.
               </p>
               <button
                 type="button"
@@ -779,7 +1005,7 @@ export default function RbacPage() {
             effective access of a user changes.
           </p>
           <ul className="space-y-2">
-            <li>1. Admin changes a user's roles.</li>
+            <li>1. Admin changes a user&apos;s roles.</li>
             <li>2. Admin edits permissions on a role.</li>
             <li>3. Cache keys are invalidated using the new version.</li>
           </ul>

@@ -12,8 +12,6 @@ import { Cache } from 'cache-manager';
 import { DataSource } from 'typeorm';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { Permission } from '../constants/permissions.enum';
-import { Role } from '../constants/roles.enum';
-import { ROLE_PERMISSIONS_MAPPING } from '../constants/role-permissions.mapping';
 import { AuthenticatedUser } from '../decorators/current-user.decorator';
 import { User } from '../../modules/users/entities/user.entity';
 
@@ -93,12 +91,6 @@ export class RbacGuard implements CanActivate {
     const permissions = new Set<string>();
 
     for (const role of user.roles ?? []) {
-      const blueprintPermissions = ROLE_PERMISSIONS_MAPPING[role.name as Role];
-      if (blueprintPermissions) {
-        blueprintPermissions.forEach((permission) => permissions.add(permission));
-        continue;
-      }
-
       for (const permission of role.permissions ?? []) {
         permissions.add(permission.name as Permission);
       }

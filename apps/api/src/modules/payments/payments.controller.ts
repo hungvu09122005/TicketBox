@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Param, Query, UseGuards, Headers, Req } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
@@ -6,6 +6,7 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
 import { PaymentsService } from './payments.service';
+import type { Request } from 'express';
 
 @ApiTags('payments')
 @Controller('payments')
@@ -16,15 +17,23 @@ export class PaymentsController {
   @Post(':orderId/initiate')
   @UseGuards(JwtAuthGuard, RbacGuard)
   @RequirePermissions(Permission.ORDER_CREATE)
-  initiatePayment(@Param('orderId') orderId: string, @CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 3 — returns { paymentUrl }
-    return { message: 'Not implemented — Phase 3' };
+  initiatePayment(
+    @Param('orderId') orderId: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: Request,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.paymentsService.initiatePayment(
+      orderId,
+      user.sub,
+      idempotencyKey ?? `${user.sub}:${orderId}`,
+      request.ip ?? '127.0.0.1',
+    );
   }
 
   /** Public — IPN callback from VNPAY. Signature verified inside service, NOT in controller. */
   @Get('callback/vnpay')
   handleVnpayCallback(@Query() query: Record<string, string>) {
-    // TODO Phase 3 — no auth guard; service verifies VNPAY HMAC signature
-    return { message: 'Not implemented — Phase 3' };
+    return this.paymentsService.handleVnpayCallback(query);
   }
 }

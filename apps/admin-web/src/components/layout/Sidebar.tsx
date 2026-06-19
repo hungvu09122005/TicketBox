@@ -16,9 +16,9 @@ import { useAuthStore } from '@/lib/auth-store';
 import { Permission } from '@/lib/permissions';
 
 const navigation = [
-  { name: 'Concerts', href: '/concerts', icon: MusicNotes, permissions: [Permission.CONCERT_READ] },
-  { name: 'Artists', href: '/artists', icon: Users, permissions: [Permission.CONCERT_READ] },
-  { name: 'Venues', href: '/venues', icon: MapPin, permissions: [Permission.CONCERT_READ] },
+  { name: 'Concerts', href: '/concerts', icon: MusicNotes, permissions: [Permission.CONCERT_READ_PUBLIC] },
+  { name: 'Artists', href: '/artists', icon: Users, permissions: [Permission.ARTIST_READ] },
+  { name: 'Venues', href: '/venues', icon: MapPin, permissions: [Permission.VENUE_READ] },
   { name: 'Events', href: '/events', icon: Calendar, permissions: [Permission.REPORT_VIEW] },
   { name: 'Access Control', href: '/rbac', icon: ShieldCheck, permissions: [Permission.RBAC_MANAGE] },
 ];

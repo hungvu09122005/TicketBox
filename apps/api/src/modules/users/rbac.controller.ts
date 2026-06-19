@@ -5,8 +5,6 @@ import { RbacGuard } from '../../common/guards/rbac.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
-import { Role } from '../../common/constants/roles.enum';
-import { ROLE_PERMISSIONS_MAPPING } from '../../common/constants/role-permissions.mapping';
 import { UsersService } from './users.service';
 import { RolesService } from './roles.service';
 import { PermissionsService } from './permissions.service';
@@ -15,15 +13,13 @@ import { CreatePermissionDto } from './dto/create-permission.dto';
 
 function mapUserSummary(user: NonNullable<Awaited<ReturnType<UsersService['findById']>>>) {
   const roles = user.roles ?? [];
-  const permissions = Array.from(
-    new Set(
-      roles.flatMap((role) =>
-        role.permissions?.length
-          ? role.permissions.map((permission) => permission.name)
-          : ROLE_PERMISSIONS_MAPPING[role.name as Role] ?? [],
+    const permissions = Array.from(
+      new Set(
+        roles.flatMap((role) =>
+          role.permissions?.map((permission) => permission.name) ?? [],
+        ),
       ),
-    ),
-  );
+    );
 
   return {
     id: user.id,
@@ -76,7 +72,7 @@ export class RbacController {
   }
 
   @Get('permissions')
-  @RequirePermissions(Permission.RBAC_MANAGE)
+  @RequirePermissions(Permission.PERMISSION_READ)
   async listPermissions() {
     const permissions = await this.permissionsService.findAll();
     return permissions.map((permission) => ({
@@ -86,7 +82,7 @@ export class RbacController {
   }
 
   @Post('permissions')
-  @RequirePermissions(Permission.RBAC_MANAGE)
+  @RequirePermissions(Permission.PERMISSION_CREATE)
   async createPermission(@Body() body: CreatePermissionDto) {
     const permission = await this.permissionsService.createPermissionIfNotExists(body.name.trim());
     return {
@@ -96,7 +92,7 @@ export class RbacController {
   }
 
   @Patch('roles/:id/permissions')
-  @RequirePermissions(Permission.RBAC_MANAGE)
+  @RequirePermissions(Permission.ROLE_UPDATE_PERMISSIONS)
   updateRolePermissions(
     @Param('id') roleId: string,
     @Body() body: UpdateRolePermissionsDto,

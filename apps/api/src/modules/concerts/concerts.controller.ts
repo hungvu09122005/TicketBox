@@ -33,9 +33,16 @@ export class ConcertsController {
 
   @Get('organizer/me')
   @UseGuards(JwtAuthGuard, RbacGuard)
-  @RequirePermissions(Permission.CONCERT_READ)
+  @RequirePermissions(Permission.CONCERT_READ_OWN)
   findMyConcerts(@CurrentUser() user: AuthenticatedUser) {
     return this.concertsService.findOrganizerConcerts(user.sub);
+  }
+
+  @Get('admin')
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @RequirePermissions(Permission.CONCERT_READ_ALL)
+  findAllConcerts() {
+    return this.concertsService.findAllConcerts();
   }
 
   @Get(':id')
@@ -43,9 +50,31 @@ export class ConcertsController {
     return this.concertsService.findById(id);
   }
 
+  @Patch('admin/:id')
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @RequirePermissions(Permission.CONCERT_UPDATE_ALL)
+  updateAsAdmin(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: UpdateConcertDto) {
+    return this.concertsService.update(id, user.sub, true, body);
+  }
+
+  @Post('admin/:id/publish')
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @RequirePermissions(Permission.CONCERT_PUBLISH_ALL)
+  publishAsAdmin(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.concertsService.publish(id, user.sub, true);
+  }
+
+  @Post('admin/:id/cancel')
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @RequirePermissions(Permission.CONCERT_CANCEL_ALL)
+  cancelAsAdmin(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.concertsService.cancel(id, user.sub, true);
+  }
+
   // --- Logic Upload SeatMap cho Task 6 ---
   @Post(':concertId/zones/:zoneId/seat-map')
-  @RequirePermissions(Permission.CONCERT_UPDATE)
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @RequirePermissions(Permission.SEATMAP_UPLOAD)
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -81,7 +110,7 @@ export class ConcertsController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RbacGuard)
-  @RequirePermissions(Permission.CONCERT_UPDATE)
+  @RequirePermissions(Permission.CONCERT_UPDATE_OWN)
   update(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: UpdateConcertDto) {
     const isAdmin = user.roles?.includes('SYSTEM_ADMIN') ?? false;
     return this.concertsService.update(id, user.sub, isAdmin, body);
@@ -89,7 +118,7 @@ export class ConcertsController {
 
   @Post(':id/publish')
   @UseGuards(JwtAuthGuard, RbacGuard)
-  @RequirePermissions(Permission.CONCERT_UPDATE)
+  @RequirePermissions(Permission.CONCERT_PUBLISH_OWN)
   publish(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     const isAdmin = user.roles?.includes('SYSTEM_ADMIN') ?? false;
     return this.concertsService.publish(id, user.sub, isAdmin);
@@ -97,7 +126,7 @@ export class ConcertsController {
 
   @Post(':id/cancel')
   @UseGuards(JwtAuthGuard, RbacGuard)
-  @RequirePermissions(Permission.CONCERT_UPDATE)
+  @RequirePermissions(Permission.CONCERT_CANCEL_OWN)
   cancel(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     const isAdmin = user.roles?.includes('SYSTEM_ADMIN') ?? false;
     return this.concertsService.cancel(id, user.sub, isAdmin);

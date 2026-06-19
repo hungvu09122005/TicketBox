@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plus, MagnifyingGlass, Funnel, DotsThree, CheckCircle, XCircle, Ticket } from '@phosphor-icons/react';
+import { useAuthStore } from '@/lib/auth-store';
 import { concertService } from '@/lib/services/concert.service';
 import { Concert } from '@/lib/types';
 
@@ -30,24 +31,44 @@ function getPublishMissingFields(concert: Concert) {
 
 export default function ConcertsPage() {
   const router = useRouter();
+  const admin = useAuthStore((state) => state.admin);
   const [concerts, setConcerts] = useState<Concert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | Concert['status']>('all');
+  const isSystemAdmin = admin?.roles?.includes('SYSTEM_ADMIN') ?? false;
 
   useEffect(() => {
+    let isActive = true;
+
     async function load() {
+      setIsLoading(true);
+      setLoadError(null);
+
       try {
-        const data = await concertService.getConcerts();
-        setConcerts(data);
+        const data = await concertService.getConcerts(admin);
+        if (isActive) {
+          setConcerts(data);
+        }
       } catch (err) {
         console.error('Failed to load concerts', err);
+        if (isActive) {
+          setLoadError('Không thể tải danh sách concert. Vui lòng thử lại.');
+        }
       } finally {
-        setIsLoading(false);
+        if (isActive) {
+          setIsLoading(false);
+        }
       }
     }
+
     load();
-  }, []);
+
+    return () => {
+      isActive = false;
+    };
+  }, [admin]);
 
   const filteredConcerts = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -73,9 +94,9 @@ export default function ConcertsPage() {
           alert(`Cannot publish this concert yet. Missing: ${missing.join(', ')}`);
           return;
         }
-        await concertService.publishConcert(id);
+        await concertService.publishConcert(admin, id);
       } else {
-        await concertService.cancelConcert(id);
+        await concertService.cancelConcert(admin, id);
       }
       setConcerts(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c));
     } catch (err: unknown) {
@@ -96,6 +117,11 @@ export default function ConcertsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-primary">Concerts</h1>
           <p className="text-sm text-muted mt-1">Manage live events, artists, and venues.</p>
+          {isSystemAdmin && (
+            <p className="mt-2 text-xs text-muted">
+              System admin view shows all concerts using the dedicated admin API.
+            </p>
+          )}
         </div>
         <Link 
           href="/concerts/create"
@@ -166,6 +192,13 @@ export default function ConcertsPage() {
                       <div className="h-4 w-32 bg-border rounded"></div>
                       <div className="h-3 w-24 bg-border rounded"></div>
                     </div>
+                  </td>
+                </tr>
+              ) : loadError ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-16 text-center">
+                    <p className="text-primary font-medium">Không thể tải concerts</p>
+                    <p className="text-muted text-sm mt-1">{loadError}</p>
                   </td>
                 </tr>
               ) : filteredConcerts.length === 0 ? (

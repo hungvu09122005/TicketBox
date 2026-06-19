@@ -49,6 +49,13 @@ export class ConcertsRepository {
     });
   }
 
+  findAllConcerts(): Promise<Concert[]> {
+    return this.repo.find({
+      relations: ['artist'],
+      order: { startsAt: 'ASC' },
+    });
+  }
+
   create(data: Partial<Concert>): Promise<Concert> {
     return this.repo.save(this.repo.create(data));
   }

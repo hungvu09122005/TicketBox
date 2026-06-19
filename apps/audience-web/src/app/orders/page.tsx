@@ -16,6 +16,7 @@ import { Header } from '@/components/Header';
 import { hasStoredSession } from '@/lib/auth-store';
 import { extractApiMessages } from '@/lib/api-errors';
 import { ordersService } from '@/lib/services/orders.service';
+import { paymentsService } from '@/lib/services/payments.service';
 import type { AudienceOrder } from '@/lib/types';
 
 type LoadState = 'loading' | 'ready' | 'empty' | 'error';
@@ -45,7 +46,34 @@ function formatDate(value?: string) {
   return formatter.format(new Date(value));
 }
 
-function OrderCard({ order }: Readonly<{ order: AudienceOrder }>) {
+function OrderCard({
+  order,
+}: Readonly<{
+  order: AudienceOrder;
+}>) {
+  const [isOpeningPayment, setIsOpeningPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  const handleOpenSandboxPayment = async () => {
+    try {
+      setIsOpeningPayment(true);
+      setPaymentError(null);
+      const result = await paymentsService.initiatePayment(order.id, crypto.randomUUID());
+      const paymentUrl = result.paymentUrl ?? result.redirectUrl ?? result.url ?? null;
+
+      if (!paymentUrl) {
+        setPaymentError('Backend chưa trả payment URL cho order này.');
+        return;
+      }
+
+      window.location.assign(paymentUrl);
+    } catch (error) {
+      setPaymentError(extractApiMessages(error, 'Không thể mở cổng thanh toán.').join(' '));
+    } finally {
+      setIsOpeningPayment(false);
+    }
+  };
+
   return (
     <article className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
       <div className="flex items-start justify-between gap-4">
@@ -81,13 +109,24 @@ function OrderCard({ order }: Readonly<{ order: AudienceOrder }>) {
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         {order.status === 'PENDING_PAYMENT' && (
-          <Link
-            href={`/payments/return?orderId=${encodeURIComponent(order.id)}&status=pending`}
-            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5"
-          >
-            <CurrencyDollar size={16} />
-            Check payment result
-          </Link>
+          <>
+            <button
+              type="button"
+              onClick={() => void handleOpenSandboxPayment()}
+              disabled={isOpeningPayment}
+              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <CurrencyDollar size={16} />
+              {isOpeningPayment ? 'Opening payment...' : 'Open sandbox payment'}
+            </button>
+            <Link
+              href={`/payments/return?orderId=${encodeURIComponent(order.id)}&status=pending`}
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+            >
+              <CurrencyDollar size={16} />
+              Check payment result
+            </Link>
+          </>
         )}
         <Link
           href={`/concerts/${order.concertId}`}
@@ -97,6 +136,12 @@ function OrderCard({ order }: Readonly<{ order: AudienceOrder }>) {
           Return to concert
         </Link>
       </div>
+
+      {paymentError ? (
+        <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm leading-6 text-rose-50">
+          {paymentError}
+        </p>
+      ) : null}
     </article>
   );
 }

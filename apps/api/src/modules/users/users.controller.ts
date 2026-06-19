@@ -5,8 +5,6 @@ import { RbacGuard } from '../../common/guards/rbac.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
-import { Role } from '../../common/constants/roles.enum';
-import { ROLE_PERMISSIONS_MAPPING } from '../../common/constants/role-permissions.mapping';
 import { UsersService } from './users.service';
 import { UpdateRolesDto } from './dto/update-roles.dto';
 import { UpdateUserActiveStatusDto } from './dto/update-user-active-status.dto';
@@ -27,9 +25,7 @@ export class UsersController {
       const permissions = Array.from(
         new Set(
           roles.flatMap((role) =>
-            role.permissions?.length
-              ? role.permissions.map((permission) => permission.name)
-              : ROLE_PERMISSIONS_MAPPING[role.name as Role] ?? [],
+            role.permissions?.map((permission) => permission.name) ?? [],
           ),
         ),
       );

@@ -30,9 +30,16 @@ export class SeatMapController {
     return this.seatMapService.getZonesByConcert(concertId);
   }
 
+  @Get('admin')
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @RequirePermissions(Permission.SEATMAP_READ)
+  async getZonesForAdmin(@Param('concertId') concertId: string) {
+    return this.seatMapService.getZonesByConcert(concertId);
+  }
+
   @Post('upload')
   @UseGuards(JwtAuthGuard, RbacGuard)
-  @RequirePermissions(Permission.CONCERT_UPDATE)
+  @RequirePermissions(Permission.SEATMAP_UPLOAD)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiBody({

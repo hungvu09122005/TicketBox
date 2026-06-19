@@ -11,8 +11,6 @@ import {
   TicketSummary,
 } from '../types';
 
-const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-
 export const concertService = {
   getPublishedConcerts: async (): Promise<PublicConcert[]> => {
     const response = await apiClient.get('/concerts');
@@ -26,17 +24,28 @@ export const concertService = {
 
   getArtist: async (artistId: string): Promise<PublicArtistDetail> => {
     const accessToken = getStoredAccessToken();
-    const response = await fetch(`${baseURL}/artists/${artistId}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/artists/${artistId}`, {
       headers: {
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
     });
 
+    const bodyText = await response.text();
+
     if (!response.ok) {
-      throw new Error(`Failed to load artist detail: ${response.status}`);
+      throw Object.assign(new Error(`Failed to load artist detail: ${response.status}`), {
+        response: {
+          status: response.status,
+          bodyText,
+        },
+      });
     }
 
-    const payload = (await response.json()) as { data: PublicArtistDetail };
+    if (!bodyText.trim() || bodyText.trim() === 'null') {
+      throw new Error('Artist detail response was empty.');
+    }
+
+    const payload = JSON.parse(bodyText) as { data: PublicArtistDetail };
     return {
       ...payload.data,
       description: payload.data.description ?? payload.data.shortBio ?? null,
@@ -73,7 +82,7 @@ export const concertService = {
   },
 
   initiatePayment: async (orderId: string, idempotencyKey: string): Promise<PaymentInitiationResult> => {
-    const response = await apiClient.post(`/payments/${orderId}/initiate`, null, {
+    const response = await apiClient.post(`/payments/${orderId}/initiate`, undefined, {
       headers: {
         'Idempotency-Key': idempotencyKey,
       },
