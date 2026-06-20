@@ -22,4 +22,8 @@ export class TicketsRepository {
   update(id: string, updateData: Partial<Ticket>) {
     return this.repo.update(id, updateData);
   }
+
+  saveTickets(tickets: Ticket[]) {
+    return this.repo.save(tickets);
+  }
 }

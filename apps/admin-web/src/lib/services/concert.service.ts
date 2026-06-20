@@ -1,9 +1,16 @@
 import { apiClient } from '../api-client';
+import type { AdminProfile } from '../auth.types';
 import { Concert, Artist, SeatMapResponse, TicketType } from '../types';
 
 export const concertService = {
-  getConcerts: async (): Promise<Concert[]> => {
-    const response = await apiClient.get('/concerts/organizer/me');
+  isSystemAdmin: (profile?: Pick<AdminProfile, 'roles'> | null): boolean => {
+    return profile?.roles?.includes('SYSTEM_ADMIN') ?? false;
+  },
+
+  getConcerts: async (profile?: Pick<AdminProfile, 'roles'> | null): Promise<Concert[]> => {
+    const isSystemAdmin = concertService.isSystemAdmin(profile);
+    const endpoint = isSystemAdmin ? '/concerts/admin' : '/concerts/organizer/me';
+    const response = await apiClient.get(endpoint);
     return response.data.data;
   },
   
@@ -17,16 +24,19 @@ export const concertService = {
     return response.data.data;
   },
   
-  updateConcert: async (id: string, data: Partial<Concert>): Promise<void> => {
-    await apiClient.patch(`/concerts/${id}`, data);
+  updateConcert: async (profile: Pick<AdminProfile, 'roles'> | null | undefined, id: string, data: Partial<Concert>): Promise<void> => {
+    const endpoint = concertService.isSystemAdmin(profile) ? `/concerts/admin/${id}` : `/concerts/${id}`;
+    await apiClient.patch(endpoint, data);
   },
   
-  publishConcert: async (id: string): Promise<void> => {
-    await apiClient.post(`/concerts/${id}/publish`);
+  publishConcert: async (profile: Pick<AdminProfile, 'roles'> | null | undefined, id: string): Promise<void> => {
+    const endpoint = concertService.isSystemAdmin(profile) ? `/concerts/admin/${id}/publish` : `/concerts/${id}/publish`;
+    await apiClient.post(endpoint);
   },
 
-  cancelConcert: async (id: string): Promise<void> => {
-    await apiClient.post(`/concerts/${id}/cancel`);
+  cancelConcert: async (profile: Pick<AdminProfile, 'roles'> | null | undefined, id: string): Promise<void> => {
+    const endpoint = concertService.isSystemAdmin(profile) ? `/concerts/admin/${id}/cancel` : `/concerts/${id}/cancel`;
+    await apiClient.post(endpoint);
   },
 
   uploadBannerAsset: async (file: File): Promise<string> => {
@@ -59,7 +69,7 @@ export const concertService = {
   },
 
   getSeatMap: async (concertId: string): Promise<SeatMapResponse> => {
-    const response = await apiClient.get(`/concerts/${concertId}/seat-map`);
+    const response = await apiClient.get(`/concerts/${concertId}/seat-map/admin`);
     return response.data.data;
   },
 

@@ -2,7 +2,7 @@ import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { Logger } from 'nestjs-pino';
-import { UsersRepository, CreateUserData } from './users.repository';
+import { UsersRepository, CreateUserData, FindUsersOptions, FindUsersResult } from './users.repository';
 import { User } from './entities/user.entity';
 
 /**
@@ -30,6 +30,10 @@ export class UsersService {
     return this.usersRepository.create(data);
   }
 
+  async findMany(options: FindUsersOptions = {}): Promise<FindUsersResult> {
+    return this.usersRepository.findMany(options);
+  }
+
   /**
    * Called by RBAC management when Admin changes a user's roles.
    * Increments permissionVersion to invalidate Redis permission cache.
@@ -37,10 +41,21 @@ export class UsersService {
   async invalidatePermissionCache(userId: string): Promise<void> {
     const user = await this.usersRepository.findById(userId);
     if (user) {
-      const cacheKey = `rbac:user:${userId}:v${user.permissionVersion}`;
-      await this.cache.del(cacheKey);
-      await this.usersRepository.incrementPermissionVersion(userId);
+      await this.invalidatePermissionCaches([user]);
     }
+  }
+
+  async refreshPermissionVersionsForRole(roleName: string, adminId: string): Promise<void> {
+    const users = await this.usersRepository.findManyByRoleName(roleName);
+    await this.invalidatePermissionCaches(users);
+
+    this.logger.log({
+      msg: 'Audit: Permission version refreshed for role',
+      roleName,
+      adminId,
+      affectedUserIds: users.map((user) => user.id),
+      affectedCount: users.length,
+    });
   }
 
   async updateRoles(userId: string, roles: string[], adminId: string): Promise<User> {
@@ -49,14 +64,9 @@ export class UsersService {
       throw new NotFoundException(`User ${userId} not found`);
     }
 
-    const oldVersion = user.permissionVersion;
-
     // Update in DB (increments permission_version)
     await this.usersRepository.updateRoles(userId, roles);
-
-    // Delete Redis cache for the old version
-    const cacheKey = `rbac:user:${userId}:v${oldVersion}`;
-    await this.cache.del(cacheKey);
+    await this.invalidatePermissionCaches([user]);
 
     this.logger.log({
       msg: 'Audit: User roles updated',
@@ -64,10 +74,47 @@ export class UsersService {
       adminId,
       oldRoles: user.roles,
       newRoles: roles,
-      oldVersion,
-      newVersion: oldVersion + 1,
+      oldVersion: user.permissionVersion,
+      newVersion: user.permissionVersion + 1,
     });
 
     return (await this.usersRepository.findById(userId))!;
+  }
+
+  async updateActiveStatus(userId: string, isActive: boolean, adminId: string): Promise<User> {
+    const user = await this.usersRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+
+    const updatedUser = await this.usersRepository.updateActiveStatus(userId, isActive);
+    if (!updatedUser) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+
+    this.logger.log({
+      msg: 'Audit: User active status updated',
+      targetUserId: userId,
+      adminId,
+      oldIsActive: user.isActive,
+      newIsActive: isActive,
+    });
+
+    return updatedUser;
+  }
+
+  private async invalidatePermissionCaches(users: User[]): Promise<void> {
+    if (users.length === 0) {
+      return;
+    }
+
+    await Promise.all(
+      users.map(async (user) => {
+        const cacheKey = `rbac:user:${user.id}:v${user.permissionVersion}`;
+        await this.cache.del(cacheKey);
+      }),
+    );
+
+    await this.usersRepository.incrementPermissionVersionsByIds(users.map((user) => user.id));
   }
 }

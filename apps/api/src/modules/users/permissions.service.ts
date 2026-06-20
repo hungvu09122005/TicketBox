@@ -11,6 +11,12 @@ export class PermissionsService {
     private readonly permissionRepository: Repository<Permission>,
   ) {}
 
+  async findAll(): Promise<Permission[]> {
+    return this.permissionRepository.find({
+      order: { name: 'ASC' },
+    });
+  }
+
   async createPermissionIfNotExists(name: string): Promise<Permission> {
     const existing = await this.permissionRepository.findOne({ where: { name } });
     if (existing) return existing;

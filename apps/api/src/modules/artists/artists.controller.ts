@@ -16,27 +16,27 @@ export class ArtistsController {
   constructor(private readonly artistsService: ArtistsService) {}
 
   @Get()
-  @RequirePermissions(Permission.CONCERT_READ)
+  @RequirePermissions(Permission.ARTIST_READ)
   findAll() { return this.artistsService.findAll(); }
 
   @Get(':id')
-  @RequirePermissions(Permission.CONCERT_READ)
+  @RequirePermissions(Permission.ARTIST_READ)
   findOne(@Param('id') id: string) { return this.artistsService.findById(id); }
 
   @Post()
-  @RequirePermissions(Permission.CONCERT_CREATE)
+  @RequirePermissions(Permission.ARTIST_CREATE)
   create(@Body() createArtistDto: CreateArtistDto) {
     return this.artistsService.create(createArtistDto);
   }
 
   @Patch(':id')
-  @RequirePermissions(Permission.CONCERT_UPDATE)
+  @RequirePermissions(Permission.ARTIST_UPDATE)
   update(@Param('id') id: string, @Body() updateArtistDto: UpdateArtistDto) {
     return this.artistsService.update(id, updateArtistDto);
   }
 
   @Delete(':id')
-  @RequirePermissions(Permission.CONCERT_UPDATE)
+  @RequirePermissions(Permission.ARTIST_DELETE)
   remove(@Param('id') id: string) {
     return this.artistsService.remove(id);
   }

@@ -5,6 +5,7 @@ import { QrCodeGeneratorPort, QR_CODE_GENERATOR_PORT } from '../../common/ports/
 import { TicketsRepository } from './tickets.repository';
 import { Ticket, TicketStatus } from './entities/ticket.entity';
 import { Order } from '../orders/entities/order.entity';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class TicketsService {
@@ -75,13 +76,18 @@ export class TicketsService {
         ticketTypeId: order.ticketTypeId,
         userId: order.userId,
         concertId: order.concertId,
-        qrToken,
         status: TicketStatus.ACTIVE,
+      } as Ticket;
+
+      ticket.qrToken = this.qrGenerator.generateToken({
+        ticketId,
+        concertId: order.concertId,
+        ticketTypeId: order.ticketTypeId,
       });
-      
+
       tickets.push(ticket);
     }
 
-    return await manager.save(Ticket, tickets);
+    return this.ticketsRepository.saveTickets(tickets);
   }
 }

@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersController } from './users.controller';
+import { RbacController } from './rbac.controller';
 import { UsersService } from './users.service';
 import { UsersRepository } from './users.repository';
 import { User } from './entities/user.entity';
@@ -20,7 +21,7 @@ import { PermissionsService } from './permissions.service';
 @Global()
 @Module({
   imports: [TypeOrmModule.forFeature([User, Role, Permission])],
-  controllers: [UsersController],
+  controllers: [UsersController, RbacController],
   providers: [UsersService, RolesService, UsersRepository, PermissionsService],
   exports: [UsersService, RolesService, PermissionsService],
 })

@@ -1,15 +1,13 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
-import { Role } from '../../common/constants/roles.enum';
-import { ROLE_PERMISSIONS_MAPPING } from '../../common/constants/role-permissions.mapping';
 import { UsersService } from './users.service';
 import { UpdateRolesDto } from './dto/update-roles.dto';
-import { Body, Param, Patch } from '@nestjs/common';
+import { UpdateUserActiveStatusDto } from './dto/update-user-active-status.dto';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -26,10 +24,9 @@ export class UsersController {
       const roles = profile.roles ?? [];
       const permissions = Array.from(
         new Set(
-          roles.flatMap((role) => {
-            const key = role.name as Role;
-            return ROLE_PERMISSIONS_MAPPING[key] ?? [];
-          }),
+          roles.flatMap((role) =>
+            role.permissions?.map((permission) => permission.name) ?? [],
+          ),
         ),
       );
 
@@ -52,5 +49,15 @@ export class UsersController {
     @CurrentUser() admin: AuthenticatedUser,
   ) {
     return this.usersService.updateRoles(targetUserId, body.roles, admin.sub);
+  }
+
+  @Patch(':id/active')
+  @RequirePermissions(Permission.RBAC_MANAGE)
+  updateActiveStatus(
+    @Param('id') targetUserId: string,
+    @Body() body: UpdateUserActiveStatusDto,
+    @CurrentUser() admin: AuthenticatedUser,
+  ) {
+    return this.usersService.updateActiveStatus(targetUserId, body.isActive, admin.sub);
   }
 }

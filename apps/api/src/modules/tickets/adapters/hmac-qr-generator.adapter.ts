@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
 import {
   QrCodeGeneratorPort,
   QrTokenParams,
@@ -14,13 +16,40 @@ import {
  */
 @Injectable()
 export class HmacQrGeneratorAdapter implements QrCodeGeneratorPort {
+  constructor(private readonly configService: ConfigService) {}
+
   generateToken(params: QrTokenParams): string {
-    // TODO Phase 3: build + HMAC-sign compact token
-    throw new Error('HmacQrGeneratorAdapter.generateToken not implemented — Phase 3');
+    const secret = this.configService.get<string>('QR_TOKEN_SECRET', 'ticketbox-qr-secret');
+    const payload = Buffer.from(JSON.stringify(params)).toString('base64url');
+    const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    return `${payload}.${signature}`;
   }
 
   verifyToken(token: string): QrTokenPayload | null {
-    // TODO Phase 3: split token, verify HMAC, return payload or null
-    throw new Error('HmacQrGeneratorAdapter.verifyToken not implemented — Phase 3');
+    const secret = this.configService.get<string>('QR_TOKEN_SECRET', 'ticketbox-qr-secret');
+    const [payload, signature] = token.split('.');
+    if (!payload || !signature) {
+      return null;
+    }
+
+    const expectedSignature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    if (signature !== expectedSignature) {
+      return null;
+    }
+
+    try {
+      const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Partial<QrTokenPayload>;
+      if (!decoded.ticketId || !decoded.concertId || !decoded.ticketTypeId) {
+        return null;
+      }
+
+      return {
+        ticketId: decoded.ticketId,
+        concertId: decoded.concertId,
+        ticketTypeId: decoded.ticketTypeId,
+      };
+    } catch {
+      return null;
+    }
   }
 }

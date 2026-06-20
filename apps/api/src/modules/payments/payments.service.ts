@@ -1,3 +1,4 @@
+import { Injectable, Inject, ForbiddenException, NotFoundException, ConflictException } from '@nestjs/common';
 import { Injectable, Inject, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { PaymentPort, PAYMENT_PORT } from '../../common/ports/payment.port';
@@ -6,6 +7,8 @@ import { Payment, PaymentStatus } from './entities/payment.entity';
 import { OrdersService } from '../orders/orders.service';
 import { TicketsService } from '../tickets/tickets.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PaymentStatus } from './entities/payment.entity';
+import { Payment } from './entities/payment.entity';
 import { OrderStatus } from '../orders/enums/order-status.enum';
 
 import { Order } from '../orders/entities/order.entity';
@@ -23,17 +26,33 @@ export class PaymentsService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
-  async initiatePayment(orderId: string, ipAddress: string): Promise<{ paymentUrl: string }> {
+  async initiatePayment(orderId: string, userId: string, idempotencyKey: string, ipAddress: string) {
     const order = await this.ordersService.findOne(orderId);
     if (!order) {
       throw new NotFoundException('Order not found');
     }
-
-    if (order.status !== OrderStatus.PENDING_PAYMENT) {
-      throw new ConflictException('Order is not in pending payment state');
+    if (order.userId !== userId) {
+      throw new ForbiddenException('You cannot pay for this order');
+    }
+    if (order.status !== 'PENDING_PAYMENT') {
+      throw new ConflictException('Order is not waiting for payment');
     }
 
-    const idempotencyKey = `payment_${orderId}_${Date.now()}`;
+    const pendingPayment = await this.paymentsRepository.findLatestPendingByOrderId(order.id);
+    const existingPayment =
+      pendingPayment ?? (await this.paymentsRepository.findByIdempotencyKey(idempotencyKey));
+
+    if (existingPayment) {
+      const paymentUrl = await this.paymentPort.createPaymentUrl({
+        orderId: existingPayment.orderId,
+        amount: Number(existingPayment.amount),
+        orderDescription: `Thanh toán đơn hàng ${existingPayment.orderId}`,
+        ipAddress,
+        idempotencyKey: existingPayment.idempotencyKey,
+      });
+
+      return { paymentUrl, paymentId: existingPayment.id };
+    }
 
     const payment = await this.paymentsRepository.create({
       orderId: order.id,
@@ -51,83 +70,46 @@ export class PaymentsService {
       idempotencyKey,
     });
 
-    return { paymentUrl };
+    return {
+      paymentId: payment.id,
+      paymentUrl,
+    };
   }
 
-  async handleVnpayCallback(rawQuery: Record<string, string>): Promise<void> {
-    const result = await this.paymentPort.verifyCallback(rawQuery);
-    if (!result) {
-      this.logger.error('Invalid payment callback signature');
-      return;
+  async handleVnpayCallback(query: Record<string, string>) {
+    const callback = await this.paymentPort.verifyCallback(query);
+    if (!callback) {
+      return { success: false, message: 'Invalid payment signature' };
     }
 
-    const { orderId, providerTransactionId, status, rawData } = result;
+    const payment = await this.paymentsRepository.findByOrderId(callback.orderId);
+    if (!payment) {
+      return { success: false, message: 'Payment record not found' };
+    }
 
-    await this.dataSource.transaction(async (manager) => {
-      // Find the order, locking it
-      const order = await manager.findOne(Order, {
-        where: { id: orderId },
-        lock: { mode: 'pessimistic_write' },
-      });
+    if (payment.status === PaymentStatus.CONFIRMED) {
+      return { success: true, message: 'Already processed' };
+    }
 
-      if (!order) {
-        this.logger.warn(`Callback received for unknown order: ${orderId}`);
-        return;
-      }
+    await this.paymentsRepository.updateStatus(
+      payment.id,
+      callback.status === 'SUCCESS' ? PaymentStatus.CONFIRMED : PaymentStatus.FAILED,
+      callback.providerTransactionId,
+      callback.rawData,
+    );
 
-      // Check for idempotency
-      if (order.status === OrderStatus.PAID) {
-        this.logger.log(`Order ${orderId} is already paid. Ignoring callback.`);
-        return;
-      }
+    if (callback.status !== 'SUCCESS') {
+      return { success: true, message: 'Payment failed' };
+    }
 
-      // Find the pending payment record
-      let payment = await manager.findOne(Payment, { where: { orderId, status: PaymentStatus.PENDING } });
-      if (!payment) {
-        this.logger.warn(`No pending payment found for order: ${orderId}`);
-        return;
-      }
+    const order = await this.ordersService.markPaid(callback.orderId, payment.id);
+    const tickets = await this.ticketsService.issueTickets(order as Order);
 
-      // Check provider tx idempotency
-      const existingTx = await manager.findOne(Payment, { where: { providerTxId: providerTransactionId } });
-      if (existingTx && existingTx.id !== payment.id) {
-        this.logger.warn(`Duplicate provider tx id: ${providerTransactionId}`);
-        return;
-      }
-
-      payment.providerTxId = providerTransactionId;
-      payment.rawCallback = rawData;
-
-      if (status === 'SUCCESS') {
-        payment.status = PaymentStatus.CONFIRMED;
-        await manager.save(payment);
-
-        order.status = OrderStatus.PAID;
-        await manager.save(order);
-
-        // This will decrement held_quantity and increment sold_quantity
-        await this.ordersService.markPaid(order.id, payment.id);
-
-        // Issue tickets
-        await this.ticketsService.issueTicketsForOrder(order, manager);
-
-        // Enqueue notification (mocked for now or assuming the method exists)
-        // await this.notificationsService.enqueueTicketConfirmation(order.userId, order.id);
-        
-        this.logger.log(`Payment confirmed and tickets issued for order: ${order.id}`);
-      } else {
-        payment.status = PaymentStatus.FAILED;
-        await manager.save(payment);
-        
-        // order.status is still PENDING_PAYMENT, let it expire naturally or explicitly cancel it
-        // Depending on business rules, we might want to release inventory now or wait for expiry.
-        // Rule 01 says: On failure, cancellation, or expiry: release held inventory exactly once.
-        // We can let the expiry job handle it, or call expireOrder immediately.
-        // Let's call expireOrder.
-        await this.ordersService.expireOrder(order.id);
-        
-        this.logger.log(`Payment failed for order: ${order.id}`);
-      }
-    });
+    return {
+      success: true,
+      orderId: order.id,
+      paymentId: payment.id,
+      ticketsIssued: tickets.length,
+    };
   }
 }

@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle, SpinnerGap, Ticket, UploadSimple } from '@phosphor-icons/react';
+import { useAuthStore } from '@/lib/auth-store';
 import { concertService } from '@/lib/services/concert.service';
 import { Artist } from '@/lib/types';
 import { extractApiMessages } from '@/lib/api-errors';
@@ -27,6 +28,7 @@ type ConcertFormValues = z.infer<typeof concertSchema>;
 export default function EditConcertPage({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
   const router = useRouter();
   const { id } = use(params);
+  const admin = useAuthStore((state) => state.admin);
   
   const [artists, setArtists] = useState<Artist[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -108,7 +110,7 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
     setIsSubmitting(true);
     setServerErrors(null);
     try {
-      await concertService.updateConcert(id, {
+      await concertService.updateConcert(admin, id, {
         ...data,
         ...(bannerObjectKey ? { bannerObjectKey } : {}),
       });

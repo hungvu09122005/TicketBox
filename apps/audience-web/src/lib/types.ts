@@ -48,6 +48,18 @@ export interface PublicTicketType {
   status: 'AVAILABLE' | 'SOLD_OUT';
 }
 
+export interface TicketTypeAvailability {
+  id: string;
+  name: string;
+  price: number;
+  maxPerUser: number;
+  soldQuantity?: number;
+  heldQuantity?: number;
+  totalQuantity?: number;
+  availableQuantity: number;
+  status: 'AVAILABLE' | 'SOLD_OUT';
+}
+
 export interface OrderSummary {
   id: string;
   concertId: string;
@@ -73,4 +85,38 @@ export interface CreateOrderPayload {
   concertId: string;
   ticketTypeId: string;
   quantity: number;
+}
+
+export interface AudienceOrder {
+  id: string;
+  concertId: string;
+  ticketTypeId: string;
+  quantity: number;
+  totalAmount: number;
+  status: 'PENDING_PAYMENT' | 'PAID' | 'EXPIRED' | 'PAYMENT_FAILED';
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface AudienceTicket {
+  id: string;
+  orderId: string;
+  ticketTypeId: string;
+  userId: string;
+  concertId: string;
+  qrToken: string;
+  status: 'ACTIVE' | 'USED' | 'CANCELLED' | 'TRANSFERRED';
+  createdAt: string;
+}
+
+export type PaymentReturnStatus = 'pending' | 'success' | 'failed' | 'expired';
+
+export interface PaymentInitiationResult {
+  paymentUrl?: string | null;
+  redirectUrl?: string | null;
+  url?: string | null;
+  orderId?: string | null;
+  paymentId?: string | null;
+  status?: string | null;
+  message?: string | null;
 }

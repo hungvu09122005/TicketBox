@@ -21,7 +21,7 @@ export class TicketTypesController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RbacGuard)
-  @RequirePermissions(Permission.CONCERT_UPDATE)
+  @RequirePermissions(Permission.TICKET_TYPE_CREATE)
   async createTicketType(
     @Param('concertId') concertId: string,
     @Body() dto: CreateTicketTypeDto,
@@ -34,7 +34,7 @@ export class TicketTypesController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RbacGuard)
-  @RequirePermissions(Permission.CONCERT_UPDATE)
+  @RequirePermissions(Permission.TICKET_TYPE_UPDATE)
   async updateTicketType(
     @Param('concertId') concertId: string,
     @Param('id') ticketTypeId: string,
@@ -48,7 +48,7 @@ export class TicketTypesController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RbacGuard)
-  @RequirePermissions(Permission.CONCERT_READ)
+  @RequirePermissions(Permission.TICKET_TYPE_READ)
   async findByConcert(@Param('concertId') concertId: string) {
     return this.ticketTypesService.findByConcertId(concertId);
   }
