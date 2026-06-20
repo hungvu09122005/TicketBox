@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
@@ -6,33 +6,38 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
 import { CheckinService } from './checkin.service';
-import { CheckinDto } from './dto/checkin.dto';
+import { CheckinDto, RegisterDeviceDto, SyncDatasetQueryDto } from './dto/checkin.dto';
 
 @ApiTags('checkin')
 @ApiBearerAuth()
 @Controller('checkin')
-//@UseGuards(JwtAuthGuard, RbacGuard)
 export class CheckinController {
   constructor(private readonly checkinService: CheckinService) {}
 
   @Post('validate')
   @RequirePermissions(Permission.TICKET_VALIDATE)
+  @UseGuards(JwtAuthGuard, RbacGuard)
   async validateOnline(@Body() dto: CheckinDto, @CurrentUser() user: AuthenticatedUser) {
-    // Gọi Service online (đã có transaction logic)
     return await this.checkinService.validateOnline(dto, user);
   }
 
-  @Get('sync/dataset')
+  @Post('devices/register')
   @RequirePermissions(Permission.TICKET_VALIDATE)
-  async getSyncDataset(@CurrentUser() user: AuthenticatedUser) {
-    // Lấy dữ liệu vé hợp lệ để máy offline tải về
-    return await this.checkinService.getSyncDataset();
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  async registerDevice(@Body() dto: RegisterDeviceDto, @CurrentUser() user: AuthenticatedUser) {
+    return await this.checkinService.registerDevice(dto, user.sub);
+  }
+
+  @Get('sync/dataset')
+  async getSyncDataset(@Query() query: SyncDatasetQueryDto) {
+    // Tải dữ liệu vé offline bằng deviceToken được cấp ở bước registerDevice
+    return await this.checkinService.getSyncDataset(query);
   }
 
   @Post('sync')
   @RequirePermissions(Permission.TICKET_VALIDATE)
+  @UseGuards(JwtAuthGuard, RbacGuard)
   async syncOfflineEvents(@Body() logs: CheckinDto[], @CurrentUser() user: AuthenticatedUser) {
-    // Xử lý batch dữ liệu từ offline mode
     return await this.checkinService.processSyncBatch(logs);
   }
 }

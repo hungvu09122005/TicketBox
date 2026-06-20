@@ -1,5 +1,4 @@
-import { Injectable, Inject, ForbiddenException, NotFoundException, ConflictException } from '@nestjs/common';
-import { Injectable, Inject, NotFoundException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, Inject, ForbiddenException, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { PaymentPort, PAYMENT_PORT } from '../../common/ports/payment.port';
 import { PaymentsRepository } from './payments.repository';
@@ -7,10 +6,7 @@ import { Payment, PaymentStatus } from './entities/payment.entity';
 import { OrdersService } from '../orders/orders.service';
 import { TicketsService } from '../tickets/tickets.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { PaymentStatus } from './entities/payment.entity';
-import { Payment } from './entities/payment.entity';
 import { OrderStatus } from '../orders/enums/order-status.enum';
-
 import { Order } from '../orders/entities/order.entity';
 
 @Injectable()

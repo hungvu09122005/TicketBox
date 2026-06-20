@@ -15,9 +15,14 @@ export class TicketsService {
   ) {}
 
   // Dùng cho CheckinService: getSyncDataset
-  async findValidTickets(): Promise<Ticket[]> {
+  async findValidTicketsForSync(concertId: string, ticketTypeId?: string): Promise<Partial<Ticket>[]> {
+    const where: any = { concertId, status: TicketStatus.ACTIVE };
+    if (ticketTypeId) {
+      where.ticketTypeId = ticketTypeId;
+    }
     return await this.ticketsRepository.find({
-      where: { status: TicketStatus.ACTIVE },
+      where,
+      select: ['id', 'qrToken', 'status', 'ticketTypeId', 'concertId'],
     });
   }
 
@@ -59,7 +64,7 @@ export class TicketsService {
    return await this.ticketsRepository.find({ where: { concertId } });
   }
 
-  async issueTicketsForOrder(order: Order, manager: EntityManager): Promise<Ticket[]> {
+  async issueTickets(order: Order, manager?: EntityManager): Promise<Ticket[]> {
     const tickets: Ticket[] = [];
     
     for (let i = 0; i < order.quantity; i++) {
@@ -70,24 +75,31 @@ export class TicketsService {
         ticketTypeId: order.ticketTypeId,
       });
 
-      const ticket = manager.create(Ticket, {
+      let ticket: Ticket;
+      const ticketData = {
         id: ticketId,
         orderId: order.id,
         ticketTypeId: order.ticketTypeId,
         userId: order.userId,
         concertId: order.concertId,
+        qrToken,
         status: TicketStatus.ACTIVE,
-      } as Ticket;
+      };
 
-      ticket.qrToken = this.qrGenerator.generateToken({
-        ticketId,
-        concertId: order.concertId,
-        ticketTypeId: order.ticketTypeId,
-      });
-
+      if (manager) {
+        ticket = manager.create(Ticket, ticketData);
+      } else {
+        ticket = new Ticket();
+        Object.assign(ticket, ticketData);
+      }
+      
       tickets.push(ticket);
     }
 
-    return this.ticketsRepository.saveTickets(tickets);
+    if (manager) {
+      return await manager.save(Ticket, tickets);
+    } else {
+      return await this.ticketsRepository.saveTickets(tickets);
+    }
   }
 }
