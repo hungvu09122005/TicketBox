@@ -1,50 +1,47 @@
-import { DataSource } from 'typeorm';
+import { In, EntityManager } from 'typeorm';
 import { Role as RoleEntity } from '../modules/users/entities/role.entity';
 import { Permission as PermissionEntity } from '../modules/users/entities/permission.entity';
+import { Permission } from '../common/constants/permissions.enum';
+import { Role } from '../common/constants/roles.enum';
 import { ROLE_PERMISSIONS_MAPPING } from '../common/constants/role-permissions.mapping';
-import { Role as RoleEnum } from '../common/constants/roles.enum';
-import { EntityManager } from 'typeorm';
 
 export async function seedRbac(manager: EntityManager) {
-  
+  console.log('🚀 Bắt đầu quá trình đồng bộ RBAC...');
+
   const roleRepo = manager.getRepository(RoleEntity);
   const permRepo = manager.getRepository(PermissionEntity);
 
-  console.log('🔄 Đang đồng bộ RBAC từ Mapping...');
+  // 1. Seed Permissions
+  const permissionCodes = Object.values(Permission);
+  // Lưu ý: dùng 'code' thay vì 'name' nếu trong Entity bạn đặt tên trường là 'code'
+  await permRepo.upsert(
+    permissionCodes.map((name) => ({ name })), // Giả sử Entity có cả name và code
+    ['name'], 
+  );
 
-  // 1. Tạo tất cả các Role từ Enum (nếu chưa có)
-  for (const roleName of Object.values(RoleEnum)) {
-    const existingRole = await roleRepo.findOne({ where: { name: roleName } });
-    if (!existingRole) {
-      await roleRepo.save(roleRepo.create({ name: roleName }));
-      console.log(`✅ Created role: ${roleName}`);
-    }
+  const savedPermissions = await permRepo.find();
+  const permissionByCode = new Map(savedPermissions.map((p) => [p.name, p]));
+  console.log(`✅ Đã đồng bộ ${savedPermissions.length} permissions.`);
+
+  // 2. Seed Roles
+  const roleNames = Object.values(Role);
+  await roleRepo.upsert(
+    roleNames.map((name) => ({ name })),
+    ['name'],
+  );
+
+  const savedRoles = await roleRepo.find({ relations: { permissions: true } });
+
+  // 3. Mapping Permissions vào Roles
+  for (const role of savedRoles) {
+    const targetPermissionCodes = ROLE_PERMISSIONS_MAPPING[role.name as Role] || [];
+    
+    role.permissions = targetPermissionCodes
+      .map((code) => permissionByCode.get(code))
+      .filter((p): p is PermissionEntity => !!p);
+      
+    await roleRepo.save(role);
   }
 
-  // 2. Tạo Permission và Gán quyền dựa trên Mapping
-  for (const [roleName, permissions] of Object.entries(ROLE_PERMISSIONS_MAPPING)) {
-    const role = await roleRepo.findOne({ 
-      where: { name: roleName as RoleEnum }, 
-      relations: ['permissions'] 
-    });
-
-    if (role) {
-      for (const permCode of permissions) {
-        // Tạo permission nếu chưa tồn tại
-        let perm = await permRepo.findOne({ where: { code: permCode } });
-        if (!perm) {
-          perm = await permRepo.save(permRepo.create({ code: permCode, name: permCode }));
-          console.log(`✅ Created permission: ${permCode}`);
-        }
-
-        // Gán quyền cho role nếu chưa có
-        const hasPerm = role.permissions.some((p) => p.code === permCode);
-        if (!hasPerm) {
-          role.permissions.push(perm);
-        }
-      }
-      await roleRepo.save(role);
-    }
-  }
   console.log('✨ RBAC Seeding hoàn tất!');
 }

@@ -7,28 +7,37 @@ import { UsersModule } from '../modules/users/users.module';
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get<string>('app.database.host'),
-        port: config.get<number>('app.database.port'),
-        username: config.get<string>('app.database.username'),
-        password: config.get<string>('app.database.password'),
-        database: config.get<string>('app.database.name'),
+  imports: [ConfigModule],
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => {
 
-        extra: {
-          min: config.get<number>('app.database.poolMin'),
-          max: config.get<number>('app.database.poolMax'),
-        },
+    console.log('====================');
+    console.log('DB HOST:', config.get('app.database.host'));
+    console.log('DB PORT:', config.get('app.database.port'));
+    console.log('DB USER:', config.get('app.database.username'));
+    console.log('DB NAME:', config.get('app.database.name'));
+    console.log('====================');
 
-        synchronize: false,
-        logging: config.get<string>('app.nodeEnv') === 'development',
-        autoLoadEntities: true,
-        migrationsTableName: 'typeorm_migrations',
-      }),
-    }),
-    UsersModule,
+    return {
+      type: 'postgres',
+      host: config.get<string>('app.database.host'),
+      port: config.get<number>('app.database.port'),
+      username: config.get<string>('app.database.username'),
+      password: config.get<string>('app.database.password'),
+      database: config.get<string>('app.database.name'),
+
+      extra: {
+        min: config.get<number>('app.database.poolMin'),
+        max: config.get<number>('app.database.poolMax'),
+      },
+
+      synchronize: false,
+      logging: config.get<string>('app.nodeEnv') === 'development',
+      autoLoadEntities: true,
+      migrationsTableName: 'typeorm_migrations',
+    };
+  },
+}),
   ],
 
   providers: [BootstrapService],

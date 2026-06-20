@@ -28,12 +28,6 @@ export class ConcertsService {
     private readonly config: ConfigService,
   ) { }
 
-<<<<<<< HEAD
-  private async toPublicDto(concert: Concert): Promise<PublicConcertDto> {
-    const bannerUrl = concert.bannerObjectKey
-      ? await this.storage.getPresignedUrl(concert.bannerObjectKey, 3600)
-      : null;
-=======
   // Thêm vào class ConcertsService
   
   /** * Kiểm tra xem user có phải là người sở hữu concert không.
@@ -54,34 +48,6 @@ export class ConcertsService {
     return concert;
   }
 
-  async findPublished(): Promise<Concert[]> {
-    const cacheKey = 'concerts:published:list';
-    const cached = await this.cache.get<Concert[]>(cacheKey);
-    if (cached) return cached;
->>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)
-
-    const artistAvatarUrl = concert.artist?.avatarObjectKey
-      ? await this.storage.getPresignedUrl(concert.artist.avatarObjectKey, 3600)
-      : null;
-
-    return {
-      id: concert.id,
-      name: concert.name,
-      description: concert.description ?? null,
-      startsAt: concert.startsAt.toISOString(),
-      endsAt: concert.endsAt.toISOString(),
-      saleStartsAt: concert.saleStartsAt?.toISOString() ?? null,
-      saleEndsAt: concert.saleEndsAt?.toISOString() ?? null,
-      venue: concert.venue ?? null,
-      status: concert.status,
-      bannerUrl,
-      artist: {
-        id: concert.artist.id,
-        name: concert.artist.name,
-        avatarUrl: artistAvatarUrl,
-      },
-    };
-  }
 
   async findPublished(
     page: number = 1,
@@ -101,8 +67,11 @@ export class ConcertsService {
 
   async findById(id: string): Promise<PublicConcertDto> {
     const cacheKey = `concerts:detail:${id}`;
-    const cached = await this.cache.get<PublicConcertDto>(cacheKey);
-    if (cached) return cached;
+    if (this.cache) {
+      
+      const cached = await this.cache.get<PublicConcertDto>(cacheKey);
+      if (cached) return cached;
+    }
 
     const concert = await this.concertsRepository.findById(id);
     if (!concert) throw new NotFoundException(`Concert ${id} not found.`);
@@ -127,6 +96,42 @@ export class ConcertsService {
       throw new ForbiddenException('Sale has ended.');
     }
     return concert;
+  }
+
+  private async toPublicDto(concert: Concert): Promise<PublicConcertDto> {
+    const bannerUrl = concert.bannerObjectKey
+      ? await this.storage.getPresignedUrl(concert.bannerObjectKey, 3600)
+      : null;
+
+    // 1. Tạo mảng artists từ concert.artists
+    const artists = await Promise.all(
+      (concert.artists || []).map(async (artist) => {
+        const avatarUrl = artist.avatarObjectKey
+          ? await this.storage.getPresignedUrl(artist.avatarObjectKey, 3600)
+          : null;
+        
+        return {
+          id: artist.id,
+          name: artist.name,
+          avatarUrl: avatarUrl,
+        };
+      })
+    );
+
+    // 2. Gán mảng artists vào DTO
+    return {
+      id: concert.id,
+      name: concert.name,
+      description: concert.description ?? null,
+      startsAt: concert.startsAt.toISOString(),
+      endsAt: concert.endsAt.toISOString(),
+      saleStartsAt: concert.saleStartsAt?.toISOString() ?? null,
+      saleEndsAt: concert.saleEndsAt?.toISOString() ?? null,
+      venue: concert.venue ?? null,
+      status: concert.status as 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED',
+      bannerUrl: bannerUrl,
+      artists: artists, // Sử dụng biến mảng vừa tạo ở trên
+    };
   }
 
   async invalidateCacheFor(concertId: string): Promise<void> {

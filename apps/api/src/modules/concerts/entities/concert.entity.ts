@@ -3,12 +3,7 @@ import {
   UpdateDateColumn, Index, ManyToMany, JoinTable, OneToMany,
 } from 'typeorm';
 import { Artist } from '../../artists/entities/artist.entity';
-<<<<<<< HEAD
 import { SeatZone } from '../../seat-map/entities/seat-zone.entity';
-=======
-import { SeatZone } from './seat-zone.entity';
-
->>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)
 export enum ConcertStatus {
   DRAFT = 'DRAFT',
   PUBLISHED = 'PUBLISHED',
@@ -55,4 +50,19 @@ export class Concert {
 
   @OneToMany(() => SeatZone, (seatZone) => seatZone.concert)
   seatZones!: SeatZone[];
+
+  @Column({ nullable: true })
+  bannerObjectKey?: string;
+
+  @Column({ nullable: true })
+  description?: string;
+
+  @Column({ nullable: true })
+  venue?: string;
+
+  @Column({ nullable: true })
+  saleStartsAt?: Date;
+
+  @Column({ nullable: true })
+  saleEndsAt?: Date;
 }

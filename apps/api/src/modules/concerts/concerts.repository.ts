@@ -25,7 +25,7 @@ export class ConcertsRepository {
 
     return this.repo.find({
       where: whereCondition,
-      relations: ['artist'],
+      relations: ['artists'],
       order: { startsAt: timeFilter === 'past' ? 'DESC' : 'ASC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -38,26 +38,22 @@ export class ConcertsRepository {
 
   findByIdAndOrganizer(id: string, organizerId: string, isAdmin: boolean): Promise<Concert | null> {
     const whereCondition = isAdmin ? { id } : { id, organizerId };
-    return this.repo.findOne({ where: whereCondition, relations: ['artist'] });
+    return this.repo.findOne({ where: whereCondition, relations: ['artists'] });
   }
 
   findByOrganizer(organizerId: string): Promise<Concert[]> {
-<<<<<<< HEAD
     return this.repo.find({
       where: { organizerId },
-      relations: ['artist'],
+      relations: ['artists'],
       order: { startsAt: 'ASC' },
     });
   }
 
   findAllConcerts(): Promise<Concert[]> {
     return this.repo.find({
-      relations: ['artist'],
+      relations: ['artists'],
       order: { startsAt: 'ASC' },
     });
-=======
-    return this.repo.find({ where: { organizerId }, relations: ['artists'] });
->>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)
   }
 
   create(data: Partial<Concert>): Promise<Concert> {

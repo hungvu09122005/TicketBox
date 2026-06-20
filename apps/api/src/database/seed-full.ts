@@ -134,7 +134,7 @@ export async function seedFullData(dataSource: DataSource) {
   const concertOne = await saveEntity(concertRepo, {
     id: seedIds.concertOne,
     name: 'Summer Pulse Live 2026',
-    artistId: artistOne.id,
+    artists: [artistOne],
     organizerId: organizer.id,
     status: ConcertStatus.PUBLISHED,
     startsAt: new Date('2026-08-15T12:00:00.000Z'),
@@ -149,7 +149,7 @@ export async function seedFullData(dataSource: DataSource) {
   const concertTwo = await saveEntity(concertRepo, {
     id: seedIds.concertTwo,
     name: 'Acoustic Night Session',
-    artistId: artistTwo.id,
+    artists: [artistTwo],
     organizerId: organizer.id,
     status: ConcertStatus.DRAFT,
     startsAt: new Date('2026-10-20T11:00:00.000Z'),

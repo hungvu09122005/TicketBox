@@ -1,11 +1,36 @@
+# PNPM cache
+.pnpm-store
+**/.pnpm-store
+
+# Dependencies
 node_modules
-npm-debug.log
-pnpm-debug.log
-Dockerfile
-.dockerignore
-.git
-.gitignore
-.env
+**/node_modules
+
+# Build
 dist
-.next
-.expo
+**/dist
+coverage
+**/coverage
+
+# Git
+.git
+
+# Env
+.env
+.env.*
+
+# Logs
+*.log
+
+# IDE
+.vscode
+
+# Uploads
+uploads
+**/uploads
+
+# Optional large folders
+mobile-checkin
+temp_test
+blueprint
+docs

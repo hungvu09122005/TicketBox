@@ -1,7 +1,5 @@
-import { 
-  Entity, PrimaryGeneratedColumn, Column, ManyToMany, 
-  CreateDateColumn, UpdateDateColumn 
-} from 'typeorm';
+// apps/api/src/modules/artists/entities/artist.entity.ts
+import { Entity, PrimaryGeneratedColumn, Column, ManyToMany } from 'typeorm';
 import { Concert } from '../../concerts/entities/concert.entity';
 
 @Entity('artists')
@@ -9,18 +7,18 @@ export class Artist {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ length: 200 })
+  @Column()
   name!: string;
 
-  @Column({ type: 'text', nullable: true })
-  shortBio?: string;
+  // Thêm dòng này để khớp với logic trong Service
+  @Column({ nullable: true })
+  avatarObjectKey!: string;
 
   @ManyToMany(() => Concert, (concert) => concert.artists)
   concerts!: Concert[];
 
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt!: Date;
+  @Column({ nullable: true })
+  shortBio!: string;
 
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt!: Date;
+
 }
