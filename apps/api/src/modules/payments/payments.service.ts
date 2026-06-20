@@ -1,26 +1,24 @@
 import { Injectable, Inject, ForbiddenException, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, ConflictException, Logger } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { PaymentPort, PAYMENT_PORT } from '../../common/ports/payment.port';
 import { PaymentsRepository } from './payments.repository';
+import { Payment, PaymentStatus } from './entities/payment.entity';
 import { OrdersService } from '../orders/orders.service';
 import { TicketsService } from '../tickets/tickets.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentStatus } from './entities/payment.entity';
 import { Payment } from './entities/payment.entity';
+import { OrderStatus } from '../orders/enums/order-status.enum';
+
 import { Order } from '../orders/entities/order.entity';
 
-/**
- * PaymentsService — application service.
- *
- * Critical rules (Blueprint §05 §3.1):
- *   - initiatePayment(): generates idempotency_key → stores pending Payment → calls PaymentPort
- *   - handleCallback(): verifies signature via PaymentPort → idempotency via provider_tx_id UNIQUE
- *     → atomic: markOrderPaid + confirmInventory + issueTickets + enqueueNotification
- *   - NEVER trust payment status from frontend
- *   - Circuit breaker on PaymentPort (Phase 3)
- */
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
+    private readonly dataSource: DataSource,
     private readonly paymentsRepository: PaymentsRepository,
     @Inject(PAYMENT_PORT) private readonly paymentPort: PaymentPort,
     private readonly ordersService: OrdersService,
@@ -66,8 +64,8 @@ export class PaymentsService {
 
     const paymentUrl = await this.paymentPort.createPaymentUrl({
       orderId: order.id,
-      amount: Number(order.totalAmount),
-      orderDescription: `Thanh toán đơn hàng ${order.id}`,
+      amount: order.totalAmount,
+      orderDescription: `TicketBox payment for order ${order.id}`,
       ipAddress,
       idempotencyKey,
     });

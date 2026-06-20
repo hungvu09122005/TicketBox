@@ -1,4 +1,7 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { Logger } from 'nestjs-pino';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { DataSource, Repository } from 'typeorm';
@@ -19,6 +22,8 @@ export class OrdersService {
     private readonly ticketTypesService: TicketTypesService,
     @InjectQueue('orders-expiry') 
     private readonly ordersQueue: Queue,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+    private readonly logger: Logger,
   ) {}
 
   async createOrder(dto: CreateOrderDto, userId: string) {
@@ -111,6 +116,17 @@ export class OrdersService {
         
         // Hoàn lại vé vào kho
         await this.ticketTypesService.releaseInventory(order.ticketTypeId, order.quantity, manager);
+        
+        // Invalidate cache
+        await this.cache.del(`concert:${order.concertId}:availability`);
+        
+        // Ghi Audit Log
+        this.logger.log({
+          msg: 'Audit: Order expired',
+          orderId: order.id,
+          ticketTypeId: order.ticketTypeId,
+          quantity: order.quantity
+        });
       }
     });
   }

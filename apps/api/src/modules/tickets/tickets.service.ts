@@ -1,4 +1,6 @@
 import { Injectable, Inject, NotFoundException, ConflictException } from '@nestjs/common';
+import * as crypto from 'crypto';
+import { EntityManager } from 'typeorm';
 import { QrCodeGeneratorPort, QR_CODE_GENERATOR_PORT } from '../../common/ports/qr-code-generator.port';
 import { TicketsRepository } from './tickets.repository';
 import { Ticket, TicketStatus } from './entities/ticket.entity';
@@ -57,11 +59,18 @@ export class TicketsService {
    return await this.ticketsRepository.find({ where: { concertId } });
   }
 
-  async issueTickets(order: Order): Promise<Ticket[]> {
+  async issueTicketsForOrder(order: Order, manager: EntityManager): Promise<Ticket[]> {
     const tickets: Ticket[] = [];
-    for (let index = 0; index < order.quantity; index += 1) {
-      const ticketId = randomUUID();
-      const ticket = {
+    
+    for (let i = 0; i < order.quantity; i++) {
+      const ticketId = crypto.randomUUID();
+      const qrToken = this.qrGenerator.generateToken({
+        ticketId,
+        concertId: order.concertId,
+        ticketTypeId: order.ticketTypeId,
+      });
+
+      const ticket = manager.create(Ticket, {
         id: ticketId,
         orderId: order.id,
         ticketTypeId: order.ticketTypeId,
