@@ -47,6 +47,8 @@ export class TicketTypesService {
       details: dto,
     });
 
+    await this.cache.del(`concert:${concertId}:availability`);
+
     return ticketType;
   }
 
@@ -88,6 +90,8 @@ export class TicketTypesService {
       },
       newValues: dto,
     });
+
+    await this.cache.del(`concert:${ticketType.concertId}:availability`);
 
     return updated;
   }

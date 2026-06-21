@@ -8,6 +8,9 @@ import { Permission } from '../../common/constants/permissions.enum';
 import { CheckinService } from './checkin.service';
 import { CheckinDto, RegisterDeviceDto, SyncDatasetQueryDto } from './dto/checkin.dto';
 
+import { RateLimitPolicy } from '../../common/decorators/rate-limit.decorator';
+import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
+
 @ApiTags('checkin')
 @ApiBearerAuth()
 @Controller('checkin')
@@ -15,8 +18,9 @@ export class CheckinController {
   constructor(private readonly checkinService: CheckinService) {}
 
   @Post('validate')
+  @RateLimitPolicy('checkin')
   @RequirePermissions(Permission.TICKET_VALIDATE)
-  @UseGuards(JwtAuthGuard, RbacGuard)
+  @UseGuards(JwtAuthGuard, RbacGuard, RateLimitGuard)
   async validateOnline(@Body() dto: CheckinDto, @CurrentUser() user: AuthenticatedUser) {
     return await this.checkinService.validateOnline(dto, user);
   }
@@ -35,8 +39,9 @@ export class CheckinController {
   }
 
   @Post('sync')
+  @RateLimitPolicy('sync')
   @RequirePermissions(Permission.TICKET_VALIDATE)
-  @UseGuards(JwtAuthGuard, RbacGuard)
+  @UseGuards(JwtAuthGuard, RbacGuard, RateLimitGuard)
   async syncOfflineEvents(@Body() logs: CheckinDto[], @CurrentUser() user: AuthenticatedUser) {
     return await this.checkinService.processSyncBatch(logs, user.sub);
   }

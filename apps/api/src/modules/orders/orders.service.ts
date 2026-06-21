@@ -70,6 +70,9 @@ export class OrdersService {
         { delay: 10 * 60 * 1000 }
       );
 
+      // 6. Invalidate availability cache
+      await this.cache.del(`concert:${dto.concertId}:availability`);
+
       return savedOrder;
     });
   }
@@ -153,6 +156,9 @@ export class OrdersService {
 
       // Xác nhận chuyển trạng thái vé từ "giữ" sang "bán thành công"
       await this.ticketTypesService.confirmInventory(order.ticketTypeId, order.quantity, manager);
+      
+      // Invalidate availability cache
+      await this.cache.del(`concert:${order.concertId}:availability`);
       
       return order;
     });

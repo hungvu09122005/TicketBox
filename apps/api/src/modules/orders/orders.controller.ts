@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, UseGuards, ForbiddenException, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, ForbiddenException, Query, Res } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
@@ -9,17 +9,66 @@ import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
 
+import { RateLimitPolicy } from '../../common/decorators/rate-limit.decorator';
+import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
+
+import { QueueService } from './queue.service';
+
 @ApiTags('orders')
 @ApiBearerAuth()
 @Controller('orders')
-@UseGuards(JwtAuthGuard, RbacGuard)
+@UseGuards(JwtAuthGuard, RbacGuard, RateLimitGuard)
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly queueService: QueueService,
+  ) {}
+
+  /** POST /api/v1/orders/queue/status — Poll queue status */
+  @Get('queue/status')
+  @RequirePermissions(Permission.ORDER_CREATE)
+  async getQueueStatus(
+    @Query('concertId') concertId: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.queueService.getQueueStatus(concertId, user.sub);
+  }
 
   /** POST /api/v1/orders — Audience creates an order (hold inventory). */
   @Post()
+  @RateLimitPolicy('order')
   @RequirePermissions(Permission.ORDER_CREATE)
-  create(@CurrentUser() user: AuthenticatedUser, @Body() body: CreateOrderDto) {
+  async create(
+    @CurrentUser() user: AuthenticatedUser, 
+    @Body() body: CreateOrderDto,
+    @Res({ passthrough: true }) res: any
+  ) {
+    if (body.queueToken) {
+      // Validate token
+      const { isValid, isActive, userId } = await this.queueService.verifyAndCheckActive(body.concertId, body.queueToken);
+      if (!isValid || userId !== user.sub) {
+        throw new ForbiddenException('Invalid queue token');
+      }
+      if (!isActive) {
+        throw new ForbiddenException('Queue token has expired or is not active yet');
+      }
+      // Process order
+      return this.ordersService.createOrder(body, user.sub);
+    }
+
+    // Try to enter waiting room or checkout directly
+    const queueStatus = await this.queueService.handleCheckoutRequest(body.concertId, user.sub);
+    
+    if (queueStatus.status === 'QUEUED') {
+      res.status(202);
+      return {
+        message: 'System is under heavy load. You have been placed in the virtual waiting room.',
+        status: 'QUEUED',
+        queueToken: queueStatus.queueToken,
+      };
+    }
+
+    // Proceed to create order immediately
     return this.ordersService.createOrder(body, user.sub);
   }
 

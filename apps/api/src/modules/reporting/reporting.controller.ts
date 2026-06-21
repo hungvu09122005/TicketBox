@@ -8,10 +8,14 @@ import { Permission } from '../../common/constants/permissions.enum';
 import { ReportingService } from './reporting.service';
 import { ReportQueryDto } from './dto/report-query.dto';
 
+import { RateLimitPolicy } from '../../common/decorators/rate-limit.decorator';
+import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
+
 @ApiTags('reporting')
 @ApiBearerAuth()
 @Controller('reports')
-@UseGuards(JwtAuthGuard, RbacGuard)
+@UseGuards(JwtAuthGuard, RbacGuard, RateLimitGuard)
+@RateLimitPolicy('admin')
 export class ReportingController {
   constructor(private readonly reportingService: ReportingService) {}
 

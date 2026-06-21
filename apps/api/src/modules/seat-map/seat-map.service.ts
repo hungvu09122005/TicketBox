@@ -98,6 +98,9 @@ export class SeatMapService {
       createdZones = await this.repo.createZones(zonesToCreate);
     }
 
+    // Invalidate concert cache since seat map zones changed
+    await this.concertsService.invalidateCacheFor(concertId);
+
     return {
       message: 'SVG uploaded and zones mapped successfully',
       objectKey,

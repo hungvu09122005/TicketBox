@@ -1,6 +1,6 @@
-import { Injectable, Inject, ForbiddenException, NotFoundException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, Inject, ForbiddenException, NotFoundException, ConflictException, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { PaymentPort, PAYMENT_PORT } from '../../common/ports/payment.port';
+import { PaymentPort, PAYMENT_PORT, CreatePaymentParams } from '../../common/ports/payment.port';
 import { PaymentsRepository } from './payments.repository';
 import { Payment, PaymentStatus } from './entities/payment.entity';
 import { OrdersService } from '../orders/orders.service';
@@ -8,10 +8,13 @@ import { TicketsService } from '../tickets/tickets.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { OrderStatus } from '../orders/enums/order-status.enum';
 import { Order } from '../orders/entities/order.entity';
+import { createCircuitBreaker } from '../../common/utils/circuit-breaker.factory';
+import CircuitBreaker from 'opossum';
 
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
+  private paymentUrlBreaker: CircuitBreaker<any[], string>;
 
   constructor(
     private readonly dataSource: DataSource,
@@ -20,7 +23,21 @@ export class PaymentsService {
     private readonly ordersService: OrdersService,
     private readonly ticketsService: TicketsService,
     private readonly notificationsService: NotificationsService,
-  ) {}
+  ) {
+    this.paymentUrlBreaker = createCircuitBreaker(
+      (params: CreatePaymentParams) => this.paymentPort.createPaymentUrl(params),
+      {
+        name: 'PaymentUrlGeneration',
+        timeout: 5000,
+        errorThresholdPercentage: 50,
+        resetTimeout: 10000,
+      }
+    );
+
+    this.paymentUrlBreaker.fallback(() => {
+      throw new ServiceUnavailableException('Payment gateway is currently unavailable. Please try again later.');
+    });
+  }
 
   async initiatePayment(orderId: string, userId: string, idempotencyKey: string, ipAddress: string) {
     const order = await this.ordersService.findOne(orderId);
@@ -40,7 +57,7 @@ export class PaymentsService {
     }
 
     if (existingPayment) {
-      const paymentUrl = await this.paymentPort.createPaymentUrl({
+      const paymentUrl = await this.paymentUrlBreaker.fire({
         orderId: existingPayment.orderId,
         amount: Number(existingPayment.amount),
         orderDescription: `Thanh toán đơn hàng ${existingPayment.orderId}`,
@@ -59,7 +76,7 @@ export class PaymentsService {
       status: PaymentStatus.PENDING,
     });
 
-    const paymentUrl = await this.paymentPort.createPaymentUrl({
+    const paymentUrl = await this.paymentUrlBreaker.fire({
       orderId: order.id,
       amount: order.totalAmount,
       orderDescription: `TicketBox payment for order ${order.id}`,
