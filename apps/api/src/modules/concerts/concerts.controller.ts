@@ -14,6 +14,8 @@ import { ConcertsService } from './concerts.service';
 import { Multer } from 'multer';
 import { CreateConcertDto } from './dto/create-concert.dto';
 import { UpdateConcertDto } from './dto/update-concert.dto';
+import { RateLimitPolicy } from '../../common/decorators/rate-limit.decorator';
+import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 
 @ApiTags('concerts')
 @ApiBearerAuth()
@@ -23,6 +25,8 @@ export class ConcertsController {
   constructor(private readonly concertsService: ConcertsService) { }
 
   @Get()
+  @RateLimitPolicy('public')
+  @UseGuards(RateLimitGuard)
   findPublished(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,

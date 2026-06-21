@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, Query, UseGuards, Headers, Req } from '@nestjs/common';
+import { Controller, Post, Get, Param, Query, UseGuards, Headers, Req, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
@@ -6,6 +6,8 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
 import { PaymentsService } from './payments.service';
+import { RateLimitPolicy } from '../../common/decorators/rate-limit.decorator';
+import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 import type { Request } from 'express';
 
 @ApiTags('payments')
@@ -15,8 +17,10 @@ export class PaymentsController {
 
   /** Authenticated — Audience initiates payment for a held order. */
   @Post(':orderId/initiate')
-  @UseGuards(JwtAuthGuard, RbacGuard)
+  @UseGuards(JwtAuthGuard, RbacGuard, RateLimitGuard)
   @RequirePermissions(Permission.ORDER_CREATE)
+  @RateLimitPolicy('payment')
+  @HttpCode(200)
   initiatePayment(
     @Param('orderId') orderId: string,
     @Headers('idempotency-key') idempotencyKey: string | undefined,

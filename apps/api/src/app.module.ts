@@ -1,13 +1,14 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
 import { BullModule, Processor } from '@nestjs/bull';
 import { CacheModule } from '@nestjs/cache-manager';
-import { ThrottlerModule } from '@nestjs/throttler';
 import * as redisStore from 'cache-manager-ioredis';
 import { LoggerModule } from 'nestjs-pino';
 import configuration from './config/configuration';
 import { DatabaseModule } from './database/database.module';
 import { QueueModule } from './modules/queue/queue.module';
+import { RedisModule } from './modules/redis/redis.module';
 // Domain Modules
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -78,11 +79,8 @@ import { BootstrapService } from '@database/bootstrap.service';
       }),
     }),
 
-    ThrottlerModule.forRoot([
-      { name: 'public', ttl: 60_000, limit: 100 },
-      { name: 'order', ttl: 60_000, limit: 5 },
-      { name: 'checkin', ttl: 60_000, limit: 60 },
-    ]),
+    RedisModule,
+    ScheduleModule.forRoot(),
 
     // ── Domain Modules ─────────────────────────────────────────────────────
     HealthModule,
