@@ -2,11 +2,19 @@ import { IsString, IsNotEmpty, IsUUID, IsOptional } from 'class-validator';
 
 export class CheckinDto {
   @IsUUID()
-  ticket_id!: string;
+  @IsOptional()
+  ticket_id?: string;
+
+  @IsString()
+  @IsOptional()
+  qr_token?: string;
 
   @IsString()
   @IsNotEmpty()
   client_event_id!: string;
+
+  @IsOptional()
+  scanned_at?: string;
 
   @IsString()
   @IsNotEmpty()

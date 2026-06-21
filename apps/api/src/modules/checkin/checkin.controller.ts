@@ -38,6 +38,6 @@ export class CheckinController {
   @RequirePermissions(Permission.TICKET_VALIDATE)
   @UseGuards(JwtAuthGuard, RbacGuard)
   async syncOfflineEvents(@Body() logs: CheckinDto[], @CurrentUser() user: AuthenticatedUser) {
-    return await this.checkinService.processSyncBatch(logs);
+    return await this.checkinService.processSyncBatch(logs, user.sub);
   }
 }
