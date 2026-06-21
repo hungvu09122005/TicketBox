@@ -34,9 +34,10 @@ export class PaymentsService {
       throw new ConflictException('Order is not waiting for payment');
     }
 
-    const pendingPayment = await this.paymentsRepository.findLatestPendingByOrderId(order.id);
-    const existingPayment =
-      pendingPayment ?? (await this.paymentsRepository.findByIdempotencyKey(idempotencyKey));
+    let existingPayment = await this.paymentsRepository.findByIdempotencyKey(idempotencyKey);
+    if (!existingPayment) {
+      existingPayment = await this.paymentsRepository.findLatestPendingByOrderId(order.id);
+    }
 
     if (existingPayment) {
       const paymentUrl = await this.paymentPort.createPaymentUrl({
@@ -83,8 +84,25 @@ export class PaymentsService {
       return { success: false, message: 'Payment record not found' };
     }
 
-    if (payment.status === PaymentStatus.CONFIRMED) {
-      return { success: true, message: 'Already processed' };
+    if (payment.status === PaymentStatus.CONFIRMED || payment.status === PaymentStatus.FAILED) {
+      this.logger.log(`Audit: Duplicate callback received for orderId ${callback.orderId}, status: ${payment.status}`);
+      return { 
+        success: payment.status === PaymentStatus.CONFIRMED, 
+        message: 'Already processed',
+        orderId: payment.orderId,
+        paymentId: payment.id
+      };
+    }
+
+    if (Number(payment.amount) !== callback.amount) {
+      await this.paymentsRepository.updateStatus(
+        payment.id,
+        PaymentStatus.FAILED,
+        callback.providerTransactionId,
+        callback.rawData,
+      );
+      await this.ordersService.markPaymentFailed(callback.orderId);
+      return { success: false, message: 'Invalid payment amount' };
     }
 
     await this.paymentsRepository.updateStatus(
@@ -95,6 +113,7 @@ export class PaymentsService {
     );
 
     if (callback.status !== 'SUCCESS') {
+      await this.ordersService.markPaymentFailed(callback.orderId);
       return { success: true, message: 'Payment failed' };
     }
 
@@ -106,6 +125,32 @@ export class PaymentsService {
       orderId: order.id,
       paymentId: payment.id,
       ticketsIssued: tickets.length,
+    };
+  }
+
+  async getPaymentStatus(orderId: string, userId: string, isAdmin: boolean) {
+    const order = await this.ordersService.findOne(orderId);
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    if (!isAdmin && order.userId !== userId) {
+      throw new ForbiddenException('Cannot view payment status for this order');
+    }
+
+    const payment = await this.paymentsRepository.findLatestPendingByOrderId(orderId) 
+                 ?? await this.paymentsRepository.findByOrderId(orderId);
+                 
+    if (!payment) {
+      return { status: 'NO_PAYMENT_INITIATED', orderStatus: order.status };
+    }
+
+    return {
+      paymentId: payment.id,
+      status: payment.status,
+      provider: payment.provider,
+      orderStatus: order.status,
+      amount: payment.amount,
+      createdAt: payment.createdAt,
     };
   }
 }

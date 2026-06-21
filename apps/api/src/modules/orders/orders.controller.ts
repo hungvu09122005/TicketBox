@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, ForbiddenException, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
@@ -7,6 +7,7 @@ import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-
 import { Permission } from '../../common/constants/permissions.enum';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { OrderQueryDto } from './dto/order-query.dto';
 
 @ApiTags('orders')
 @ApiBearerAuth()
@@ -25,16 +26,15 @@ export class OrdersController {
   /** GET /api/v1/orders/me — Audience views their own orders. */
   @Get('me')
   @RequirePermissions(Permission.ORDER_READ_OWN)
-  findMine(@CurrentUser() user: AuthenticatedUser) {
-    return this.ordersService.findByUser(user.sub);
+  findMine(@CurrentUser() user: AuthenticatedUser, @Query() query: OrderQueryDto) {
+    return this.ordersService.findByUserWithFilters(user.sub, query);
   }
 
   /** GET /api/v1/orders — Organizer / Admin views all orders. */
   @Get()
   @RequirePermissions(Permission.ORDER_READ_ALL)
-  findAll() {
-    // TODO Phase 3
-    return [];
+  findAll(@Query() query: OrderQueryDto) {
+    return this.ordersService.findAllWithFilters(query);
   }
 
   @Get(':id')

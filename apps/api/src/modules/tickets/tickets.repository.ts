@@ -19,6 +19,10 @@ export class TicketsRepository {
     return this.repo.findOne(options);
   }
 
+  findAndCount(options: FindManyOptions<Ticket>) {
+    return this.repo.findAndCount(options);
+  }
+
   update(id: string, updateData: Partial<Ticket>) {
     return this.repo.update(id, updateData);
   }

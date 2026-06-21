@@ -36,4 +36,16 @@ export class PaymentsController {
   handleVnpayCallback(@Query() query: Record<string, string>) {
     return this.paymentsService.handleVnpayCallback(query);
   }
+
+  /** GET /payments/orders/:orderId/status — Check payment status */
+  @Get('orders/:orderId/status')
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @RequirePermissions(Permission.ORDER_READ_OWN) // Assuming user can check their own order
+  getPaymentStatus(
+    @Param('orderId') orderId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    return this.paymentsService.getPaymentStatus(orderId, user.sub, isAdmin);
+  }
 }
