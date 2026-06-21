@@ -10,6 +10,7 @@ import { Order } from './entities/order.entity';
 import { ConcertsService } from '../concerts/concerts.service';
 import { TicketTypesService } from '../ticket-types/ticket-types.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { OrderQueryDto } from './dto/order-query.dto';
 import { OrderStatus } from './enums/order-status.enum';
 
 @Injectable()
@@ -83,6 +84,59 @@ export class OrdersService {
     return await this.orderRepo.findBy({ userId });
   }
 
+  async findByUserWithFilters(userId: string, query: OrderQueryDto) {
+    const { page = 1, limit = 10, status, concertId } = query;
+    const qb = this.orderRepo.createQueryBuilder('order')
+      .where('order.userId = :userId', { userId })
+      .orderBy('order.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (status) {
+      qb.andWhere('order.status = :status', { status });
+    }
+    if (concertId) {
+      qb.andWhere('order.concertId = :concertId', { concertId });
+    }
+
+    const [data, total] = await qb.getManyAndCount();
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      }
+    };
+  }
+
+  async findAllWithFilters(query: OrderQueryDto) {
+    const { page = 1, limit = 10, status, concertId } = query;
+    const qb = this.orderRepo.createQueryBuilder('order')
+      .orderBy('order.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (status) {
+      qb.andWhere('order.status = :status', { status });
+    }
+    if (concertId) {
+      qb.andWhere('order.concertId = :concertId', { concertId });
+    }
+
+    const [data, total] = await qb.getManyAndCount();
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      }
+    };
+  }
+
   /**
    * Được gọi khi Payment Gateway báo thanh toán thành công
    */
@@ -123,6 +177,33 @@ export class OrdersService {
         // Ghi Audit Log
         this.logger.log({
           msg: 'Audit: Order expired',
+          orderId: order.id,
+          ticketTypeId: order.ticketTypeId,
+          quantity: order.quantity
+        });
+      }
+    });
+  }
+
+  /**
+   * Xử lý khi payment thất bại
+   */
+  async markPaymentFailed(orderId: string) {
+    await this.dataSource.transaction(async (manager) => {
+      const order = await manager.findOneBy(Order, { id: orderId });
+      if (order && order.status === OrderStatus.PENDING_PAYMENT) {
+        order.status = OrderStatus.PAYMENT_FAILED;
+        await manager.save(order);
+        
+        // Hoàn lại vé vào kho
+        await this.ticketTypesService.releaseInventory(order.ticketTypeId, order.quantity, manager);
+        
+        // Invalidate cache
+        await this.cache.del(`concert:${order.concertId}:availability`);
+        
+        // Ghi Audit Log
+        this.logger.log({
+          msg: 'Audit: Payment failed and order cancelled',
           orderId: order.id,
           ticketTypeId: order.ticketTypeId,
           quantity: order.quantity

@@ -34,8 +34,29 @@ export class TicketsService {
   }
 
   // Tìm vé của một user
-  async findMine(userId: string): Promise<Ticket[]> {
-    return await this.ticketsRepository.find({ where: { userId } });
+  async findMineWithFilters(userId: string, query: any) {
+    const { page = 1, limit = 10, status, concertId, ticketTypeId } = query;
+    const where: any = { userId };
+    if (status) where.status = status;
+    if (concertId) where.concertId = concertId;
+    if (ticketTypeId) where.ticketTypeId = ticketTypeId;
+
+    const [data, total] = await this.ticketsRepository.findAndCount({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      order: { createdAt: 'DESC' },
+    });
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      }
+    };
   }
 
   // Xác thực QR Token (Logic từ port)
