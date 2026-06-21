@@ -1,10 +1,12 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
+import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
 import { ReportingService } from './reporting.service';
+import { ReportQueryDto } from './dto/report-query.dto';
 
 @ApiTags('reporting')
 @ApiBearerAuth()
@@ -15,13 +17,30 @@ export class ReportingController {
 
   @Get('revenue')
   @RequirePermissions(Permission.REPORT_VIEW)
-  getRevenue() { return { message: 'Not implemented — Phase 8' }; }
+  async getRevenue(@Query() query: ReportQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    return await this.reportingService.getRevenueSummary(isAdmin, user.sub, query.concertId, query.startDate, query.endDate);
+  }
 
   @Get('tickets-sold')
   @RequirePermissions(Permission.REPORT_VIEW)
-  getTicketsSold() { return { message: 'Not implemented — Phase 8' }; }
+  async getTicketsSold(@Query() query: ReportQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    return await this.reportingService.getTicketsSold(isAdmin, user.sub, query.concertId, query.startDate, query.endDate);
+  }
+
+  @Get('order-status')
+  @RequirePermissions(Permission.REPORT_VIEW)
+  async getOrderStatus(@Query() query: ReportQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    return await this.reportingService.getOrderStatusBreakdown(isAdmin, user.sub, query.concertId, query.startDate, query.endDate);
+  }
 
   @Get('checkin-rate')
   @RequirePermissions(Permission.REPORT_VIEW)
-  getCheckinRate() { return { message: 'Not implemented — Phase 8' }; }
+  async getCheckinRate(@Query() query: ReportQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    // Checkin rate only uses concertId filter based on repository implementation
+    return await this.reportingService.getCheckinRate(isAdmin, user.sub, query.concertId);
+  }
 }
