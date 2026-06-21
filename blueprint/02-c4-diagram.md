@@ -68,8 +68,8 @@ C4Context
 | Backend API | NestJS | REST API, auth, business logic, orchestration. |
 | PostgreSQL | SQL Database | Source of truth cho dữ liệu chính. |
 | Redis | In-memory Store | Cache, rate limit, waiting room, idempotency và short-lived coordination. |
-| Message Queue | BullMQ trên Redis | Lưu job bất đồng bộ cho CSV, AI, notification và reminder. |
-| Queue Worker | NestJS/Node.js Worker | Consume và xử lý BullMQ jobs. |
+| Message Queue | bullMQ trên Redis | Lưu job bất đồng bộ cho CSV, AI, notification và reminder. |
+| Queue Worker | NestJS/Node.js Worker | Consume và xử lý bullMQ jobs. |
 | Object Storage | S3/local storage | Lưu PDF, CSV, SVG seat map, ảnh. |
 | Scheduler | Cron/Worker Scheduler | Tạo reminder job trước concert 24 giờ. |
 
@@ -100,8 +100,8 @@ C4Container
 
         ContainerDb(db, "PostgreSQL", "SQL Database", "User, concert, seat zone, order, payment, ticket, check-in")
         ContainerDb(redis, "Redis", "Cache/In-memory Store", "Cache, rate limit, waiting room, idempotency, short-lived coordination")
-        Container(queue, "Message Queue", "BullMQ trên Redis", "CSV, AI, notification, reminder jobs")
-        Container(worker, "Queue Worker", "NestJS/Node.js", "Consume và xử lý BullMQ jobs")
+        Container(queue, "Message Queue", "bullMQ trên Redis", "CSV, AI, notification, reminder jobs")
+        Container(worker, "Queue Worker", "NestJS/Node.js", "Consume và xử lý bullMQ jobs")
         Container(scheduler, "Scheduler", "Cron/Worker", "Tạo reminder job trước concert 24 giờ")
         Container(storage, "Object Storage", "S3/local", "Lưu PDF, CSV, SVG seat map, ảnh")
     }
@@ -119,11 +119,11 @@ C4Container
     Rel(gateway, api, "Forward request", "HTTP/REST")
     Rel(api, db, "Đọc/ghi dữ liệu chính", "SQL")
     Rel(api, redis, "Cache, rate limit, waiting room, idempotency", "Redis protocol")
-    Rel(api, queue, "Publish job", "BullMQ/Redis")
+    Rel(api, queue, "Publish job", "bullMQ/Redis")
     Rel(api, storage, "Upload/read PDF, CSV, SVG", "SDK/API")
 
     Rel(scheduler, queue, "Tạo reminder job", "Scheduled event")
-    Rel(worker, queue, "Consume job", "BullMQ/Redis")
+    Rel(worker, queue, "Consume job", "bullMQ/Redis")
     Rel(worker, db, "Cập nhật kết quả job", "SQL")
     Rel(worker, storage, "Đọc file PDF/CSV/SVG", "SDK/API")
     Rel(worker, ai, "Gọi AI generate bio", "HTTPS/API")
