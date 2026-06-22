@@ -37,15 +37,9 @@ export class UsersRepository {
   ) {}
 
   async findByEmail(email: string): Promise<User | null> {
-<<<<<<< HEAD
-    return this.repo.findOne({
-      where: { email },
-      relations: { roles: { permissions: true } },
-=======
     return this.repo.findOne({ 
       where: { email },
       relations: ['roles'] // 
->>>>>>> c100341 (feat: complete ticket validation and rbac configuration)
     });
   }
 

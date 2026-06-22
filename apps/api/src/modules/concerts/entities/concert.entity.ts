@@ -3,8 +3,7 @@ import {
   UpdateDateColumn, Index, ManyToMany, JoinTable, OneToMany,
 } from 'typeorm';
 import { Artist } from '../../artists/entities/artist.entity';
-import { SeatZone } from './seat-zone.entity';
-
+import { SeatZone } from '../../seat-map/entities/seat-zone.entity';
 export enum ConcertStatus {
   DRAFT = 'DRAFT',
   PUBLISHED = 'PUBLISHED',

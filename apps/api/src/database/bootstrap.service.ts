@@ -23,17 +23,17 @@ export class BootstrapService implements OnModuleInit {
     }
   }
 
-    // 2. Đồng bộ Permissions và gán vào Roles
+  private async ensurePermissionsExist() {
+    for (const permission of Object.values(Permission)) {
+      await this.permissionsService.createPermissionIfNotExists(permission);
+    }
+  }
+
+  private async ensureRolePermissionMapping() {
     for (const [roleName, permissions] of Object.entries(ROLE_PERMISSIONS_MAPPING)) {
-      for (const permCode of permissions) {
-        // Tạo permission (dùng code làm name tạm thời nếu chưa có name cụ thể)
-        await this.permissionsService.createPermissionIfNotExists(permCode, permCode);
-        
-        // Gán quyền vào Role
-        await this.rolesService.assignPermissionToRole(roleName, permCode);
+      for (const permission of permissions) {
+        await this.rolesService.assignPermissionToRole(roleName as Role, permission);
       }
     }
-    
-    this.logger.log('RBAC Bootstrap hoàn tất! Hệ thống đã đồng bộ với ROLE_PERMISSIONS_MAPPING.');
   }
 }

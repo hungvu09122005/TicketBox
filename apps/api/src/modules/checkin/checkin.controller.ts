@@ -14,14 +14,7 @@ import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 @ApiTags('checkin')
 @ApiBearerAuth()
 @Controller('checkin')
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 @UseGuards(JwtAuthGuard, RbacGuard)
->>>>>>> c100341 (feat: complete ticket validation and rbac configuration)
-=======
-@UseGuards(JwtAuthGuard, RbacGuard)
->>>>>>> feature/mysunday
 export class CheckinController {
   constructor(private readonly checkinService: CheckinService) {}
 

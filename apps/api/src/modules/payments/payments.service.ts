@@ -9,7 +9,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { OrderStatus } from '../orders/enums/order-status.enum';
 import { Order } from '../orders/entities/order.entity';
 import { createCircuitBreaker } from '../../common/utils/circuit-breaker.factory';
-import CircuitBreaker from 'opossum';
+import CircuitBreaker = require('opossum') ;
 
 @Injectable()
 export class PaymentsService {

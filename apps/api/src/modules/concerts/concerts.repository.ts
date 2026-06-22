@@ -42,7 +42,6 @@ export class ConcertsRepository {
   }
 
   findByOrganizer(organizerId: string): Promise<Concert[]> {
-<<<<<<< HEAD
     return this.repo.find({
       where: { organizerId },
       relations: ['artists'],
@@ -55,9 +54,6 @@ export class ConcertsRepository {
       relations: ['artists'],
       order: { startsAt: 'ASC' },
     });
-=======
-    return this.repo.find({ where: { organizerId }, relations: ['artists'] });
->>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)
   }
 
   create(data: Partial<Concert>): Promise<Concert> {

@@ -47,7 +47,6 @@ export class TicketTypesController {
   }
 
   @Get()
-<<<<<<< HEAD
   @UseGuards(JwtAuthGuard, RbacGuard)
   @RequirePermissions(Permission.TICKET_TYPE_READ)
   async findByConcert(@Param('concertId') concertId: string) {
@@ -55,16 +54,6 @@ export class TicketTypesController {
   }
 
   @Get('availability')
-=======
-  @RequirePermissions(Permission.TICKET_TYPE_READ)
-  findByConcert(@Param('concertId') concertId: string) {
-    // TODO Phase 2
-    return [];
-  }
-
-  @Get('availability')
-  @RequirePermissions(Permission.TICKET_TYPE_READ)
->>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)
   getAvailability(@Param('concertId') concertId: string) {
     return this.ticketTypesService.getPublicAvailability(concertId);
   }
