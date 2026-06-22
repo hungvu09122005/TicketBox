@@ -26,7 +26,6 @@ export class SeatMapController {
   constructor(private readonly seatMapService: SeatMapService) {}
 
   @Get()
-<<<<<<< HEAD
   async getZones(@Param('concertId') concertId: string) {
     return this.seatMapService.getZonesByConcert(concertId);
   }
@@ -82,11 +81,5 @@ export class SeatMapController {
     const isAdmin = req.user.roles?.includes('SYSTEM_ADMIN') || false;
     
     return this.seatMapService.uploadSvgAndMapZones(concertId, file, mapping, req.user.sub, isAdmin);
-=======
-  @RequirePermissions(Permission.SEATMAP_READ)
-  getZones(@Param('concertId') concertId: string) {
-    // TODO Phase 2 — returns zone list with presigned SVG URL
-    return [];
->>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)
   }
 }

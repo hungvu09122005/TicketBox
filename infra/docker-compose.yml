@@ -59,34 +59,11 @@ services:
       DATABASE_PASSWORD: ticketbox_dev
       DATABASE_NAME: ticketbox
 
-<<<<<<< HEAD
-  api:
-    build:
-      context: .. # Trỏ về thư mục gốc của project
-      dockerfile: apps/api/Dockerfile # Đường dẫn tới Dockerfile của API
-    container_name: ticketbox-api
-    ports:
-      - "3001:3001"
-    environment:
-      - DATABASE_URL=postgres://ticketbox:ticketbox_dev@postgres:5432/ticketbox
-      - REDIS_HOST=redis
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  # MinIO bucket initializer — runs once and exits
-  minio-init:
-    image: minio/mc:latest
-    container_name: ticketbox-minio-init
-=======
       REDIS_HOST: redis
       REDIS_PORT: 6379
 
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
->>>>>>> feature/mysunday
     depends_on:
       postgres:
         condition: service_healthy

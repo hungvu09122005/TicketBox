@@ -7,13 +7,9 @@ import { Order } from '../modules/orders/entities/order.entity';
 import { Artist } from '../modules/artists/entities/artist.entity';
 import { TicketType } from '../modules/ticket-types/entities/ticket-type.entity';
 import { OrderStatus } from '../modules/orders/enums/order-status.enum';
-<<<<<<< HEAD
-
-=======
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { DataSource } from 'typeorm';
->>>>>>> feature/mysunday
 async function seed() {
   const appContext = await NestFactory.createApplicationContext(AppModule);
   const dataSource = appContext.get(DataSource);

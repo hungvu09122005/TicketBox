@@ -24,8 +24,8 @@ export class PaymentsService {
     private readonly ticketsService: TicketsService,
     private readonly notificationsService: NotificationsService,
   ) {
-    this.paymentUrlBreaker = createCircuitBreaker(
-      (params: CreatePaymentParams) => this.paymentPort.createPaymentUrl(params),
+    this.paymentUrlBreaker = new CircuitBreaker(
+      async (params: CreatePaymentParams) => this.paymentPort.createPaymentUrl(params),
       {
         name: 'PaymentUrlGeneration',
         timeout: 5000,

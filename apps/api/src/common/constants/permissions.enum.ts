@@ -1,12 +1,6 @@
 export enum Permission {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
+
   // Concert
->>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)
-=======
-  // Concert
->>>>>>> feature/mysunday
   CONCERT_READ_PUBLIC = 'concert:read_public',
   CONCERT_READ_OWN = 'concert:read_own',
   CONCERT_READ_ALL = 'concert:read_all',
@@ -17,30 +11,14 @@ export enum Permission {
   CONCERT_PUBLISH_ALL = 'concert:publish_all',
   CONCERT_CANCEL_OWN = 'concert:cancel_own',
   CONCERT_CANCEL_ALL = 'concert:cancel_all',
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 
   // Artist
->>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)
-=======
 
-  // Artist
->>>>>>> feature/mysunday
   ARTIST_READ = 'artist:read',
   ARTIST_CREATE = 'artist:create',
   ARTIST_UPDATE = 'artist:update',
   ARTIST_DELETE = 'artist:delete',
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 
-  // Venue & Ticket
->>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)
-=======
-
-  // Venue & Ticket
->>>>>>> feature/mysunday
   VENUE_READ = 'venue:read',
   VENUE_CREATE = 'venue:create',
   VENUE_UPDATE = 'venue:update',
@@ -52,16 +30,8 @@ export enum Permission {
   SEATMAP_READ = 'seatmap:read',
   SEATMAP_UPDATE = 'seatmap:update',
   SEATMAP_UPLOAD = 'seatmap:upload',
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 
   // Order & Ticket
->>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)
-=======
-
-  // Order & Ticket
->>>>>>> feature/mysunday
   ORDER_CREATE = 'order:create',
   ORDER_READ_OWN = 'order:read_own',
   ORDER_READ_ALL = 'order:read_all',
@@ -74,22 +44,12 @@ export enum Permission {
   AI_GENERATE_BIO = 'ai:generate_bio',
   REPORT_VIEW = 'report:view',
   REPORT_EXPORT = 'report:export',
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
+
 
   // RBAC / User
->>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)
-=======
 
-  // RBAC / User
->>>>>>> feature/mysunday
   ROLE_UPDATE_PERMISSIONS = 'role:update_permissions',
   PERMISSION_READ = 'permission:read',
   PERMISSION_CREATE = 'permission:create',
   RBAC_MANAGE = 'rbac:manage',
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)

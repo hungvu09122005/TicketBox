@@ -17,15 +17,8 @@ import { QueueService } from './queue.service';
 @ApiTags('orders')
 @ApiBearerAuth()
 @Controller('orders')
-<<<<<<< HEAD
-<<<<<<< HEAD
 @UseGuards(JwtAuthGuard, RbacGuard, RateLimitGuard)
-=======
-@UseGuards(JwtAuthGuard, RbacGuard)
->>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)
-=======
-@UseGuards(JwtAuthGuard, RbacGuard)
->>>>>>> feature/mysunday
+
 export class OrdersController {
   constructor(
     private readonly ordersService: OrdersService,
