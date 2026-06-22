@@ -55,4 +55,22 @@ export class Concert {
 
   @OneToMany(() => SeatZone, (seatZone) => seatZone.concert)
   seatZones!: SeatZone[];
+<<<<<<< HEAD
+=======
+
+  @Column({ nullable: true })
+  bannerObjectKey?: string;
+
+  @Column({ nullable: true })
+  description?: string;
+
+  @Column({ nullable: true })
+  venue?: string;
+
+  @Column({ nullable: true })
+  saleStartsAt?: Date;
+
+  @Column({ nullable: true })
+  saleEndsAt?: Date;
+>>>>>>> feature/mysunday
 }

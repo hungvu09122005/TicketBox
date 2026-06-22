@@ -5,7 +5,7 @@ export class AddDeletedAtToUsers1781789001000 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `ALTER TABLE "users" ADD "deleted_at" TIMESTAMP`,
+      `ALTER TABLE "users" ADD "deleted_at" TIMESTAMPTZ`,
     );
   }
 

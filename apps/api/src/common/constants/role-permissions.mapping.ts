@@ -1,7 +1,12 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { Role } from './roles.enum';
+=======
+>>>>>>> feature/mysunday
 import { Permission } from './permissions.enum';
+import { Role } from './roles.enum';
 
+<<<<<<< HEAD
 /**
  * Static mapping of Roles to Permissions based on Blueprint §06-rbac-design.
  * Since we simplified the schema to use `roles: jsonb` on the users table 
@@ -13,10 +18,12 @@ import { Permission } from './permissions.enum';
 import { Role } from './roles.enum';
 
 >>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)
+=======
+>>>>>>> feature/mysunday
 export const ROLE_PERMISSIONS_MAPPING: Record<Role, Permission[]> = {
   [Role.AUDIENCE]: [
     Permission.CONCERT_READ_PUBLIC,
-    Permission.ORDER_CREATE,
+    //Permission.ORDER_CREATE,
     Permission.ORDER_READ_OWN,
     Permission.TICKET_VIEW_OWN,
   ],

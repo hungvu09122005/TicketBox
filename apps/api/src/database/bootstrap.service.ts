@@ -39,6 +39,10 @@ export class BootstrapService implements OnModuleInit {
       await this.rolesService.createRoleIfNotExists(roleName);
 >>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)
     }
+<<<<<<< HEAD
+=======
+  }
+>>>>>>> feature/mysunday
 
 <<<<<<< HEAD
   private async ensurePermissionsExist() {

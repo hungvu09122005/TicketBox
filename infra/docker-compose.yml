@@ -45,12 +45,21 @@ services:
       - "9001:9001"   # Web Console
     volumes:
       - minio_data:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile # Đường dẫn tới Dockerfile của API
+    container_name: ticketbox-api
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: ticketbox
+      DATABASE_PASSWORD: ticketbox_dev
+      DATABASE_NAME: ticketbox
 
+<<<<<<< HEAD
   api:
     build:
       context: .. # Trỏ về thư mục gốc của project
@@ -71,17 +80,19 @@ services:
   minio-init:
     image: minio/mc:latest
     container_name: ticketbox-minio-init
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-        mc alias set local http://minio:9000 ticketbox_minio ticketbox_minio_dev;
-        mc mb --ignore-existing local/ticketbox;
-        mc policy set private local/ticketbox;
-        echo 'Bucket ready.';
-      "
+=======
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
 
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+>>>>>>> feature/mysunday
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+  
 volumes:
   postgres_data:
   redis_data:

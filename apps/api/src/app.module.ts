@@ -72,6 +72,7 @@ import { BootstrapService } from '@database/bootstrap.service';
     CacheModule.registerAsync({
       isGlobal: true,
       useFactory: () => ({
+        
         store: redisStore,
         host: process.env.REDIS_HOST ?? 'localhost',
         port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
