@@ -9,14 +9,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       imports: [ConfigModule],
       useFactory: async (config: ConfigService) => ({
         transport: {
-            host: config.get('MAIL_HOST') || '',
-            port: parseInt(config.get('MAIL_PORT') || '587', 10),
+            host: process.env.MAIL_HOST,
+            port: parseInt(process.env.MAIL_PORT || '2525'),
             auth: {
-                user: config.get('MAIL_USER') || '',
-                pass: config.get('MAIL_PASS') || '',
+                user: process.env.MAIL_USER,
+                pass: process.env.MAIL_PASS,
             },
         },
-        
+
         defaults: {
           from: `"TicketBox" <${config.get('MAIL_FROM')}>`,
         },
