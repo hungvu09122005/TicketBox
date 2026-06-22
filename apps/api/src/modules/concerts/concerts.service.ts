@@ -28,15 +28,6 @@ export class ConcertsService {
     private readonly config: ConfigService,
   ) { }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-  private async toPublicDto(concert: Concert): Promise<PublicConcertDto> {
-    const bannerUrl = concert.bannerObjectKey
-      ? await this.storage.getPresignedUrl(concert.bannerObjectKey, 3600)
-      : null;
-=======
-=======
->>>>>>> feature/mysunday
   // Thêm vào class ConcertsService
   
   /** * Kiểm tra xem user có phải là người sở hữu concert không.
@@ -48,23 +39,6 @@ export class ConcertsService {
     if (!concert) {
       throw new NotFoundException(`Concert ${concertId} not found.`);
     }
-<<<<<<< HEAD
-
-    // Kiểm tra quyền sở hữu (organizerId là trường lưu ID người tạo/sở hữu)
-    if (concert.organizerId !== userId) {
-      throw new ForbiddenException('You do not have permission to modify this concert.');
-    }
-
-    return concert;
-  }
-
-  async findPublished(): Promise<Concert[]> {
-    const cacheKey = 'concerts:published:list';
-    const cached = await this.cache.get<Concert[]>(cacheKey);
-    if (cached) return cached;
->>>>>>> 94c0007 (feat(rbac): finish RBAC migration, seeding, and controller permissions)
-=======
->>>>>>> feature/mysunday
 
     // Kiểm tra quyền sở hữu (organizerId là trường lưu ID người tạo/sở hữu)
     if (concert.organizerId !== userId) {
@@ -94,7 +68,6 @@ export class ConcertsService {
   async findById(id: string): Promise<PublicConcertDto> {
     const cacheKey = `concerts:detail:${id}`;
     if (this.cache) {
-      
       const cached = await this.cache.get<PublicConcertDto>(cacheKey);
       if (cached) return cached;
     }
