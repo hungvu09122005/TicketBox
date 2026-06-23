@@ -14,6 +14,8 @@ import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 
 import { QueueService } from './queue.service';
 
+import { MailService } from '../../mail/mail.service';
+
 @ApiTags('orders')
 @ApiBearerAuth()
 @Controller('orders')
@@ -23,6 +25,7 @@ export class OrdersController {
   constructor(
     private readonly ordersService: OrdersService,
     private readonly queueService: QueueService,
+    private readonly mailService: MailService,
   ) {}
 
   /** POST /api/v1/orders/queue/status — Poll queue status */
@@ -91,10 +94,20 @@ export class OrdersController {
   @RequirePermissions(Permission.ORDER_READ_OWN)
   async findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     const isAdmin = user.roles.includes('SYSTEM_ADMIN');
-    const order = await this.ordersService.findById(id);
+    const order = await this.ordersService.findOne(id);
     if (!isAdmin && order.userId !== user.sub) {
       throw new ForbiddenException();
     }
     return order;
+  }
+
+  @Post('test-mail/:id')
+  @RequirePermissions(Permission.ORDER_READ_ALL) // Chỉ Admin/Organizer mới được quyền test mail này
+  async testSendMail(@Param('id') id: string) {
+    const order = await this.ordersService.findOne(id);
+    // Lấy thông tin user để gửi mail
+    // Bạn cần đảm bảo đã load relation user trong findById ở Service
+    await this.mailService.sendTestEmail(order.user.email);
+    return { message: `Email đã được gửi tới ${order.user.email}` };
   }
 }

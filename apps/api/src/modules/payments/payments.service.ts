@@ -92,23 +92,14 @@ export class PaymentsService {
 
   async handleVnpayCallback(query: Record<string, string>) {
     const callback = await this.paymentPort.verifyCallback(query);
-    if (!callback) {
-      return { success: false, message: 'Invalid payment signature' };
-    }
+    if (!callback) return { success: false, message: 'Invalid payment signature' };
 
     const payment = await this.paymentsRepository.findByOrderId(callback.orderId);
-    if (!payment) {
-      return { success: false, message: 'Payment record not found' };
-    }
+    if (!payment) return { success: false, message: 'Payment record not found' };
+    
 
     if (payment.status === PaymentStatus.CONFIRMED || payment.status === PaymentStatus.FAILED) {
-      this.logger.log(`Audit: Duplicate callback received for orderId ${callback.orderId}, status: ${payment.status}`);
-      return { 
-        success: payment.status === PaymentStatus.CONFIRMED, 
-        message: 'Already processed',
-        orderId: payment.orderId,
-        paymentId: payment.id
-      };
+      return { success: payment.status === PaymentStatus.CONFIRMED, message: 'Already processed' };
     }
 
     if (Number(payment.amount) !== callback.amount) {
@@ -135,6 +126,9 @@ export class PaymentsService {
     }
 
     const order = await this.ordersService.markPaid(callback.orderId, payment.id);
+  if (!order) {
+     throw new NotFoundException('Order processing failed');
+  }
     const tickets = await this.ticketsService.issueTickets(order as Order);
 
     return {
@@ -169,5 +163,18 @@ export class PaymentsService {
       amount: payment.amount,
       createdAt: payment.createdAt,
     };
+  }
+
+  async getPaymentHistory(orderId: string, userId: string, isAdmin: boolean) {
+    const order = await this.ordersService.findOne(orderId);
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    if (!isAdmin && order.userId !== userId) {
+      throw new ForbiddenException('Cannot view payment history for this order');
+    }
+
+    const payments = await this.paymentsRepository.findAllByOrderId(orderId);
+    return payments;
   }
 }

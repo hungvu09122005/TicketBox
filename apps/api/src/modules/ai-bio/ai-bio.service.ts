@@ -37,4 +37,29 @@ export class AiBioService {
 
   return bio;
 }
+
+  async findAll(status?: AiBioStatus) {
+    return this.repo.findAll(status);
+  }
+
+  async findById(id: string) {
+    const job = await this.repo.findById(id);
+    if (!job) {
+      throw new Error(`AI Bio job ${id} not found`);
+    }
+    return job;
+  }
+
+  async retryJob(id: string) {
+    const bio = await this.repo.findById(id);
+    if (!bio) {
+      throw new Error(`AI Bio job ${id} not found`);
+    }
+    if (bio.status !== AiBioStatus.FAILED) {
+      throw new Error(`Cannot retry AI Bio job in state: ${bio.status}`);
+    }
+    await this.repo.updateStatus(id, AiBioStatus.DRAFT);
+    await this.queue.add('process-bio', { bioId: bio.id, fileUrl: bio.pdfObjectKey });
+    return { success: true, message: `AI Bio job ${id} is being retried` };
+  }
 }

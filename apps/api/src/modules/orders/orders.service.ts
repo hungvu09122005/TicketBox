@@ -12,6 +12,8 @@ import { TicketTypesService } from '../ticket-types/ticket-types.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
 import { OrderStatus } from './enums/order-status.enum';
+import { MailService } from '../../mail/mail.service';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class OrdersService {
@@ -25,19 +27,19 @@ export class OrdersService {
     private readonly ordersQueue: Queue,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
     private readonly logger: Logger,
+    private readonly mailService: MailService,
   ) {}
 
-  async createOrder(dto: CreateOrderDto, userId: string) {
-    return await this.dataSource.transaction(async (manager) => {
+  async createOrder(dto: CreateOrderDto, userId: string): Promise<Order> {
+    let savedOrder: Order;
+    let userEmail: string | null = null;
+
+    await this.dataSource.transaction(async (manager) => {
       // 1. Kiểm tra trạng thái concert
       await this.concertsService.assertPublishedAndSaleOpen(dto.concertId);
 
-      // 2. Lock kho vé (Pessimistic Write)
-      const ticketType = await this.ticketTypesService.holdInventory(
-        dto.ticketTypeId, 
-        dto.quantity, 
-        manager
-      );
+      // 2. Lock kho vé
+      const ticketType = await this.ticketTypesService.holdInventory(dto.ticketTypeId, dto.quantity, manager);
 
       // 3. Kiểm tra limit người dùng
       const existingOrders = await manager.createQueryBuilder(Order, 'order')
@@ -49,10 +51,10 @@ export class OrdersService {
       
       const boughtQuantity = parseInt(existingOrders?.total || '0', 10);
       if (boughtQuantity + dto.quantity > ticketType.maxPerUser) {
-        throw new ConflictException(`Bạn chỉ được mua tối đa ${ticketType.maxPerUser} vé loại này.`);
+        throw new ConflictException(`Bạn chỉ được mua tối đa ${ticketType.maxPerUser} vé.`);
       }
 
-      // 4. Khởi tạo và lưu đơn hàng trong transaction
+      // 4. KHỞI TẠO ĐƠN HÀNG TRƯỚC KHI LƯU
       const order = new Order();
       order.userId = userId;
       order.concertId = dto.concertId;
@@ -60,30 +62,40 @@ export class OrdersService {
       order.quantity = dto.quantity;
       order.totalAmount = Number(ticketType.price) * dto.quantity;
       order.status = OrderStatus.PENDING_PAYMENT;
-      order.expiresAt = new Date(Date.now() + 10 * 60 * 1000); // +10 phút
+      order.expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-      const savedOrder = await manager.save(order);
+      // LƯU ĐƠN HÀNG
+      savedOrder = await manager.save(order);
 
-      // 5. Enqueue job hủy đơn tự động sau 10 phút
-      await this.ordersQueue.add('expire-order', 
-        { orderId: savedOrder.id }, 
-        { delay: 10 * 60 * 1000 }
-      );
+      // Lấy email user trong transaction
+      const user = await manager.findOneBy(User, { id: userId });
+      userEmail = user?.email ?? null;
 
-      // 6. Invalidate availability cache
+      // 5. Enqueue job
+      await this.ordersQueue.add('expire-order', { orderId: savedOrder.id }, { delay: 10 * 60 * 1000 });
       await this.cache.del(`concert:${dto.concertId}:availability`);
-
-      return savedOrder;
     });
-  }
 
-  async findById(id: string) {
-    const order = await this.orderRepo.findOneBy({ id });
+    // GỬI MAIL SAU TRANSACTION
+    if (userEmail) {
+      this.mailService.sendTestEmail(userEmail).catch(err => 
+        this.logger.error(`Gửi mail thất bại: ${err.message}`)
+      );
+    }
+
+    return savedOrder!;
+  }
+async findOne(id: string): Promise<Order> {
+    const order = await this.orderRepo.findOne({ 
+      where: { id },
+      relations: ['user'] 
+    });
+    
     if (!order) throw new NotFoundException('Order not found');
     return order;
   }
 
-  async findByUser(userId: string) {
+  async findByUser(userId: string): Promise<Order[]> {
     return await this.orderRepo.findBy({ userId });
   }
 
@@ -95,23 +107,11 @@ export class OrdersService {
       .skip((page - 1) * limit)
       .take(limit);
 
-    if (status) {
-      qb.andWhere('order.status = :status', { status });
-    }
-    if (concertId) {
-      qb.andWhere('order.concertId = :concertId', { concertId });
-    }
+    if (status) qb.andWhere('order.status = :status', { status });
+    if (concertId) qb.andWhere('order.concertId = :concertId', { concertId });
 
     const [data, total] = await qb.getManyAndCount();
-    return {
-      data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      }
-    };
+    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
   async findAllWithFilters(query: OrderQueryDto) {
@@ -121,104 +121,76 @@ export class OrdersService {
       .skip((page - 1) * limit)
       .take(limit);
 
-    if (status) {
-      qb.andWhere('order.status = :status', { status });
-    }
-    if (concertId) {
-      qb.andWhere('order.concertId = :concertId', { concertId });
-    }
+    if (status) qb.andWhere('order.status = :status', { status });
+    if (concertId) qb.andWhere('order.concertId = :concertId', { concertId });
 
     const [data, total] = await qb.getManyAndCount();
-    return {
-      data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      }
-    };
+    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
   /**
    * Được gọi khi Payment Gateway báo thanh toán thành công
    */
-  async markPaid(orderId: string, paymentId: string) {
-    return await this.dataSource.transaction(async (manager) => {
-      const order = await manager.findOneBy(Order, { id: orderId });
+  async markPaid(orderId: string, paymentId: string): Promise<Order> {
+    let order: Order | null = null; // Khai báo order bên ngoài để dùng sau transaction
+
+    await this.dataSource.transaction(async (manager) => {
+      order = await manager.findOne(Order, { 
+        where: { id: orderId }, 
+        relations: ['user'] // Phải load quan hệ user để lấy email
+      }) as Order | null;
+      
       if (!order) throw new NotFoundException('Order not found');
+
       if (order.status !== OrderStatus.PENDING_PAYMENT) {
         throw new ConflictException('Order already processed');
       }
 
       order.status = OrderStatus.PAID;
       await manager.save(order);
-
-      // Xác nhận chuyển trạng thái vé từ "giữ" sang "bán thành công"
       await this.ticketTypesService.confirmInventory(order.ticketTypeId, order.quantity, manager);
-      
-      // Invalidate availability cache
       await this.cache.del(`concert:${order.concertId}:availability`);
-      
-      return order;
     });
+
+    // GỬI MAIL SAU KHI TRANSACTION XONG
+    if (order && (order as Order).user?.email) {
+      const userEmail = (order as Order).user.email;
+      this.mailService.sendTestEmail(userEmail).catch(err => {
+        this.logger.error(`Gửi mail thất bại cho đơn ${orderId}: ${err.message}`);
+      });
+    }
+    
+    return order!;
   }
 
   /**
    * Xử lý khi đơn hàng quá hạn thanh toán
    */
-  async expireOrder(orderId: string) {
+  async expireOrder(orderId: string): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
       const order = await manager.findOneBy(Order, { id: orderId });
       if (order && order.status === OrderStatus.PENDING_PAYMENT) {
         order.status = OrderStatus.EXPIRED;
         await manager.save(order);
-        
-        // Hoàn lại vé vào kho
         await this.ticketTypesService.releaseInventory(order.ticketTypeId, order.quantity, manager);
-        
-        // Invalidate cache
         await this.cache.del(`concert:${order.concertId}:availability`);
-        
-        // Ghi Audit Log
-        this.logger.log({
-          msg: 'Audit: Order expired',
-          orderId: order.id,
-          ticketTypeId: order.ticketTypeId,
-          quantity: order.quantity
-        });
+        this.logger.log({ msg: 'Audit: Order expired', orderId: order.id });
       }
     });
   }
-
   /**
    * Xử lý khi payment thất bại
    */
-  async markPaymentFailed(orderId: string) {
+  async markPaymentFailed(orderId: string): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
       const order = await manager.findOneBy(Order, { id: orderId });
       if (order && order.status === OrderStatus.PENDING_PAYMENT) {
         order.status = OrderStatus.PAYMENT_FAILED;
         await manager.save(order);
-        
-        // Hoàn lại vé vào kho
         await this.ticketTypesService.releaseInventory(order.ticketTypeId, order.quantity, manager);
-        
-        // Invalidate cache
         await this.cache.del(`concert:${order.concertId}:availability`);
-        
-        // Ghi Audit Log
-        this.logger.log({
-          msg: 'Audit: Payment failed and order cancelled',
-          orderId: order.id,
-          ticketTypeId: order.ticketTypeId,
-          quantity: order.quantity
-        });
+        this.logger.log({ msg: 'Audit: Payment failed', orderId: order.id });
       }
     });
-  }
-
-  async findOne(id: string): Promise<Order | null> {
-    return await this.orderRepo.findOne({ where: { id } });
   }
 }

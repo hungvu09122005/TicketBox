@@ -20,4 +20,16 @@ export class AiBioRepository {
     const newRequest = this.repo.create(data);
     return await this.repo.save(newRequest);
   }
+
+  async findById(id: string): Promise<AiBioRequest | null> {
+    return this.repo.findOneBy({ id });
+  }
+
+  async findAll(status?: AiBioStatus): Promise<AiBioRequest[]> {
+    const whereClause = status ? { status } : {};
+    return this.repo.find({
+      where: whereClause,
+      order: { createdAt: 'DESC' },
+    });
+  }
 }

@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Post, Get, Param, UseGuards, UseInterceptors, UploadedFile, Body, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -19,15 +19,23 @@ export class CsvImportController {
   @RequirePermissions(Permission.VIP_IMPORT)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
-  uploadCsv(@UploadedFile() file: Express.Multer.File, @CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 6: validate MIME (text/csv), size, headers → CsvImportService.createJob()
-    return { message: 'Not implemented — Phase 6' };
+  async uploadCsv(
+    @UploadedFile() file: Express.Multer.File, 
+    @CurrentUser() user: AuthenticatedUser,
+    @Body('concertId') concertId: string
+  ) {
+    if (!concertId) {
+      throw new BadRequestException('concertId is required');
+    }
+    if (!file) {
+      throw new BadRequestException('file is required');
+    }
+    return this.csvImportService.createJob(file, concertId, user.sub);
   }
 
   @Get(':jobId/status')
   @RequirePermissions(Permission.VIP_IMPORT)
-  getStatus(@Param('jobId') jobId: string) {
-    // TODO Phase 6
-    return { message: 'Not implemented — Phase 6' };
+  async getStatus(@Param('jobId') jobId: string) {
+    return this.csvImportService.getJobStatus(jobId);
   }
 }
