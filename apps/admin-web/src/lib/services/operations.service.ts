@@ -1,5 +1,20 @@
 import { apiClient } from '../api-client';
 
+function extractListData<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) {
+    return payload as T[];
+  }
+
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    const nestedData = (payload as { data?: unknown }).data;
+    if (Array.isArray(nestedData)) {
+      return nestedData as T[];
+    }
+  }
+
+  return [];
+}
+
 export interface OrderDetails {
   id: string;
   userId: string;
@@ -19,6 +34,22 @@ export interface OrderDetails {
 export interface ReportResponse {
   message?: string;
   [key: string]: unknown;
+}
+
+export interface ReportTimelinePoint {
+  timestamp: string;
+  value: number;
+}
+
+export interface ReportTimelineSeries {
+  concertId: string;
+  concertName: string;
+  points: ReportTimelinePoint[];
+}
+
+export interface ReportTimelineResponse {
+  granularity?: 'day' | 'week' | 'month';
+  series: ReportTimelineSeries[];
 }
 
 export interface CsvImportJobStatus {
@@ -107,11 +138,16 @@ export interface AiBioRequestResult {
 export const operationsService = {
   getOrders: async (): Promise<OrderDetails[]> => {
     const response = await apiClient.get('/orders');
-    return response.data.data ?? response.data ?? [];
+    return extractListData<OrderDetails>(response.data.data ?? response.data);
   },
 
   getRevenueReport: async (): Promise<ReportResponse> => {
     const response = await apiClient.get('/reports/revenue');
+    return response.data.data ?? response.data;
+  },
+
+  getRevenueTimelineReport: async (): Promise<ReportTimelineResponse> => {
+    const response = await apiClient.get('/reports/revenue/timeline');
     return response.data.data ?? response.data;
   },
 
@@ -120,8 +156,18 @@ export const operationsService = {
     return response.data.data ?? response.data;
   },
 
+  getTicketsSoldTimelineReport: async (): Promise<ReportTimelineResponse> => {
+    const response = await apiClient.get('/reports/tickets-sold/timeline');
+    return response.data.data ?? response.data;
+  },
+
   getCheckinRateReport: async (): Promise<ReportResponse> => {
     const response = await apiClient.get('/reports/checkin-rate');
+    return response.data.data ?? response.data;
+  },
+
+  getCheckinRateTimelineReport: async (): Promise<ReportTimelineResponse> => {
+    const response = await apiClient.get('/reports/checkin-rate/timeline');
     return response.data.data ?? response.data;
   },
 
@@ -158,7 +204,7 @@ export const operationsService = {
     const response = await apiClient.get('/imports', {
       params: status ? { status } : undefined,
     });
-    return response.data.data ?? response.data ?? [];
+    return extractListData<CsvImportJobStatus>(response.data.data ?? response.data);
   },
 
   retryCsvImportJob: async (jobId: string): Promise<RetryResult> => {
@@ -175,12 +221,12 @@ export const operationsService = {
     const response = await apiClient.get('/notifications/jobs', {
       params: status ? { status } : undefined,
     });
-    return response.data.data ?? response.data ?? [];
+    return extractListData<NotificationJobRecord>(response.data.data ?? response.data);
   },
 
   getFailedNotificationJobs: async (): Promise<NotificationJobRecord[]> => {
     const response = await apiClient.get('/notifications/failed');
-    return response.data.data ?? response.data ?? [];
+    return extractListData<NotificationJobRecord>(response.data.data ?? response.data);
   },
 
   getNotificationJob: async (jobId: string): Promise<NotificationJobRecord> => {
@@ -206,7 +252,7 @@ export const operationsService = {
     const response = await apiClient.get('/api/artist-bio', {
       params: status ? { status } : undefined,
     });
-    return response.data.data ?? response.data ?? [];
+    return extractListData<AiBioRequestResult>(response.data.data ?? response.data);
   },
 
   getAiBioJobStatus: async (jobId: string): Promise<AiBioRequestResult> => {
@@ -221,11 +267,11 @@ export const operationsService = {
 
   getPaymentHistory: async (orderId: string): Promise<PaymentHistoryRecord[]> => {
     const response = await apiClient.get(`/payments/orders/${orderId}/history`);
-    return response.data.data ?? response.data ?? [];
+    return extractListData<PaymentHistoryRecord>(response.data.data ?? response.data);
   },
 
   getPaymentAudit: async (orderId: string): Promise<PaymentAuditRecord[]> => {
     const response = await apiClient.get(`/payments/orders/${orderId}/audit`);
-    return response.data.data ?? response.data ?? [];
+    return extractListData<PaymentAuditRecord>(response.data.data ?? response.data);
   },
 };

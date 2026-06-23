@@ -578,8 +578,7 @@ export default function OperationsPage() {
           {requestCoverage.map((item) => (
               <tr key={item.id} className="align-top">
                 <td className="px-4 py-4">
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-muted">{item.id}</p>
-                  <p className="mt-2 font-medium text-primary">{item.title}</p>
+                  <p className="font-medium text-primary">{item.title}</p>
                 </td>
                 <td className="px-4 py-4">
                   <div className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-emerald-800">

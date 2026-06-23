@@ -139,7 +139,6 @@ export default function NotificationsPage() {
               Back to operations hub
             </Link>
             <div>
-              <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Request 14</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Failed notification jobs and retry</h1>
               <p className="mt-3 text-sm leading-6 text-muted">
                 This screen now lists real notification jobs by status, shows failure reasons, and retries failed jobs through the backend API when the user has permission.
@@ -153,7 +152,7 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+      <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-2xl border border-border bg-background p-3 text-primary">
@@ -209,57 +208,52 @@ export default function NotificationsPage() {
           </div>
         </section>
 
-        <div className="space-y-4">
-          <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Retry path</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Failed jobs are retried from the backend API, not only from the queue board, so permission and audit are visible in the admin app.
-            </p>
-            <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm leading-6 text-muted">
-              <p>Queue: notification</p>
-              <p className="mt-1">Job name: notification.ticket_confirmation</p>
-              <p className="mt-1">Retry permission: RBAC_MANAGE</p>
-            </div>
-          </section>
-
-          <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Backend queue map</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              The backend registers notification, csv, ai, maintenance, and order-expiry in Bull Board.
-            </p>
-            <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm leading-6 text-muted">
-              <p>/admin/queues</p>
-              <p className="mt-1">notification, csv, ai, maintenance, order-expiry</p>
-            </div>
-          </section>
-        </div>
-      </div>
-
-      <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-primary">Notification jobs</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Lists jobs from the backend queue with failure reasons and retry actions for failed records.
-            </p>
+        <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+          <h2 className="text-lg font-semibold text-primary">Retry path</h2>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            Failed jobs are retried from the backend API, not only from the queue board, so permission and audit are visible in the admin app.
+          </p>
+          <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm leading-6 text-muted">
+            <p>Queue: notification</p>
+            <p className="mt-1">Job name: notification.ticket_confirmation</p>
+            <p className="mt-1">Retry permission: RBAC_MANAGE</p>
           </div>
-          <div className="inline-flex flex-wrap gap-2">
-            {(['FAILED', 'PENDING', 'PROCESSING', 'SUCCESS', 'all'] as const).map((status) => (
-              <button
-                key={status}
-                type="button"
-                onClick={() => setJobFilter(status)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium uppercase tracking-[0.16em] ${
-                  jobFilter === status
-                    ? 'border-primary bg-primary text-surface'
-                    : 'border-border bg-background text-muted'
-                }`}
+        </section>
+
+        <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+          <h2 className="text-lg font-semibold text-primary">Backend queue map</h2>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            The backend registers notification, csv, ai, maintenance, and order-expiry in Bull Board.
+          </p>
+          <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm leading-6 text-muted">
+            <p>/admin/queues</p>
+            <p className="mt-1">notification, csv, ai, maintenance, order-expiry</p>
+          </div>
+        </section>
+
+        <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-primary">Notification jobs</h2>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                Lists jobs from the backend queue with failure reasons and retry actions for failed records.
+              </p>
+            </div>
+            <label className="block min-w-[220px] space-y-2">
+              <span className="text-sm font-medium text-primary">Filter</span>
+              <select
+                value={jobFilter}
+                onChange={(event) => setJobFilter(event.target.value as JobFilter)}
+                className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-sm text-primary outline-none focus:border-primary"
               >
-                {status}
-              </button>
-            ))}
+                {(['all', 'FAILED', 'PENDING', 'PROCESSING', 'SUCCESS'] as const).map((status) => (
+                  <option key={status} value={status}>
+                    {status === 'all' ? 'All statuses' : status}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-        </div>
 
         <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
           <div className="overflow-x-auto">
@@ -340,6 +334,7 @@ export default function NotificationsPage() {
           </div>
         )}
       </section>
+      </div>
 
       <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-primary">Live queue board</h2>

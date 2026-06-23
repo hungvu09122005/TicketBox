@@ -68,7 +68,6 @@ export default function NotificationDetailPage({ params }: Readonly<{ params: Pr
               Back to notifications
             </Link>
             <div>
-              <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Request 14</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Notification ticket detail</h1>
               <p className="mt-3 text-sm leading-6 text-muted">
                 This detail view keeps the notification contract visible for one ticket and uses the live probe endpoint instead of a fake retry action.

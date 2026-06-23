@@ -8,22 +8,23 @@ import { useAuthStore } from '@/lib/auth-store';
 import { operationsService, type ReportResponse } from '@/lib/services/operations.service';
 
 type ReportKind = 'revenue' | 'tickets-sold' | 'checkin-rate';
+type ReportRow = Record<string, unknown>;
 
 const kindConfig: Record<ReportKind, { label: string; endpoint: string; title: string; description: string }> = {
   revenue: {
-    label: 'Request 15',
+    label: 'Revenue report',
     endpoint: 'GET /reports/revenue',
     title: 'Revenue report',
     description: 'Shows the revenue contract in isolation with live backend aggregation and fallback states.',
   },
   'tickets-sold': {
-    label: 'Request 15',
+    label: 'Tickets sold report',
     endpoint: 'GET /reports/tickets-sold',
     title: 'Tickets sold report',
     description: 'Tracks ticket volume metrics from the live reporting contract for organizers.',
   },
   'checkin-rate': {
-    label: 'Request 15',
+    label: 'Check-in rate report',
     endpoint: 'GET /reports/checkin-rate',
     title: 'Check-in rate report',
     description: 'Focuses on check-in performance using the current backend aggregate.',
@@ -42,6 +43,22 @@ function formatMetricValue(value: unknown) {
   return '--';
 }
 
+function formatMetricLabel(key: string, index: number) {
+  if (/^\d+$/.test(key)) {
+    return `Metric ${index + 1}`;
+  }
+
+  return key
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getReportRows(data: ReportResponse | ReportResponse[] | null): ReportRow[] {
+  if (!data) return [];
+  return Array.isArray(data) ? (data as ReportRow[]) : [data as ReportRow];
+}
+
 const queueDashboardHref = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
   return apiUrl.replace(/\/api\/v1\/?$/, '') + '/admin/queues';
@@ -51,7 +68,7 @@ export default function ReportDetailPage({ params }: Readonly<{ params: Promise<
   const permissions = useAuthStore((state) => state.permissions);
   const canViewReports = permissions.includes(Permission.REPORT_VIEW);
   const [kind, setKind] = useState<ReportKind | null>(null);
-  const [state, setState] = useState<{ data: ReportResponse | null; isLoading: boolean; error: string | null }>({
+  const [state, setState] = useState<{ data: ReportResponse | ReportResponse[] | null; isLoading: boolean; error: string | null }>({
     data: null,
     isLoading: true,
     error: null,
@@ -95,9 +112,11 @@ export default function ReportDetailPage({ params }: Readonly<{ params: Promise<
     };
   }, [params]);
 
+  const reportRows = useMemo(() => getReportRows(state.data), [state.data]);
+  const firstRow = reportRows[0] ?? null;
   const metricKeys = useMemo(
-    () => Object.keys(state.data ?? {}).filter((key) => key !== 'message'),
-    [state.data],
+    () => Object.keys(firstRow ?? {}).filter((key) => key !== 'message'),
+    [firstRow],
   );
 
   if (!canViewReports) {
@@ -120,7 +139,7 @@ export default function ReportDetailPage({ params }: Readonly<{ params: Promise<
               Back to reports
             </Link>
             <div>
-              <p className="text-[11px] uppercase tracking-[0.22em] text-muted">{config?.label ?? 'Request 15'}</p>
+              <p className="text-[11px] uppercase tracking-[0.22em] text-muted">{config?.label ?? 'Report detail'}</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">{config?.title ?? 'Report detail'}</h1>
               <p className="mt-3 text-sm leading-6 text-muted">{config?.description ?? 'Report contract detail view.'}</p>
             </div>
@@ -132,7 +151,7 @@ export default function ReportDetailPage({ params }: Readonly<{ params: Promise<
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+      <div className="grid gap-4">
         <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-2xl border border-border bg-background p-3 text-primary">
@@ -152,65 +171,40 @@ export default function ReportDetailPage({ params }: Readonly<{ params: Promise<
               </div>
             ) : state.error ? (
               <p className="text-sm leading-6 text-red-800">{state.error}</p>
-            ) : state.data?.message ? (
-              <p className="text-sm leading-6 text-muted">{state.data.message}</p>
+            ) : !reportRows.length ? (
+              <p className="text-sm leading-6 text-muted">No metrics returned for this report.</p>
+            ) : 'message' in reportRows[0] && typeof reportRows[0].message === 'string' ? (
+              <p className="text-sm leading-6 text-muted">{reportRows[0].message}</p>
             ) : metricKeys.length > 0 ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {metricKeys.map((key) => (
-                  <div key={key} className="rounded-2xl border border-border bg-surface p-4">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted">{key}</p>
-                    <p className="mt-2 text-lg font-semibold text-primary">{formatMetricValue(state.data?.[key])}</p>
-                  </div>
-                ))}
+              <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="bg-background text-muted">
+                      <tr>
+                        {metricKeys.map((key, index) => (
+                          <th key={key} className="px-4 py-3 font-medium">
+                            {formatMetricLabel(key, index)}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {reportRows.map((row, rowIndex) => (
+                        <tr key={`${rowIndex}-${metricKeys.join('-')}`}>
+                          {metricKeys.map((key) => (
+                            <td key={`${rowIndex}-${key}`} className="px-4 py-3 text-muted">
+                              {formatMetricValue(row[key])}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ) : (
               <p className="text-sm leading-6 text-muted">No metrics returned for this report.</p>
             )}
-          </div>
-
-          <div className="mt-5 overflow-hidden rounded-2xl border border-border bg-background">
-            <div className="border-b border-border px-4 py-3">
-              <h3 className="text-sm font-semibold text-primary">Metric table</h3>
-              <p className="mt-1 text-xs text-muted">Key/value view of the same live response.</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full whitespace-nowrap text-left text-sm">
-                <thead className="bg-surface/80 text-muted">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Metric</th>
-                    <th className="px-4 py-3 font-medium">Value</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {state.isLoading ? (
-                    <tr>
-                      <td colSpan={2} className="px-4 py-8 text-center text-muted">
-                        Loading metrics...
-                      </td>
-                    </tr>
-                  ) : state.error ? (
-                    <tr>
-                      <td colSpan={2} className="px-4 py-8 text-center text-red-800">
-                        {state.error}
-                      </td>
-                    </tr>
-                  ) : metricKeys.length > 0 ? (
-                    metricKeys.map((key) => (
-                      <tr key={key} className="hover:bg-surface/60">
-                        <td className="px-4 py-3 font-medium text-primary">{key}</td>
-                        <td className="px-4 py-3 text-muted">{formatMetricValue(state.data?.[key])}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={2} className="px-4 py-8 text-center text-muted">
-                        No rows to display.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
           </div>
 
           <div className="mt-5 overflow-hidden rounded-2xl border border-border bg-background">
@@ -236,30 +230,28 @@ export default function ReportDetailPage({ params }: Readonly<{ params: Promise<
             </table>
           </div>
         </section>
-
-        <section className="space-y-4">
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Backend status</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              The backend controller now returns live aggregates, so this view surfaces the contract rather than fake charts.
-            </p>
-          </div>
-
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Loaded keys</h2>
-            <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm leading-6 text-muted">
-              {metricKeys.length > 0 ? metricKeys.map((key) => <p key={key}>{key}</p>) : <p>None</p>}
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Contract note</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Reporting permissions are enforced by the backend via `report:view`, and the page respects that gating before showing any data.
-            </p>
-          </div>
-        </section>
       </div>
+
+      <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+        <h2 className="text-lg font-semibold text-primary">Backend status</h2>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          The backend controller now returns live aggregates, so this view surfaces the contract rather than fake charts.
+        </p>
+      </section>
+
+      <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+        <h2 className="text-lg font-semibold text-primary">Loaded keys</h2>
+        <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm leading-6 text-muted">
+          {metricKeys.length > 0 ? metricKeys.map((key, index) => <p key={key}>{formatMetricLabel(key, index)}</p>) : <p>None</p>}
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+        <h2 className="text-lg font-semibold text-primary">Contract note</h2>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          Reporting permissions are enforced by the backend via `report:view`, and the page respects that gating before showing any data.
+        </p>
+      </section>
     </div>
   );
 }

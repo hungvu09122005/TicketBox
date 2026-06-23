@@ -12,6 +12,7 @@ import { OrderExpiryProcessor } from './processors/order-expiry.processor';
 import { QueueReleaseProcessor } from './processors/queue-release.processor';
 import { ConcertsModule } from '../concerts/concerts.module';
 import { TicketTypesModule } from '../ticket-types/ticket-types.module';
+import { MailModule } from '../../mail/mail.module';
 import { QueueService } from './queue.service';
 
 
@@ -29,6 +30,7 @@ import { QueueService } from './queue.service';
     }),
     ConcertsModule,
     TicketTypesModule,
+    MailModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService, OrdersRepository, OrderExpiryProcessor, QueueService, QueueReleaseProcessor],

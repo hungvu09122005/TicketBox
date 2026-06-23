@@ -93,8 +93,9 @@ export default function OrdersOperationsPage() {
   }, [admin]);
 
   const filteredOrders = useMemo(() => {
+    const orderList = Array.isArray(orders) ? orders : [];
     const normalizedQuery = searchQuery.trim().toLowerCase();
-    return orders.filter((order) => {
+    return orderList.filter((order) => {
       if (statusFilter !== 'all' && order.status !== statusFilter) {
         return false;
       }
@@ -131,7 +132,6 @@ export default function OrdersOperationsPage() {
               Back to operations hub
             </Link>
             <div>
-              <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Request 13</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Order and payment management</h1>
               <p className="mt-3 text-sm leading-6 text-muted">
                 Filter order data by concert and status, inspect expiry timestamps, and keep the payment flow visible without faking provider data.
@@ -217,12 +217,13 @@ export default function OrdersOperationsPage() {
                 <th className="px-6 py-4 font-medium">Status</th>
                 <th className="px-6 py-4 font-medium">Amount</th>
                 <th className="px-6 py-4 font-medium">Expires</th>
+                <th className="px-6 py-4 font-medium">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-14 text-center text-muted">
+                  <td colSpan={6} className="px-6 py-14 text-center text-muted">
                     <div className="inline-flex items-center gap-2">
                       <SpinnerGap size={18} className="animate-spin" />
                       Loading orders...
@@ -231,13 +232,13 @@ export default function OrdersOperationsPage() {
                 </tr>
               ) : errorMessage ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-14 text-center text-red-800">
+                  <td colSpan={6} className="px-6 py-14 text-center text-red-800">
                     {errorMessage}
                   </td>
                 </tr>
               ) : filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-14 text-center text-muted">
+                  <td colSpan={6} className="px-6 py-14 text-center text-muted">
                     No orders matched the current filters. The UI is ready for the backend list when it starts returning data.
                   </td>
                 </tr>
@@ -257,6 +258,14 @@ export default function OrdersOperationsPage() {
                     </td>
                     <td className="px-6 py-4 text-primary">{formatCurrency(Number(order.totalAmount))}</td>
                     <td className="px-6 py-4 text-muted">{formatDateTime(order.expiresAt)}</td>
+                    <td className="px-6 py-4">
+                      <Link
+                        href={`/operations/orders/${order.id}`}
+                        className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-primary hover:border-primary hover:bg-surface"
+                      >
+                        View detail
+                      </Link>
+                    </td>
                   </tr>
                 ))
               )}

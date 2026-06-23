@@ -13,7 +13,7 @@ function formatDateTime(value?: string) {
   }).format(new Date(value));
 }
 
-function statusTone(status?: CsvImportJobStatus['status']) {
+function statusTone(status?: string) {
   switch (status) {
     case 'COMPLETED':
     case 'SUCCESS':
@@ -87,7 +87,6 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
               Back to job monitor
             </Link>
             <div>
-              <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Request 16</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">CSV job detail</h1>
               <p className="mt-3 text-sm leading-6 text-muted">
                 This detail view reads the real CSV status endpoint so admins can inspect a specific job without guessing from a generic monitor screen.

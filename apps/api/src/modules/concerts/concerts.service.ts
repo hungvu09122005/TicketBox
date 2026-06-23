@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
@@ -21,6 +21,8 @@ import { PublicConcertDto } from './dto/public-concert.dto';
  */
 @Injectable()
 export class ConcertsService {
+  private readonly logger = new Logger(ConcertsService.name);
+
   constructor(
     private readonly concertsRepository: ConcertsRepository,
     @Inject(OBJECT_STORAGE_PORT) private readonly storage: ObjectStoragePort,
@@ -60,7 +62,7 @@ export class ConcertsService {
 
     const concerts = await this.concertsRepository.findPublished(page, limit, timeFilter);
     const ttl = this.config.get<number>('app.cache.concertListTtl', 60) * 1000;
-    const payload = await Promise.all(concerts.map((concert) => this.toPublicDto(concert)));
+    const payload = await this.mapConcertsToPublicDtos(concerts, 'published');
     await this.cache.set(cacheKey, payload, ttl);
     return payload;
   }
@@ -98,16 +100,12 @@ export class ConcertsService {
   }
 
   private async toPublicDto(concert: Concert): Promise<PublicConcertDto> {
-    const bannerUrl = concert.bannerObjectKey
-      ? await this.storage.getPresignedUrl(concert.bannerObjectKey, 3600)
-      : null;
+    const bannerUrl = await this.safeGetPresignedUrl(concert.bannerObjectKey, `concert:${concert.id}:banner`);
 
     // 1. Tạo mảng artists từ concert.artists
     const artists = await Promise.all(
       (concert.artists || []).map(async (artist) => {
-        const avatarUrl = artist.avatarObjectKey
-          ? await this.storage.getPresignedUrl(artist.avatarObjectKey, 3600)
-          : null;
+        const avatarUrl = await this.safeGetPresignedUrl(artist.avatarObjectKey, `artist:${artist.id}:avatar`);
         
         return {
           id: artist.id,
@@ -131,6 +129,57 @@ export class ConcertsService {
       bannerUrl: bannerUrl,
       artists: artists, // Sử dụng biến mảng vừa tạo ở trên
     };
+  }
+
+  private async mapConcertsToPublicDtos(concerts: Concert[], scope: string): Promise<PublicConcertDto[]> {
+    const results = await Promise.allSettled(
+      concerts.map(async (concert) => this.toPublicDto(concert)),
+    );
+
+    return results.flatMap((result, index) => {
+      if (result.status === 'fulfilled') {
+        return [result.value];
+      }
+
+      const concert = concerts[index];
+      this.logger.error(
+        `Failed to map concert ${concert.id} for ${scope} list: ${this.getErrorMessage(result.reason)}`,
+        this.getErrorStack(result.reason),
+      );
+      return [];
+    });
+  }
+
+  private async safeGetPresignedUrl(objectKey: string | null | undefined, context: string): Promise<string | null> {
+    if (!objectKey) {
+      return null;
+    }
+
+    try {
+      return await this.storage.getPresignedUrl(objectKey, 3600);
+    } catch (error) {
+      this.logger.error(
+        `Failed to generate presigned URL for ${context}: ${this.getErrorMessage(error)}`,
+        this.getErrorStack(error),
+      );
+      return null;
+    }
+  }
+
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return 'Unknown error';
+    }
+  }
+
+  private getErrorStack(error: unknown): string | undefined {
+    return error instanceof Error ? error.stack : undefined;
   }
 
   async invalidateCacheFor(concertId: string): Promise<void> {
@@ -167,12 +216,12 @@ export class ConcertsService {
 
   async findOrganizerConcerts(organizerId: string): Promise<PublicConcertDto[]> {
     const concerts = await this.concertsRepository.findByOrganizer(organizerId);
-    return Promise.all(concerts.map(c => this.toPublicDto(c)));
+    return this.mapConcertsToPublicDtos(concerts, 'organizer');
   }
 
   async findAllConcerts(): Promise<PublicConcertDto[]> {
     const concerts = await this.concertsRepository.findAllConcerts();
-    return Promise.all(concerts.map((concert) => this.toPublicDto(concert)));
+    return this.mapConcertsToPublicDtos(concerts, 'admin');
   }
 
   async create(organizerId: string, dto: CreateConcertDto): Promise<Concert> {

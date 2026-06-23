@@ -147,7 +147,6 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
               Back to order list
             </Link>
             <div>
-              <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Request 13</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Order detail</h1>
               <p className="mt-3 text-sm leading-6 text-muted">
                 A focused view for a single order so organizers can inspect the payment state, expiry, and callback audit from the backend API.
@@ -161,7 +160,7 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="space-y-4">
         <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-2xl border border-border bg-background p-3 text-primary">
@@ -187,7 +186,7 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-2xl border border-border bg-background p-4">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Order ID</p>
-                  <p className="mt-2 break-words text-sm font-semibold text-primary">{order.id}</p>
+                  <p className="mt-2 overflow-x-auto whitespace-nowrap font-mono text-[11px] font-semibold leading-5 text-primary">{order.id}</p>
                 </div>
                 <div className="rounded-2xl border border-border bg-background p-4">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Status</p>
@@ -213,11 +212,11 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
                 </div>
                 <div className="rounded-2xl border border-border bg-background p-4">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Concert ID</p>
-                  <p className="mt-2 break-words text-sm text-primary">{order.concertId}</p>
+                  <p className="mt-2 overflow-x-auto whitespace-nowrap font-mono text-[11px] leading-5 text-primary">{order.concertId}</p>
                 </div>
                 <div className="rounded-2xl border border-border bg-background p-4">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Ticket type ID</p>
-                  <p className="mt-2 break-words text-sm text-primary">{order.ticketTypeId}</p>
+                  <p className="mt-2 overflow-x-auto whitespace-nowrap font-mono text-[11px] leading-5 text-primary">{order.ticketTypeId}</p>
                 </div>
               </div>
             ) : null}
