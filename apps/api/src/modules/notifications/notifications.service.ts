@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { NotificationsRepository } from './notifications.repository';
+import { NotificationChannel, NotificationStatus, NotificationType } from './entities/notification-log.entity';
 
 /**
  * NotificationsService — exported surface consumed by PaymentsModule and CsvImportModule.
@@ -41,6 +42,52 @@ export class NotificationsService {
       finishedOn: job.finishedOn,
       attemptsMade: job.attemptsMade,
     };
+  }
+
+  async queueTicketConfirmation(params: { email: string; ticketId: string; userId: string }) {
+    const type = NotificationType.TICKET_CONFIRMATION;
+    const channel = NotificationChannel.EMAIL;
+    const jobId = `notification.ticket_confirmation:${params.ticketId}`;
+
+    const existing = await this.repo.findByTicketTypeChannel(params.ticketId, type, channel);
+    if (existing && existing.status !== NotificationStatus.FAILED) {
+      return { success: true, message: 'Notification is already queued or sent.', logId: existing.id };
+    }
+
+    const log = existing
+      ? existing
+      : await this.repo.createLog({
+          ticketId: params.ticketId,
+          userId: params.userId,
+          type,
+          channel,
+          status: NotificationStatus.QUEUED,
+        });
+
+    const existingJob = await this.queue.getJob(jobId);
+    if (existingJob) {
+      await existingJob.remove();
+    }
+    if (existing) {
+      await this.repo.markQueued(existing.id);
+    }
+
+    await this.queue.add(
+      'notification.ticket_confirmation',
+      {
+        email: params.email,
+        ticketId: params.ticketId,
+        userId: params.userId,
+        type,
+        channel,
+        logId: log.id,
+      },
+      {
+        jobId,
+      },
+    );
+
+    return { success: true, message: 'Ticket confirmation queued.', logId: log.id };
   }
 
   async getJobs(status?: string): Promise<any[]> {

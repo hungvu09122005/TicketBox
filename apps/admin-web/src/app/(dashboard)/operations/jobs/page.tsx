@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowSquareOut, CloudArrowUp, FileMagnifyingGlass, SpinnerGap, ArrowClockwise } from '@phosphor-icons/react';
 import { Permission } from '@/lib/permissions';
 import { useAuthStore } from '@/lib/auth-store';
+import { artistService } from '@/lib/services/artist.service';
 import { operationsService, type AiBioRequestResult, type CsvImportJobStatus, type NotificationJobRecord } from '@/lib/services/operations.service';
+import type { Artist } from '@/lib/types';
 
 const queueDashboardHref = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
@@ -60,6 +62,7 @@ function normalizeAiStatus(status?: AiBioRequestResult['status']) {
       return 'PENDING';
     case 'PROCESSING':
       return 'PROCESSING';
+    case 'SUCCESS':
     case 'DRAFT':
     case 'PUBLISHED':
       return 'SUCCESS';
@@ -88,6 +91,8 @@ export default function JobsPage() {
   const [csvJobs, setCsvJobs] = useState<CsvImportJobStatus[]>([]);
   const [aiJobs, setAiJobs] = useState<AiBioRequestResult[]>([]);
   const [notificationJobs, setNotificationJobs] = useState<NotificationJobRecord[]>([]);
+  const [artists, setArtists] = useState<Artist[]>([]);
+  const [selectedArtistId, setSelectedArtistId] = useState('');
   const [csvFilter, setCsvFilter] = useState<MonitorFilter>('all');
   const [aiFilter, setAiFilter] = useState<MonitorFilter>('all');
   const [notificationFilter, setNotificationFilter] = useState<MonitorFilter>('FAILED');
@@ -122,6 +127,14 @@ export default function JobsPage() {
     } finally {
       setPageLoading(false);
     }
+
+    try {
+      const nextArtists = await artistService.getArtists();
+      setArtists(nextArtists);
+      setSelectedArtistId((current) => current || nextArtists[0]?.id || '');
+    } catch {
+      setArtists([]);
+    }
   };
 
   useEffect(() => {
@@ -148,13 +161,17 @@ export default function JobsPage() {
       setCreateError('Please choose a PDF file.');
       return;
     }
+    if (!selectedArtistId) {
+      setCreateError('Please choose an artist.');
+      return;
+    }
 
     setCreateLoading(true);
     setCreateError(null);
     setCreateMessage(null);
 
     try {
-      const result = await operationsService.createAiBioRequest(pdfFile);
+      const result = await operationsService.createAiBioRequest(pdfFile, selectedArtistId);
       setCreateMessage(result.status ? `AI bio request created: ${result.status}` : 'AI bio request created.');
       await loadAllJobs();
     } catch (error) {
@@ -255,7 +272,22 @@ export default function JobsPage() {
           </div>
 
           <div className="mt-5 space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="block space-y-2 sm:col-span-1">
+                <span className="text-sm font-medium text-primary">Artist</span>
+                <select
+                  value={selectedArtistId}
+                  onChange={(event) => setSelectedArtistId(event.target.value)}
+                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-primary outline-none focus:border-primary"
+                >
+                  <option value="">Select artist</option>
+                  {artists.map((artist) => (
+                    <option key={artist.id} value={artist.id}>
+                      {artist.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm font-medium text-primary">
                 <input
                   type="file"
@@ -268,7 +300,7 @@ export default function JobsPage() {
               <button
                 type="button"
                 onClick={handleCreateAiRequest}
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface sm:col-span-1"
               >
                 {createLoading ? <SpinnerGap size={16} className="animate-spin" /> : <CloudArrowUp size={16} />}
                 Create AI job

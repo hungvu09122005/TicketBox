@@ -69,6 +69,19 @@ export interface PaymentHistoryRecord {
   [key: string]: unknown;
 }
 
+export interface PaymentAuditRecord {
+  id?: string;
+  orderId?: string;
+  provider?: string;
+  providerTransactionId?: string | null;
+  status?: string;
+  amount?: number | string;
+  createdAt?: string;
+  updatedAt?: string;
+  rawCallback?: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
 export interface RetryResult {
   success?: boolean;
   message?: string;
@@ -84,7 +97,7 @@ export interface AiBioRequestResult {
   artistId?: string;
   requestedBy?: string;
   pdfObjectKey?: string;
-  status?: 'PENDING' | 'PROCESSING' | 'DRAFT' | 'PUBLISHED' | 'FAILED';
+  status?: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'DRAFT' | 'PUBLISHED' | 'FAILED';
   draftContent?: string | null;
   failureReason?: string | null;
   createdAt?: string;
@@ -180,15 +193,16 @@ export const operationsService = {
     return response.data.data ?? response.data;
   },
 
-  createAiBioRequest: async (pdfFile: File): Promise<AiBioRequestResult> => {
+  createAiBioRequest: async (pdfFile: File, artistId: string): Promise<AiBioRequestResult> => {
     const formData = new FormData();
     formData.append('pdf', pdfFile);
+    formData.append('artistId', artistId);
 
     const response = await apiClient.post('/api/artist-bio', formData);
     return response.data.data ?? response.data;
   },
 
-  listAiBioJobs: async (status?: AiBioRequestResult['status']): Promise<AiBioRequestResult[]> => {
+  listAiBioJobs: async (status?: AiBioRequestResult['status'] | 'SUCCESS'): Promise<AiBioRequestResult[]> => {
     const response = await apiClient.get('/api/artist-bio', {
       params: status ? { status } : undefined,
     });
@@ -207,6 +221,11 @@ export const operationsService = {
 
   getPaymentHistory: async (orderId: string): Promise<PaymentHistoryRecord[]> => {
     const response = await apiClient.get(`/payments/orders/${orderId}/history`);
+    return response.data.data ?? response.data ?? [];
+  },
+
+  getPaymentAudit: async (orderId: string): Promise<PaymentAuditRecord[]> => {
+    const response = await apiClient.get(`/payments/orders/${orderId}/audit`);
     return response.data.data ?? response.data ?? [];
   },
 };

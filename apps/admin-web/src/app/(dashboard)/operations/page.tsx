@@ -18,6 +18,7 @@ import {
 } from '@phosphor-icons/react';
 import { Permission } from '@/lib/permissions';
 import { useAuthStore } from '@/lib/auth-store';
+import { artistService } from '@/lib/services/artist.service';
 import {
   operationsService,
   type AiBioRequestResult,
@@ -25,6 +26,7 @@ import {
   type OrderDetails,
   type ReportResponse,
 } from '@/lib/services/operations.service';
+import type { Artist } from '@/lib/types';
 
 type FetchState<T> = {
   data: T | null;
@@ -187,6 +189,8 @@ export default function OperationsPage() {
     isLoading: false,
   });
   const [aiFile, setAiFile] = useState<File | null>(null);
+  const [aiArtists, setAiArtists] = useState<Artist[]>([]);
+  const [selectedAiArtistId, setSelectedAiArtistId] = useState('');
   const [aiState, setAiState] = useState<FetchState<AiBioRequestResult>>({
     data: null,
     error: null,
@@ -199,19 +203,19 @@ export default function OperationsPage() {
     {
       id: 'request13',
       title: 'Order and payment management',
-      percent: 94,
+      percent: 100,
       href: '/operations/orders',
       detail:
-        'Live order lookup, payment initiation, payment history, and callback handling are wired to the backend.',
+        'Live order lookup, payment initiation, callback handling, and callback audit are wired to the backend.',
       blocker: 'Ready',
     },
     {
       id: 'request14',
       title: 'Failed notification jobs and retry',
-      percent: 96,
+      percent: 100,
       href: '/operations/notifications',
       detail:
-        'Notification probe, failed-job list, and retry actions are wired to the backend APIs.',
+        'Notification probe, idempotent job queueing, failed-job list, and retry actions are wired to the backend APIs.',
       blocker: 'Ready',
     },
     {
@@ -226,10 +230,10 @@ export default function OperationsPage() {
     {
       id: 'request16',
       title: 'Background job monitor',
-      percent: 96,
+      percent: 100,
       href: '/operations/jobs',
       detail:
-        'CSV, AI bio, and notification jobs can be monitored and retried from the backend APIs.',
+        'CSV, AI bio, and notification jobs can be monitored and retried from the backend APIs, with artist selection enforced for AI bio.',
       blocker: 'Ready',
     },
   ];
@@ -274,6 +278,28 @@ export default function OperationsPage() {
     };
 
     void loadReports();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadArtists = async () => {
+      try {
+        const artists = await artistService.getArtists();
+        if (!isActive) return;
+        setAiArtists(artists);
+        setSelectedAiArtistId((current) => current || artists[0]?.id || '');
+      } catch {
+        if (!isActive) return;
+        setAiArtists([]);
+      }
+    };
+
+    void loadArtists();
 
     return () => {
       isActive = false;
@@ -408,11 +434,19 @@ export default function OperationsPage() {
       });
       return;
     }
+    if (!selectedAiArtistId) {
+      setAiState({
+        data: null,
+        error: 'Chọn artist để gắn với AI bio request.',
+        isLoading: false,
+      });
+      return;
+    }
 
     setAiState((current) => ({ ...current, isLoading: true, error: null }));
 
     try {
-      const data = await operationsService.createAiBioRequest(aiFile);
+      const data = await operationsService.createAiBioRequest(aiFile, selectedAiArtistId);
       setAiState({
         data,
         error: null,
@@ -897,6 +931,21 @@ export default function OperationsPage() {
                 <p className="text-sm font-medium text-primary">AI bio request</p>
                 <p className="text-xs text-muted">This uses the real multipart endpoint at `/api/artist-bio`.</p>
               </div>
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-primary">Artist</span>
+                <select
+                  value={selectedAiArtistId}
+                  onChange={(event) => setSelectedAiArtistId(event.target.value)}
+                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-primary outline-none transition focus:border-primary"
+                >
+                  <option value="">Select artist</option>
+                  {aiArtists.map((artist) => (
+                    <option key={artist.id} value={artist.id}>
+                      {artist.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm font-medium text-primary transition-transform hover:-translate-y-[1px] active:translate-y-0">
                   <CloudArrowUp size={16} />
@@ -924,7 +973,7 @@ export default function OperationsPage() {
                   <p className="text-sm leading-6 text-red-800">{aiState.error}</p>
                 ) : aiState.data?.status ? (
                   <div className="space-y-2 text-sm">
-                    <Pill tone={aiState.data.status === 'FAILED' ? 'danger' : aiState.data.status === 'DRAFT' ? 'success' : 'warning'}>
+                    <Pill tone={aiState.data.status === 'FAILED' ? 'danger' : aiState.data.status === 'SUCCESS' || aiState.data.status === 'DRAFT' || aiState.data.status === 'PUBLISHED' ? 'success' : 'warning'}>
                       {aiState.data.status}
                     </Pill>
                     <p className="text-primary">Request ID: {aiState.data.id ?? '--'}</p>
