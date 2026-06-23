@@ -139,33 +139,42 @@ export class PaymentsService {
     };
   }
 
-  // Trong PaymentsService.ts
-async getPaymentStatus(orderId: string, userId: string, isAdmin: boolean) {
-  // SỬA: Dùng findOne thay vì markPaid
-  const order = await this.ordersService.findOne(orderId);
-  
-  if (!order) {
-    throw new NotFoundException('Order not found');
-  }
+  async getPaymentStatus(orderId: string, userId: string, isAdmin: boolean) {
+    const order = await this.ordersService.findOne(orderId);
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    if (!isAdmin && order.userId !== userId) {
+      throw new ForbiddenException('Cannot view payment status for this order');
+    }
 
-  if (!isAdmin && order.userId !== userId) {
-    throw new ForbiddenException('Cannot view payment status for this order');
-  }
-
-  const payment = await this.paymentsRepository.findLatestPendingByOrderId(orderId) 
+    const payment = await this.paymentsRepository.findLatestPendingByOrderId(orderId) 
                  ?? await this.paymentsRepository.findByOrderId(orderId);
                  
-  if (!payment) {
-    return { status: 'NO_PAYMENT_INITIATED', orderStatus: order.status };
+    if (!payment) {
+      return { status: 'NO_PAYMENT_INITIATED', orderStatus: order.status };
+    }
+
+    return {
+      paymentId: payment.id,
+      status: payment.status,
+      provider: payment.provider,
+      orderStatus: order.status,
+      amount: payment.amount,
+      createdAt: payment.createdAt,
+    };
   }
 
-  return {
-    paymentId: payment.id,
-    status: payment.status,
-    provider: payment.provider,
-    orderStatus: order.status,
-    amount: payment.amount,
-    createdAt: payment.createdAt,
-  };
-}
+  async getPaymentHistory(orderId: string, userId: string, isAdmin: boolean) {
+    const order = await this.ordersService.findOne(orderId);
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    if (!isAdmin && order.userId !== userId) {
+      throw new ForbiddenException('Cannot view payment history for this order');
+    }
+
+    const payments = await this.paymentsRepository.findAllByOrderId(orderId);
+    return payments;
+  }
 }

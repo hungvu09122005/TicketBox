@@ -12,6 +12,30 @@ export class CsvImportService {
     @Inject(OBJECT_STORAGE_PORT) private readonly storage: ObjectStoragePort,
     @InjectQueue('csv-import') private readonly queue: Queue,
   ) {}
-  // TODO Phase 6: createJob(file, concertId, userId) → upload to MinIO → enqueue
-  //               getJobStatus(jobId)
+  async createJob(file: Express.Multer.File, concertId: string, userId: string) {
+    if (file.mimetype !== 'text/csv' && !file.originalname.endsWith('.csv')) {
+      throw new Error('Invalid file type. Only CSV files are allowed.');
+    }
+
+    const objectKey = `csv-imports/${concertId}-${Date.now()}.csv`;
+    await this.storage.upload({
+      objectKey,
+      buffer: file.buffer,
+      contentType: file.mimetype,
+      size: file.size,
+    });
+
+    const job = await this.repo.createJob(concertId, userId, objectKey);
+    await this.queue.add('process-csv', { jobId: job.id, fileUrl: objectKey, concertId });
+
+    return job;
+  }
+
+  async getJobStatus(jobId: string) {
+    const job = await this.repo.findById(jobId);
+    if (!job) {
+      throw new Error(`Job ${jobId} not found`);
+    }
+    return job;
+  }
 }

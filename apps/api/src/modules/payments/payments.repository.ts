@@ -19,6 +19,13 @@ export class PaymentsRepository {
     return this.repo.findOne({ where: { orderId } });
   }
 
+  findAllByOrderId(orderId: string) {
+    return this.repo.find({ 
+      where: { orderId },
+      order: { createdAt: 'DESC' }
+    });
+  }
+
   findLatestPendingByOrderId(orderId: string) {
     return this.repo.findOne({
       where: { orderId, status: PaymentStatus.PENDING },

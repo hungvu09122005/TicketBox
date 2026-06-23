@@ -52,4 +52,16 @@ export class PaymentsController {
     const isAdmin = user.roles.includes('SYSTEM_ADMIN');
     return this.paymentsService.getPaymentStatus(orderId, user.sub, isAdmin);
   }
+
+  /** GET /payments/orders/:orderId/history — Check payment history */
+  @Get('orders/:orderId/history')
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @RequirePermissions(Permission.REPORT_VIEW)
+  getPaymentHistory(
+    @Param('orderId') orderId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    return this.paymentsService.getPaymentHistory(orderId, user.sub, isAdmin);
+  }
 }

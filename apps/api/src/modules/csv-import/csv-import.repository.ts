@@ -12,5 +12,16 @@ export class CsvImportRepository {
     @InjectRepository(CsvImportRow) private readonly rowRepo: Repository<CsvImportRow>,
     @InjectRepository(VipGuest) private readonly vipRepo: Repository<VipGuest>,
   ) {}
-  // TODO Phase 6: createJob, updateJobStatus, upsertVipGuest (idempotent by dedupKey), createRow
+  async createJob(concertId: string, userId: string, objectKey: string): Promise<CsvImportJob> {
+    const job = this.jobRepo.create({
+      concertId,
+      triggeredBy: userId,
+      objectKey,
+    });
+    return this.jobRepo.save(job);
+  }
+
+  async findById(jobId: string): Promise<CsvImportJob | null> {
+    return this.jobRepo.findOneBy({ id: jobId });
+  }
 }
