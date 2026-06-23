@@ -269,18 +269,19 @@ export default function OrdersOperationsPage() {
         <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-primary">Payment contract</h2>
           <p className="mt-2 text-sm leading-6 text-muted">
-            The backend still exposes create/callback only. A manual success editor is intentionally absent.
+            The backend exposes create, callback, and payment-history audit endpoints. A manual success editor is intentionally absent.
           </p>
           <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm text-muted">
             <p>POST /payments/:orderId/initiate</p>
             <p className="mt-1">GET /payments/callback/vnpay</p>
+            <p className="mt-1">GET /payments/orders/:orderId/history</p>
           </div>
         </div>
 
         <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-primary">Current limitation</h2>
           <p className="mt-2 text-sm leading-6 text-muted">
-            `GET /orders` exists but currently returns an empty array in backend, so this page stays honest and only renders live data when the API starts supplying it.
+            `GET /orders` now returns live data, so the page reflects the current backend result set instead of pretending the list is empty.
           </p>
         </div>
       </div>

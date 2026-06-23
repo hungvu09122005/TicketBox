@@ -202,17 +202,17 @@ export default function OperationsPage() {
       percent: 94,
       href: '/operations/orders',
       detail:
-        'Live order lookup, payment initiation, and callback handling are wired to the backend.',
+        'Live order lookup, payment initiation, payment history, and callback handling are wired to the backend.',
       blocker: 'Ready',
     },
     {
       id: 'request14',
       title: 'Failed notification jobs and retry',
-      percent: 82,
+      percent: 96,
       href: '/operations/notifications',
       detail:
-        'Notification probe is live and retry stays in Bull Board.',
-      blocker: 'Queue-board retry',
+        'Notification probe, failed-job list, and retry actions are wired to the backend APIs.',
+      blocker: 'Ready',
     },
     {
       id: 'request15',
@@ -226,11 +226,11 @@ export default function OperationsPage() {
     {
       id: 'request16',
       title: 'Background job monitor',
-      percent: 87,
+      percent: 96,
       href: '/operations/jobs',
       detail:
-        'CSV status lookup and AI bio request endpoints are wired; retry stays in Bull Board.',
-      blocker: 'Queue-board retry',
+        'CSV, AI bio, and notification jobs can be monitored and retried from the backend APIs.',
+      blocker: 'Ready',
     },
   ];
 

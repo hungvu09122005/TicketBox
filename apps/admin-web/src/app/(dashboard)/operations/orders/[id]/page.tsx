@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowSquareOut, SpinnerGap, Ticket } from '@phosphor-icons/react';
-import { operationsService, type OrderDetails } from '@/lib/services/operations.service';
+import { Permission } from '@/lib/permissions';
+import { useAuthStore } from '@/lib/auth-store';
+import { operationsService, type OrderDetails, type PaymentHistoryRecord } from '@/lib/services/operations.service';
 
 function formatCurrency(value?: number) {
   if (typeof value !== 'number' || Number.isNaN(value)) return '--';
@@ -42,6 +44,8 @@ const queueDashboardHref = (() => {
 })();
 
 export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
+  const permissions = useAuthStore((state) => state.permissions);
+  const canViewPaymentHistory = permissions.includes(Permission.REPORT_VIEW) || permissions.includes(Permission.RBAC_MANAGE);
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -50,6 +54,9 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
   const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryRecord[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -79,6 +86,38 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
       isActive = false;
     };
   }, [params]);
+
+  useEffect(() => {
+    if (!resolvedOrderId || !canViewPaymentHistory) {
+      return;
+    }
+
+    let isActive = true;
+
+    const loadHistory = async () => {
+      setIsLoadingHistory(true);
+      setHistoryError(null);
+
+      try {
+        const history = await operationsService.getPaymentHistory(resolvedOrderId);
+        if (!isActive) return;
+        setPaymentHistory(history);
+      } catch (error) {
+        if (!isActive) return;
+        setHistoryError(error instanceof Error ? error.message : 'Unable to load payment history.');
+      } finally {
+        if (isActive) {
+          setIsLoadingHistory(false);
+        }
+      }
+    };
+
+    void loadHistory();
+
+    return () => {
+      isActive = false;
+    };
+  }, [canViewPaymentHistory, resolvedOrderId]);
 
   const handleInitiatePayment = async () => {
     if (!order) return;
@@ -111,7 +150,7 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
               <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Request 13</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Order detail</h1>
               <p className="mt-3 text-sm leading-6 text-muted">
-                A focused view for a single order so organizers can inspect the payment state and expiry without waiting for a richer backend audit API.
+                A focused view for a single order so organizers can inspect the payment state, expiry, and payment history from the backend audit API.
               </p>
             </div>
           </div>
@@ -189,7 +228,7 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
           <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-primary">Payment context</h2>
             <p className="mt-2 text-sm leading-6 text-muted">
-              The backend exposes payment initiation and callback handling, but not a provider transaction audit page yet.
+              The backend exposes payment initiation, callback handling, and payment history for audit and support.
             </p>
             {order?.status === 'PENDING_PAYMENT' ? (
               <button
@@ -240,7 +279,7 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
                     ['Pending payment', 'Order is waiting for provider initiation'],
                     ['Provider initiated', 'Backend returned a payment URL / record'],
                     ['Callback received', 'VNPay callback reconciles provider state'],
-                    ['Expired / failed', 'Order is no longer eligible for manual success changes'],
+                    ['Expired / failed', 'Order history stays visible for audit and support'],
                   ].map(([stage, meaning]) => (
                     <tr key={stage}>
                       <th className="w-44 px-4 py-3 font-medium text-primary">{stage}</th>
@@ -269,9 +308,69 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
           <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-primary">Backend note</h2>
             <p className="mt-2 text-sm leading-6 text-muted">
-              {resolvedOrderId ? `Loaded order ${resolvedOrderId}.` : 'No order loaded yet.'} The view is honest about what the API currently returns and avoids inventing callback history.
+              {resolvedOrderId ? `Loaded order ${resolvedOrderId}.` : 'No order loaded yet.'} The view shows real payment history and avoids inventing callback history.
             </p>
           </div>
+
+          {canViewPaymentHistory ? (
+            <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-primary">Payment history</h2>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                History is loaded from the backend audit endpoint so callback processing, retries, and duplicate events are visible to organizers.
+              </p>
+              <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full whitespace-nowrap text-left text-sm">
+                    <thead className="bg-surface/80 text-muted">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">Payment</th>
+                        <th className="px-4 py-3 font-medium">Status</th>
+                        <th className="px-4 py-3 font-medium">Provider</th>
+                        <th className="px-4 py-3 font-medium">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {isLoadingHistory ? (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-8 text-center text-muted">
+                            Loading payment history...
+                          </td>
+                        </tr>
+                      ) : historyError ? (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-8 text-center text-red-800">
+                            {historyError}
+                          </td>
+                        </tr>
+                      ) : paymentHistory.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-8 text-center text-muted">
+                            No payment history found for this order.
+                          </td>
+                        </tr>
+                      ) : (
+                        paymentHistory.map((item, index) => (
+                          <tr key={String(item.id ?? index)}>
+                            <td className="px-4 py-3 font-medium text-primary">{item.id ?? '--'}</td>
+                            <td className="px-4 py-3 text-muted">{item.status ?? '--'}</td>
+                            <td className="px-4 py-3 text-muted">{item.provider ?? '--'}</td>
+                            <td className="px-4 py-3 text-muted">{formatDateTime(item.createdAt)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-primary">Payment history</h2>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                Payment history is available to users with `report:view` or `rbac:manage`.
+              </p>
+            </div>
+          )}
         </section>
       </div>
     </div>

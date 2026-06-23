@@ -11,7 +11,7 @@ export class Artist {
   name!: string;
 
   // Thêm dòng này để khớp với logic trong Service
-  @Column({ nullable: true })
+  @Column({ name: 'avatar_object_key', nullable: true })
   avatarObjectKey!: string;
 
   @ManyToMany(() => Concert, (concert) => concert.artists)

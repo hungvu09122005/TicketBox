@@ -4,6 +4,7 @@ import { Queue } from 'bull';
 import { AiBioRepository } from './ai-bio.repository';
 import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../common/ports/object-storage.port';
 import { AiBioStatus } from './entities/ai-bio-request.entity';
+import { AI_BIO_JOB } from './processors/ai-bio.processor';
 
 @Injectable()
 export class AiBioService {
@@ -33,7 +34,7 @@ export class AiBioService {
   });
 
   // 3. Đẩy vào Background Job
-  await this.queue.add('process-bio', { bioId: bio.id, fileUrl: objectKey });
+  await this.queue.add(AI_BIO_JOB, { requestId: bio.id, fileUrl: objectKey });
 
   return bio;
 }
@@ -59,7 +60,7 @@ export class AiBioService {
       throw new Error(`Cannot retry AI Bio job in state: ${bio.status}`);
     }
     await this.repo.updateStatus(id, AiBioStatus.DRAFT);
-    await this.queue.add('process-bio', { bioId: bio.id, fileUrl: bio.pdfObjectKey });
+    await this.queue.add(AI_BIO_JOB, { requestId: bio.id, fileUrl: bio.pdfObjectKey });
     return { success: true, message: `AI Bio job ${id} is being retried` };
   }
 }

@@ -1,64 +1,206 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowSquareOut, CloudArrowUp, FileMagnifyingGlass, SpinnerGap } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowSquareOut, CloudArrowUp, FileMagnifyingGlass, SpinnerGap, ArrowClockwise } from '@phosphor-icons/react';
 import { Permission } from '@/lib/permissions';
 import { useAuthStore } from '@/lib/auth-store';
-import { operationsService } from '@/lib/services/operations.service';
+import { operationsService, type AiBioRequestResult, type CsvImportJobStatus, type NotificationJobRecord } from '@/lib/services/operations.service';
 
 const queueDashboardHref = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
   return apiUrl.replace(/\/api\/v1\/?$/, '') + '/admin/queues';
 })();
 
+type MonitorFilter = 'all' | 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
+
+function formatDateTime(value?: string | number) {
+  if (!value) return '--';
+  const date = typeof value === 'number' ? new Date(value) : new Date(value);
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
+function statusTone(status?: string) {
+  switch (status) {
+    case 'SUCCESS':
+      return 'border-emerald-200 bg-emerald-50 text-emerald-800';
+    case 'FAILED':
+      return 'border-red-200 bg-red-50 text-red-800';
+    case 'PROCESSING':
+      return 'border-amber-200 bg-amber-50 text-amber-800';
+    case 'PENDING':
+      return 'border-sky-200 bg-sky-50 text-sky-800';
+    default:
+      return 'border-border bg-background text-muted';
+  }
+}
+
+function normalizeCsvStatus(status?: CsvImportJobStatus['status']) {
+  switch (status) {
+    case 'PENDING':
+      return 'PENDING';
+    case 'PROCESSING':
+      return 'PROCESSING';
+    case 'FAILED':
+      return 'FAILED';
+    case 'PARTIALLY_COMPLETED':
+    case 'COMPLETED':
+      return 'SUCCESS';
+    default:
+      return 'PENDING';
+  }
+}
+
+function normalizeAiStatus(status?: AiBioRequestResult['status']) {
+  switch (status) {
+    case 'PENDING':
+      return 'PENDING';
+    case 'PROCESSING':
+      return 'PROCESSING';
+    case 'DRAFT':
+    case 'PUBLISHED':
+      return 'SUCCESS';
+    case 'FAILED':
+      return 'FAILED';
+    default:
+      return 'PENDING';
+  }
+}
+
+function NotificationRowStatus({ item }: Readonly<{ item: NotificationJobRecord }>) {
+  return (
+    <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${statusTone(item.status)}`}>
+      {item.status ?? 'UNKNOWN'}
+    </span>
+  );
+}
+
 export default function JobsPage() {
   const permissions = useAuthStore((state) => state.permissions);
-  const canViewJobs = permissions.includes(Permission.VIP_IMPORT) || permissions.includes(Permission.AI_GENERATE_BIO);
-  const [csvJobId, setCsvJobId] = useState('');
-  const [csvMessage, setCsvMessage] = useState<string | null>(null);
-  const [csvError, setCsvError] = useState<string | null>(null);
-  const [csvLoading, setCsvLoading] = useState(false);
+  const canViewJobs = permissions.includes(Permission.VIP_IMPORT) || permissions.includes(Permission.AI_GENERATE_BIO) || permissions.includes(Permission.REPORT_VIEW) || permissions.includes(Permission.RBAC_MANAGE);
+  const canRetryCsv = permissions.includes(Permission.VIP_IMPORT);
+  const canRetryAi = permissions.includes(Permission.AI_GENERATE_BIO);
+  const canRetryNotifications = permissions.includes(Permission.RBAC_MANAGE);
+
+  const [csvJobs, setCsvJobs] = useState<CsvImportJobStatus[]>([]);
+  const [aiJobs, setAiJobs] = useState<AiBioRequestResult[]>([]);
+  const [notificationJobs, setNotificationJobs] = useState<NotificationJobRecord[]>([]);
+  const [csvFilter, setCsvFilter] = useState<MonitorFilter>('all');
+  const [aiFilter, setAiFilter] = useState<MonitorFilter>('all');
+  const [notificationFilter, setNotificationFilter] = useState<MonitorFilter>('FAILED');
+  const [pageLoading, setPageLoading] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [aiMessage, setAiMessage] = useState<string | null>(null);
-  const [aiError, setAiError] = useState<string | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
+  const [createMessage, setCreateMessage] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [csvLookupId, setCsvLookupId] = useState('');
+  const [csvLookupResult, setCsvLookupResult] = useState<CsvImportJobStatus | null>(null);
+  const [csvLookupError, setCsvLookupError] = useState<string | null>(null);
+  const [csvLookupLoading, setCsvLookupLoading] = useState(false);
 
-  const lookupCsvStatus = async () => {
-    if (!csvJobId.trim()) {
-      setCsvError('Please enter a CSV job ID.');
-      return;
-    }
-
-    setCsvLoading(true);
-    setCsvError(null);
+  const loadAllJobs = async () => {
+    setPageLoading(true);
+    setPageError(null);
 
     try {
-      const status = await operationsService.getCsvImportStatus(csvJobId.trim());
-      setCsvMessage(status.status ? `CSV job status: ${status.status}` : 'CSV job status loaded.');
+      const [nextCsvJobs, nextAiJobs, nextNotificationJobs] = await Promise.all([
+        operationsService.listCsvImportJobs(),
+        operationsService.listAiBioJobs(),
+        operationsService.getNotificationJobs(),
+      ]);
+
+      setCsvJobs(nextCsvJobs);
+      setAiJobs(nextAiJobs);
+      setNotificationJobs(nextNotificationJobs);
     } catch (error) {
-      setCsvError(error instanceof Error ? error.message : 'Unable to load CSV job status.');
+      setPageError(error instanceof Error ? error.message : 'Unable to load job monitors.');
     } finally {
-      setCsvLoading(false);
+      setPageLoading(false);
     }
   };
 
-  const createAiRequest = async () => {
+  useEffect(() => {
+    void loadAllJobs();
+  }, []);
+
+  const filteredCsvJobs = useMemo(
+    () => csvJobs.filter((job) => csvFilter === 'all' || normalizeCsvStatus(job.status) === csvFilter),
+    [csvFilter, csvJobs],
+  );
+
+  const filteredAiJobs = useMemo(
+    () => aiJobs.filter((job) => aiFilter === 'all' || normalizeAiStatus(job.status) === aiFilter),
+    [aiFilter, aiJobs],
+  );
+
+  const filteredNotificationJobs = useMemo(
+    () => notificationJobs.filter((job) => notificationFilter === 'all' || (job.status ?? 'PENDING') === notificationFilter),
+    [notificationFilter, notificationJobs],
+  );
+
+  const handleCreateAiRequest = async () => {
     if (!pdfFile) {
-      setAiError('Please choose a PDF file.');
+      setCreateError('Please choose a PDF file.');
       return;
     }
 
-    setAiLoading(true);
-    setAiError(null);
+    setCreateLoading(true);
+    setCreateError(null);
+    setCreateMessage(null);
 
     try {
       const result = await operationsService.createAiBioRequest(pdfFile);
-      setAiMessage(result.status ? `AI bio request created: ${result.status}` : 'AI bio request created.');
+      setCreateMessage(result.status ? `AI bio request created: ${result.status}` : 'AI bio request created.');
+      await loadAllJobs();
     } catch (error) {
-      setAiError(error instanceof Error ? error.message : 'Unable to create AI bio request.');
+      setCreateError(error instanceof Error ? error.message : 'Unable to create AI bio request.');
     } finally {
-      setAiLoading(false);
+      setCreateLoading(false);
+    }
+  };
+
+  const handleCsvLookup = async () => {
+    if (!csvLookupId.trim()) {
+      setCsvLookupError('Please enter a CSV job ID.');
+      return;
+    }
+
+    setCsvLookupLoading(true);
+    setCsvLookupError(null);
+    setCsvLookupResult(null);
+
+    try {
+      const result = await operationsService.getCsvImportStatus(csvLookupId.trim());
+      setCsvLookupResult(result);
+    } catch (error) {
+      setCsvLookupError(error instanceof Error ? error.message : 'Unable to load CSV job status.');
+    } finally {
+      setCsvLookupLoading(false);
+    }
+  };
+
+  const handleRetry = async (kind: 'csv' | 'ai' | 'notification', jobId: string) => {
+    setRetrying(`${kind}:${jobId}`);
+    setPageError(null);
+
+    try {
+      if (kind === 'csv') {
+        await operationsService.retryCsvImportJob(jobId);
+      } else if (kind === 'ai') {
+        await operationsService.retryAiBioJob(jobId);
+      } else {
+        await operationsService.retryNotificationJob(jobId);
+      }
+      await loadAllJobs();
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Unable to retry job.');
+    } finally {
+      setRetrying(null);
     }
   };
 
@@ -83,7 +225,7 @@ export default function JobsPage() {
               <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Request 16</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Background job monitor</h1>
               <p className="mt-3 text-sm leading-6 text-muted">
-                CSV imports, AI bio jobs, and queue state are exposed here through real APIs and the backend Bull Board.
+                CSV, AI bio, and notification jobs are now visible from the backend APIs, with retry buttons for jobs that are actually failed.
               </p>
             </div>
           </div>
@@ -94,56 +236,20 @@ export default function JobsPage() {
         </div>
       </div>
 
+      {pageError ? (
+        <div className="rounded-[28px] border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          {pageError}
+        </div>
+      ) : null}
+
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-        <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="rounded-2xl border border-border bg-background p-3 text-primary">
-              <FileMagnifyingGlass size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-primary">CSV import status</h2>
-              <p className="text-sm text-muted">Reads `/imports/:jobId/status` from the backend.</p>
-            </div>
-          </div>
-
-          <div className="mt-5 space-y-4">
-            <label className="block space-y-2">
-              <span className="text-sm font-medium text-primary">Job ID</span>
-              <input
-                value={csvJobId}
-                onChange={(event) => setCsvJobId(event.target.value)}
-                placeholder="csv-job-id"
-                className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-primary outline-none focus:border-primary"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={lookupCsvStatus}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface"
-            >
-              {csvLoading ? <SpinnerGap size={16} className="animate-spin" /> : <FileMagnifyingGlass size={16} />}
-              Lookup status
-            </button>
-            {csvJobId.trim() ? (
-              <Link
-                href={`/operations/jobs/${encodeURIComponent(csvJobId.trim())}`}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm font-medium text-primary"
-              >
-                Open detail view
-              </Link>
-            ) : null}
-            {csvMessage ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{csvMessage}</div> : null}
-            {csvError ? <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{csvError}</div> : null}
-          </div>
-        </section>
-
         <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-2xl border border-border bg-background p-3 text-primary">
               <CloudArrowUp size={20} />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-primary">AI bio request</h2>
+              <h2 className="text-lg font-semibold text-primary">Create AI job</h2>
               <p className="text-sm text-muted">Creates a real multipart request to `/api/artist-bio`.</p>
             </div>
           </div>
@@ -161,21 +267,344 @@ export default function JobsPage() {
               </label>
               <button
                 type="button"
-                onClick={createAiRequest}
+                onClick={handleCreateAiRequest}
                 className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface"
               >
-                {aiLoading ? <SpinnerGap size={16} className="animate-spin" /> : <CloudArrowUp size={16} />}
+                {createLoading ? <SpinnerGap size={16} className="animate-spin" /> : <CloudArrowUp size={16} />}
                 Create AI job
               </button>
             </div>
-            {aiMessage ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{aiMessage}</div> : null}
-            {aiError ? <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{aiError}</div> : null}
+            {createMessage ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{createMessage}</div> : null}
+            {createError ? <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{createError}</div> : null}
+          </div>
+        </section>
+
+        <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl border border-border bg-background p-3 text-primary">
+              <FileMagnifyingGlass size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-primary">CSV status lookup</h2>
+              <p className="text-sm text-muted">Reads `/imports/:jobId/status` from the backend.</p>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-primary">Job ID</span>
+              <input
+                value={csvLookupId}
+                onChange={(event) => setCsvLookupId(event.target.value)}
+                placeholder="csv-job-id"
+                className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-primary outline-none focus:border-primary"
+              />
+            </label>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleCsvLookup}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface"
+              >
+                {csvLookupLoading ? <SpinnerGap size={16} className="animate-spin" /> : <FileMagnifyingGlass size={16} />}
+                Lookup status
+              </button>
+              <button
+                type="button"
+                onClick={() => setCsvLookupResult(null)}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm font-medium text-primary"
+              >
+                Clear
+              </button>
+            </div>
+            {csvLookupResult ? (
+              <div className="rounded-2xl border border-border bg-background p-4 text-sm leading-6 text-muted">
+                <p>Status: {csvLookupResult.status ?? '--'}</p>
+                <p className="mt-1">Rows: {csvLookupResult.totalRows ?? 0} total, {csvLookupResult.successRows ?? 0} success, {csvLookupResult.errorRows ?? 0} error</p>
+                <p className="mt-1">Object key: {csvLookupResult.objectKey ?? '--'}</p>
+              </div>
+            ) : null}
+            {csvLookupError ? <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{csvLookupError}</div> : null}
           </div>
         </section>
       </div>
 
       <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-primary">Queue dashboard</h2>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-primary">CSV imports</h2>
+            <p className="mt-2 text-sm leading-6 text-muted">Monitor backend CSV jobs, inspect status, and retry failed imports with permission.</p>
+          </div>
+          <div className="inline-flex flex-wrap gap-2">
+            {(['all', 'PENDING', 'PROCESSING', 'SUCCESS', 'FAILED'] as const).map((status) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setCsvFilter(status)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium uppercase tracking-[0.16em] ${
+                  csvFilter === status ? 'border-primary bg-primary text-surface' : 'border-border bg-background text-muted'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
+          <div className="overflow-x-auto">
+            <table className="min-w-full whitespace-nowrap text-left text-sm">
+              <thead className="bg-surface/80 text-muted">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Job</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Rows</th>
+                  <th className="px-4 py-3 font-medium">Created</th>
+                  <th className="px-4 py-3 font-medium">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {pageLoading ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-muted">
+                      <div className="inline-flex items-center gap-2">
+                        <SpinnerGap size={16} className="animate-spin" />
+                        Loading jobs...
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredCsvJobs.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-muted">
+                      No CSV jobs found for the selected status.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredCsvJobs.map((job) => {
+                    const normalizedStatus = normalizeCsvStatus(job.status);
+                    const retryable = job.status === 'FAILED' || job.status === 'PARTIALLY_COMPLETED';
+                    return (
+                      <tr key={String(job.id)}>
+                        <td className="px-4 py-3 font-medium text-primary">{job.id ?? '--'}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${statusTone(normalizedStatus)}`}>
+                            {normalizedStatus}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-muted">
+                          {job.totalRows ?? 0} / {job.successRows ?? 0} / {job.errorRows ?? 0}
+                        </td>
+                        <td className="px-4 py-3 text-muted">{formatDateTime(job.createdAt)}</td>
+                        <td className="px-4 py-3">
+                          {retryable && canRetryCsv ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRetry('csv', String(job.id))}
+                              disabled={retrying === `csv:${String(job.id)}`}
+                              className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary disabled:opacity-60"
+                            >
+                              {retrying === `csv:${String(job.id)}` ? <SpinnerGap size={14} className="animate-spin" /> : <ArrowClockwise size={14} />}
+                              Retry
+                            </button>
+                          ) : (
+                            <span className="text-xs text-muted">{canRetryCsv ? 'No action' : 'Retry locked'}</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-primary">AI bio jobs</h2>
+            <p className="mt-2 text-sm leading-6 text-muted">Monitor PDF-to-bio requests from the backend and retry failed draft generation.</p>
+          </div>
+          <div className="inline-flex flex-wrap gap-2">
+            {(['all', 'PENDING', 'PROCESSING', 'SUCCESS', 'FAILED'] as const).map((status) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setAiFilter(status)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium uppercase tracking-[0.16em] ${
+                  aiFilter === status ? 'border-primary bg-primary text-surface' : 'border-border bg-background text-muted'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
+          <div className="overflow-x-auto">
+            <table className="min-w-full whitespace-nowrap text-left text-sm">
+              <thead className="bg-surface/80 text-muted">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Job</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Artist</th>
+                  <th className="px-4 py-3 font-medium">Created</th>
+                  <th className="px-4 py-3 font-medium">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {pageLoading ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-muted">
+                      <div className="inline-flex items-center gap-2">
+                        <SpinnerGap size={16} className="animate-spin" />
+                        Loading jobs...
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredAiJobs.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-muted">
+                      No AI jobs found for the selected status.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredAiJobs.map((job) => {
+                    const normalizedStatus = normalizeAiStatus(job.status);
+                    const retryable = job.status === 'FAILED';
+                    return (
+                      <tr key={String(job.id)}>
+                        <td className="px-4 py-3 font-medium text-primary">{job.id ?? '--'}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${statusTone(normalizedStatus)}`}>
+                            {normalizedStatus}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-muted">{job.artistId ?? '--'}</td>
+                        <td className="px-4 py-3 text-muted">{formatDateTime(job.createdAt)}</td>
+                        <td className="px-4 py-3">
+                          {retryable && canRetryAi ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRetry('ai', String(job.id))}
+                              disabled={retrying === `ai:${String(job.id)}`}
+                              className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary disabled:opacity-60"
+                            >
+                              {retrying === `ai:${String(job.id)}` ? <SpinnerGap size={14} className="animate-spin" /> : <ArrowClockwise size={14} />}
+                              Retry
+                            </button>
+                          ) : (
+                            <span className="text-xs text-muted">{canRetryAi ? 'No action' : 'Retry locked'}</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-primary">Notification jobs</h2>
+            <p className="mt-2 text-sm leading-6 text-muted">Failed delivery jobs are visible here with reasons and retry buttons for admins.</p>
+          </div>
+          <div className="inline-flex flex-wrap gap-2">
+            {(['FAILED', 'PENDING', 'PROCESSING', 'SUCCESS', 'all'] as const).map((status) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setNotificationFilter(status)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium uppercase tracking-[0.16em] ${
+                  notificationFilter === status ? 'border-primary bg-primary text-surface' : 'border-border bg-background text-muted'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
+          <div className="overflow-x-auto">
+            <table className="min-w-full whitespace-nowrap text-left text-sm">
+              <thead className="bg-surface/80 text-muted">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Job</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Reason</th>
+                  <th className="px-4 py-3 font-medium">Attempts</th>
+                  <th className="px-4 py-3 font-medium">Created</th>
+                  <th className="px-4 py-3 font-medium">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {pageLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-muted">
+                      <div className="inline-flex items-center gap-2">
+                        <SpinnerGap size={16} className="animate-spin" />
+                        Loading jobs...
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredNotificationJobs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-muted">
+                      No notification jobs found for the selected status.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredNotificationJobs.map((job) => {
+                    const retryable = job.status === 'FAILED';
+                    return (
+                      <tr key={String(job.id)}>
+                        <td className="px-4 py-3 font-medium text-primary">{job.name ?? String(job.id)}</td>
+                        <td className="px-4 py-3">
+                          <NotificationRowStatus item={job} />
+                        </td>
+                        <td className="px-4 py-3 text-muted">{job.failedReason ?? '--'}</td>
+                        <td className="px-4 py-3 text-muted">{job.attemptsMade ?? 0}</td>
+                        <td className="px-4 py-3 text-muted">{formatDateTime(job.timestamp)}</td>
+                        <td className="px-4 py-3">
+                          {retryable && canRetryNotifications ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRetry('notification', String(job.id))}
+                              disabled={retrying === `notification:${String(job.id)}`}
+                              className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary disabled:opacity-60"
+                            >
+                              {retrying === `notification:${String(job.id)}` ? <SpinnerGap size={14} className="animate-spin" /> : <ArrowClockwise size={14} />}
+                              Retry
+                            </button>
+                          ) : (
+                            <span className="text-xs text-muted">{canRetryNotifications ? 'No action' : 'Retry locked'}</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {canRetryNotifications ? null : (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+            Retry actions for notification jobs require `rbac:manage`.
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+        <h2 className="text-lg font-semibold text-primary">Live queue board</h2>
         <p className="mt-2 text-sm leading-6 text-muted">
           Retry, failed status, and queue depth stay in the real Bull Board instead of being reimplemented in the frontend.
         </p>

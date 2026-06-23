@@ -47,6 +47,7 @@ export class NotificationsController {
   }
 
   @Post('test-confirmation')
+  @RequirePermissions(Permission.REPORT_VIEW)
   async testConfirmation(@Body() body: { email: string; ticketId: string }) {
     // Đẩy job vào hàng đợi
     await this.notificationQueue.add('notification.ticket_confirmation', {

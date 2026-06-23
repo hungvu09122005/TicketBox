@@ -44,6 +44,36 @@ export interface NotificationProbeResponse {
   message?: string;
 }
 
+export interface NotificationJobRecord {
+  id?: string | number;
+  name?: string;
+  status?: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED' | string;
+  rawStatus?: string;
+  data?: Record<string, unknown>;
+  failedReason?: string | null;
+  timestamp?: number;
+  finishedOn?: number | null;
+  attemptsMade?: number;
+}
+
+export interface PaymentHistoryRecord {
+  id?: string;
+  orderId?: string;
+  provider?: string;
+  providerTransactionId?: string | null;
+  status?: string;
+  amount?: number | string;
+  createdAt?: string;
+  updatedAt?: string;
+  rawData?: unknown;
+  [key: string]: unknown;
+}
+
+export interface RetryResult {
+  success?: boolean;
+  message?: string;
+}
+
 export interface PaymentInitiationResult {
   paymentId?: string;
   paymentUrl?: string;
@@ -111,8 +141,42 @@ export const operationsService = {
     return response.data.data ?? response.data;
   },
 
+  listCsvImportJobs: async (status?: CsvImportJobStatus['status']): Promise<CsvImportJobStatus[]> => {
+    const response = await apiClient.get('/imports', {
+      params: status ? { status } : undefined,
+    });
+    return response.data.data ?? response.data ?? [];
+  },
+
+  retryCsvImportJob: async (jobId: string): Promise<RetryResult> => {
+    const response = await apiClient.post(`/imports/${jobId}/retry`);
+    return response.data.data ?? response.data;
+  },
+
   sendNotificationProbe: async (payload: NotificationProbePayload): Promise<NotificationProbeResponse> => {
     const response = await apiClient.post('/notifications/test-confirmation', payload);
+    return response.data.data ?? response.data;
+  },
+
+  getNotificationJobs: async (status?: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED'): Promise<NotificationJobRecord[]> => {
+    const response = await apiClient.get('/notifications/jobs', {
+      params: status ? { status } : undefined,
+    });
+    return response.data.data ?? response.data ?? [];
+  },
+
+  getFailedNotificationJobs: async (): Promise<NotificationJobRecord[]> => {
+    const response = await apiClient.get('/notifications/failed');
+    return response.data.data ?? response.data ?? [];
+  },
+
+  getNotificationJob: async (jobId: string): Promise<NotificationJobRecord> => {
+    const response = await apiClient.get(`/notifications/jobs/${jobId}`);
+    return response.data.data ?? response.data;
+  },
+
+  retryNotificationJob: async (jobId: string): Promise<RetryResult> => {
+    const response = await apiClient.post(`/notifications/jobs/${jobId}/retry`);
     return response.data.data ?? response.data;
   },
 
@@ -122,5 +186,27 @@ export const operationsService = {
 
     const response = await apiClient.post('/api/artist-bio', formData);
     return response.data.data ?? response.data;
+  },
+
+  listAiBioJobs: async (status?: AiBioRequestResult['status']): Promise<AiBioRequestResult[]> => {
+    const response = await apiClient.get('/api/artist-bio', {
+      params: status ? { status } : undefined,
+    });
+    return response.data.data ?? response.data ?? [];
+  },
+
+  getAiBioJobStatus: async (jobId: string): Promise<AiBioRequestResult> => {
+    const response = await apiClient.get(`/api/artist-bio/${jobId}/status`);
+    return response.data.data ?? response.data;
+  },
+
+  retryAiBioJob: async (jobId: string): Promise<RetryResult> => {
+    const response = await apiClient.patch(`/api/artist-bio/${jobId}/retry`);
+    return response.data.data ?? response.data;
+  },
+
+  getPaymentHistory: async (orderId: string): Promise<PaymentHistoryRecord[]> => {
+    const response = await apiClient.get(`/payments/orders/${orderId}/history`);
+    return response.data.data ?? response.data ?? [];
   },
 };

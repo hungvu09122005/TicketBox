@@ -1,9 +1,11 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { CsvImportRepository } from './csv-import.repository';
 import { OBJECT_STORAGE_PORT } from '../../common/ports/object-storage.port';
 import { ObjectStoragePort } from '../../common/ports/object-storage.port';
+import { CsvImportJobStatus } from './entities/csv-import-job.entity';
+import { CSV_IMPORT_JOB } from './processors/csv-import.processor';
 
 @Injectable()
 export class CsvImportService {
@@ -26,7 +28,7 @@ export class CsvImportService {
     });
 
     const job = await this.repo.createJob(concertId, userId, objectKey);
-    await this.queue.add('process-csv', { jobId: job.id, fileUrl: objectKey, concertId });
+    await this.queue.add(CSV_IMPORT_JOB, { jobId: job.id, fileUrl: objectKey, concertId });
 
     return job;
   }
@@ -34,8 +36,31 @@ export class CsvImportService {
   async getJobStatus(jobId: string) {
     const job = await this.repo.findById(jobId);
     if (!job) {
-      throw new Error(`Job ${jobId} not found`);
+      throw new NotFoundException(`Job ${jobId} not found`);
     }
     return job;
+  }
+
+  async listJobs(status?: CsvImportJobStatus) {
+    return this.repo.findAll(status);
+  }
+
+  async retryJob(jobId: string) {
+    const job = await this.repo.findById(jobId);
+    if (!job) {
+      throw new NotFoundException(`Job ${jobId} not found`);
+    }
+
+    if (job.status !== CsvImportJobStatus.FAILED && job.status !== CsvImportJobStatus.PARTIALLY_COMPLETED) {
+      throw new ConflictException(`Cannot retry job in state: ${job.status}`);
+    }
+
+    await this.repo.updateStatus(job.id, CsvImportJobStatus.PENDING);
+    await this.queue.add(CSV_IMPORT_JOB, { jobId: job.id, fileUrl: job.objectKey, concertId: job.concertId });
+
+    return {
+      success: true,
+      message: `CSV job ${job.id} is being retried`,
+    };
   }
 }
