@@ -26,7 +26,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ReportingModule } from './modules/reporting/reporting.module';
 import { HealthModule } from './modules/health/health.module';
 import { StorageModule } from './modules/storage/storage.module';
-
+import { MailModule } from './mail/mail.module';
 // Middlewares
 import { RequestIdMiddleware } from './common/middlewares/request-id.middleware';
 import { BootstrapService } from '@database/bootstrap.service';
@@ -100,6 +100,7 @@ import { BootstrapService } from '@database/bootstrap.service';
     AiBioModule,
     NotificationsModule,
     ReportingModule,
+    MailModule,
   ],
 
   providers: [BootstrapService],
