@@ -13,6 +13,7 @@ import { QueueReleaseProcessor } from './processors/queue-release.processor';
 import { ConcertsModule } from '../concerts/concerts.module';
 import { TicketTypesModule } from '../ticket-types/ticket-types.module';
 import { QueueService } from './queue.service';
+import { MailModule } from '../../mail/mail.module';
 
 
 @Module({
@@ -29,6 +30,7 @@ import { QueueService } from './queue.service';
     }),
     ConcertsModule,
     TicketTypesModule,
+    MailModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService, OrdersRepository, OrderExpiryProcessor, QueueService, QueueReleaseProcessor],

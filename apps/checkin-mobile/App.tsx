@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -17,17 +18,84 @@ import {
 import * as Crypto from 'expo-crypto';
 
 const API_BASE_URL = 'http://192.168.100.60:3001/api/v1';
-const DEVICE_ID = 'TEMP_DEVICE_ID';
+const CameraView = ExpoCameraView as any;
 
 export default function App() {
   const [permission, requestPermission] = useCameraPermissions();
+
+  const [accessToken, setAccessToken] = useState('');
+  const [deviceId, setDeviceId] = useState('');
+  const [deviceName, setDeviceName] = useState('Gate A Device');
+  const [concertId, setConcertId] = useState('');
+  const [gate, setGate] = useState('A1');
+
   const [manualCode, setManualCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [scanned, setScanned] = useState(false);
   const [message, setMessage] = useState('');
-  const CameraView = ExpoCameraView as any;
+
+  const authHeaders = () => ({
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${accessToken.trim()}`,
+  });
+
+  const registerDevice = async () => {
+    if (!accessToken.trim()) {
+      setMessage('Vui lòng dán accessToken trước.');
+      return;
+    }
+
+    if (!concertId.trim()) {
+      setMessage('Vui lòng nhập concertId thật.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setMessage('');
+
+      const response = await fetch(`${API_BASE_URL}/checkin/devices/register`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          deviceName: deviceName.trim(),
+          concertId: concertId.trim(),
+          gate: gate.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.message || 'Đăng ký thiết bị thất bại.');
+      }
+
+      const newDeviceId = data?.data?.deviceId || data?.deviceId;
+
+      if (!newDeviceId) {
+        throw new Error('API không trả về deviceId.');
+      }
+
+      setDeviceId(newDeviceId);
+      setMessage('Đăng ký thiết bị thành công.');
+    } catch (error: any) {
+      setMessage(error?.message || 'Đăng ký thiết bị thất bại.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const validateQrToken = async (qrToken: string) => {
+    if (!accessToken.trim()) {
+      setMessage('Vui lòng dán accessToken trước.');
+      return;
+    }
+
+    if (!deviceId) {
+      setMessage('Vui lòng đăng ký thiết bị trước.');
+      return;
+    }
+
     if (!qrToken.trim()) {
       setMessage('Vui lòng nhập mã vé.');
       return;
@@ -39,16 +107,11 @@ export default function App() {
 
       const response = await fetch(`${API_BASE_URL}/checkin/validate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-
-          // Sau này login xong thì thay token thật vào đây
-          // Authorization: `Bearer ${accessToken}`,
-        },
+        headers: authHeaders(),
         body: JSON.stringify({
           qr_token: qrToken.trim(),
           client_event_id: Crypto.randomUUID(),
-          device_id: DEVICE_ID,
+          device_id: deviceId,
         }),
       });
 
@@ -68,7 +131,7 @@ export default function App() {
   };
 
   const handleBarcodeScanned = async (result: BarcodeScanningResult) => {
-    if (loading || scanned) return;
+    if (loading || scanned || !deviceId) return;
 
     setScanned(true);
     await validateQrToken(result.data);
@@ -77,6 +140,11 @@ export default function App() {
   const handleManualSubmit = async () => {
     await validateQrToken(manualCode);
     setManualCode('');
+  };
+
+  const resetDevice = () => {
+    setDeviceId('');
+    setMessage('Đã xóa deviceId trên app. Có thể đăng ký lại thiết bị.');
   };
 
   if (!permission) {
@@ -137,33 +205,94 @@ export default function App() {
         onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
       />
 
-      <View style={styles.panel}>
-        <Text style={styles.sectionTitle}>Nhập mã thủ công</Text>
+      <ScrollView style={styles.panel} keyboardShouldPersistTaps="handled">
+        {!deviceId && (
+          <View>
+            <Text style={styles.sectionTitle}>Đăng ký thiết bị</Text>
 
-        <TextInput
-          style={styles.input}
-          value={manualCode}
-          onChangeText={setManualCode}
-          placeholder="Dán hoặc nhập qr_token"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
+            <TextInput
+              style={styles.input}
+              value={accessToken}
+              onChangeText={setAccessToken}
+              placeholder="Dán accessToken từ Swagger"
+              autoCapitalize="none"
+              autoCorrect={false}
+              multiline
+            />
 
-        <Pressable
-          style={[
-            styles.button,
-            loading && styles.buttonDisabled,
-          ]}
-          onPress={handleManualSubmit}
-          disabled={loading}
-        >
-          <Text style={styles.buttonText}>
-            {loading ? 'Đang kiểm tra...' : 'Xác nhận check-in'}
-          </Text>
-        </Pressable>
+            <TextInput
+              style={styles.input}
+              value={deviceName}
+              onChangeText={setDeviceName}
+              placeholder="Tên thiết bị"
+            />
+
+            <TextInput
+              style={styles.input}
+              value={concertId}
+              onChangeText={setConcertId}
+              placeholder="Nhập concertId thật"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <TextInput
+              style={styles.input}
+              value={gate}
+              onChangeText={setGate}
+              placeholder="Cổng check-in"
+            />
+
+            <Pressable
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={registerDevice}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? 'Đang đăng ký...' : 'Đăng ký thiết bị'}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {!!deviceId && (
+          <>
+            <Text style={styles.deviceText}>Thiết bị: {deviceId}</Text>
+
+            <Pressable
+              style={[styles.secondaryButton, loading && styles.buttonDisabled]}
+              onPress={resetDevice}
+              disabled={loading}
+            >
+              <Text style={styles.secondaryButtonText}>Đăng ký lại thiết bị</Text>
+            </Pressable>
+
+            <Text style={styles.sectionTitle}>Nhập mã thủ công</Text>
+
+            <TextInput
+              style={styles.input}
+              value={manualCode}
+              onChangeText={setManualCode}
+              placeholder="Dán hoặc nhập qr_token"
+              autoCapitalize="none"
+              autoCorrect={false}
+              multiline
+            />
+
+            <Pressable
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleManualSubmit}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? 'Đang kiểm tra...' : 'Xác nhận check-in'}
+              </Text>
+            </Pressable>
+          </>
+        )}
 
         {!!message && <Text style={styles.message}>{message}</Text>}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -232,6 +361,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#020617',
   },
   panel: {
+    maxHeight: 330,
     padding: 16,
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
@@ -243,6 +373,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 10,
   },
+  deviceText: {
+    color: '#334155',
+    fontSize: 12,
+    marginBottom: 10,
+  },
   input: {
     borderWidth: 1,
     borderColor: '#cbd5e1',
@@ -252,12 +387,26 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     color: '#0f172a',
     backgroundColor: '#f8fafc',
+    minHeight: 48,
   },
   button: {
     backgroundColor: '#0f172a',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
+    marginBottom: 10,
+  },
+  secondaryButton: {
+    backgroundColor: '#e2e8f0',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  secondaryButtonText: {
+    color: '#0f172a',
+    fontSize: 14,
+    fontWeight: '700',
   },
   buttonDisabled: {
     opacity: 0.65,
@@ -268,7 +417,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   message: {
-    marginTop: 12,
+    marginTop: 4,
+    marginBottom: 24,
     color: '#0f172a',
     fontWeight: '700',
     textAlign: 'center',
