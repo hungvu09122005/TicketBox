@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, UseGuards, UseInterceptors, UploadedFile, Body, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Param, Query, UseGuards, UseInterceptors, UploadedFile, Body, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -7,6 +7,7 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
 import { CsvImportService } from './csv-import.service';
+import { CsvImportJobStatus } from './entities/csv-import-job.entity';
 
 @ApiTags('csv-import')
 @ApiBearerAuth()
@@ -37,5 +38,17 @@ export class CsvImportController {
   @RequirePermissions(Permission.VIP_IMPORT)
   async getStatus(@Param('jobId') jobId: string) {
     return this.csvImportService.getJobStatus(jobId);
+  }
+
+  @Get()
+  @RequirePermissions(Permission.VIP_IMPORT)
+  async listJobs(@Query('status') status?: CsvImportJobStatus) {
+    return this.csvImportService.listJobs(status);
+  }
+
+  @Post(':jobId/retry')
+  @RequirePermissions(Permission.VIP_IMPORT)
+  async retryJob(@Param('jobId') jobId: string) {
+    return this.csvImportService.retryJob(jobId);
   }
 }

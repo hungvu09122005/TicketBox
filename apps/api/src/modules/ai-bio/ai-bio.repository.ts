@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { AiBioRequest, AiBioStatus } from './entities/ai-bio-request.entity'; // Import thêm AiBioStatus
 
 @Injectable()
@@ -25,8 +25,8 @@ export class AiBioRepository {
     return this.repo.findOneBy({ id });
   }
 
-  async findAll(status?: AiBioStatus): Promise<AiBioRequest[]> {
-    const whereClause = status ? { status } : {};
+  async findAll(status?: AiBioStatus | AiBioStatus[]): Promise<AiBioRequest[]> {
+    const whereClause = status ? { status: Array.isArray(status) ? In(status) : status } : {};
     return this.repo.find({
       where: whereClause,
       order: { createdAt: 'DESC' },

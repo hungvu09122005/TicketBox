@@ -1,10 +1,13 @@
 import 'reflect-metadata';
-import 'tsconfig-paths/register';
 import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 import { join, resolve } from 'path';
 
-dotenv.config({ path: resolve(process.cwd(), '.env') });
+const projectRoot = process.cwd().endsWith('/apps/api')
+  ? process.cwd()
+  : resolve(process.cwd(), 'apps/api');
+
+dotenv.config({ path: resolve(projectRoot, '.env') });
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -14,6 +17,9 @@ export const AppDataSource = new DataSource({
   password: process.env.DATABASE_PASSWORD,
   database: process.env.DATABASE_NAME,
   synchronize: false,
-  entities: ['src/**/*.entity.ts'], // Trỏ thẳng vào file ts
-  migrations: ['src/migrations/*.ts'],
+  entities: [join(projectRoot, 'src', '**', '*.entity.{ts,js}')],
+  migrations: [
+    join(projectRoot, 'src', 'migrations', '*.{ts,js}'),
+    join(projectRoot, 'src', 'database', 'migrations', '*.{ts,js}'),
+  ],
 });

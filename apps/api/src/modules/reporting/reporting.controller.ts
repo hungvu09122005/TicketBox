@@ -26,11 +26,25 @@ export class ReportingController {
     return await this.reportingService.getRevenueSummary(isAdmin, user.sub, query.concertId, query.startDate, query.endDate);
   }
 
+  @Get('revenue/timeline')
+  @RequirePermissions(Permission.REPORT_VIEW)
+  async getRevenueTimeline(@Query() query: ReportQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    return await this.reportingService.getRevenueTimeline(isAdmin, user.sub, query.concertId, query.startDate, query.endDate);
+  }
+
   @Get('tickets-sold')
   @RequirePermissions(Permission.REPORT_VIEW)
   async getTicketsSold(@Query() query: ReportQueryDto, @CurrentUser() user: AuthenticatedUser) {
     const isAdmin = user.roles.includes('SYSTEM_ADMIN');
     return await this.reportingService.getTicketsSold(isAdmin, user.sub, query.concertId, query.startDate, query.endDate);
+  }
+
+  @Get('tickets-sold/timeline')
+  @RequirePermissions(Permission.REPORT_VIEW)
+  async getTicketsSoldTimeline(@Query() query: ReportQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    return await this.reportingService.getTicketsSoldTimeline(isAdmin, user.sub, query.concertId, query.startDate, query.endDate);
   }
 
   @Get('order-status')
@@ -46,5 +60,12 @@ export class ReportingController {
     const isAdmin = user.roles.includes('SYSTEM_ADMIN');
     // Checkin rate only uses concertId filter based on repository implementation
     return await this.reportingService.getCheckinRate(isAdmin, user.sub, query.concertId);
+  }
+
+  @Get('checkin-rate/timeline')
+  @RequirePermissions(Permission.REPORT_VIEW)
+  async getCheckinRateTimeline(@Query() query: ReportQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    return await this.reportingService.getCheckinRateTimeline(isAdmin, user.sub, query.concertId, query.startDate, query.endDate);
   }
 }

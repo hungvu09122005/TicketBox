@@ -2,6 +2,15 @@ import { apiClient } from '../api-client';
 import type { AdminProfile } from '../auth.types';
 import { Concert, Artist, SeatMapResponse, TicketType } from '../types';
 
+const isRetryableListError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object' || !('response' in error)) {
+    return true;
+  }
+
+  const status = (error as { response?: { status?: number } }).response?.status;
+  return typeof status === 'number' ? status >= 500 : true;
+};
+
 export const concertService = {
   isSystemAdmin: (profile?: Pick<AdminProfile, 'roles'> | null): boolean => {
     return profile?.roles?.includes('SYSTEM_ADMIN') ?? false;
@@ -9,9 +18,28 @@ export const concertService = {
 
   getConcerts: async (profile?: Pick<AdminProfile, 'roles'> | null): Promise<Concert[]> => {
     const isSystemAdmin = concertService.isSystemAdmin(profile);
-    const endpoint = isSystemAdmin ? '/concerts/admin' : '/concerts/organizer/me';
-    const response = await apiClient.get(endpoint);
-    return response.data.data;
+    const endpoints = isSystemAdmin
+      ? ['/concerts/admin', '/concerts/organizer/me', '/concerts']
+      : ['/concerts/organizer/me', '/concerts'];
+
+    let lastError: unknown = null;
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await apiClient.get(endpoint);
+        if (endpoint !== endpoints[0]) {
+          console.warn(`concertService.getConcerts fell back to ${endpoint} after a failure on ${endpoints[0]}`);
+        }
+        return response.data.data;
+      } catch (error) {
+        lastError = error;
+        if (!isRetryableListError(error)) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError;
   },
   
   getConcert: async (id: string): Promise<Concert> => {

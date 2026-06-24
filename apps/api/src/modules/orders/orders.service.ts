@@ -97,12 +97,12 @@ export class OrdersService {
     return savedOrder!;
   }
 
-async findOne(id: string): Promise<Order> {
-    const order = await this.orderRepo.findOne({ 
-      where: { id },
-      relations: ['user'] 
-    });
-    
+  async findOne(id: string): Promise<Order> {
+    const order = await this.orderRepo
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.user', 'user')
+      .where('order.id::text = :id', { id })
+      .getOne();
     if (!order) throw new NotFoundException('Order not found');
     return order;
   }
@@ -147,10 +147,11 @@ async findOne(id: string): Promise<Order> {
     let order: Order | null = null; // Khai báo order bên ngoài để dùng sau transaction
 
     await this.dataSource.transaction(async (manager) => {
-      order = await manager.findOne(Order, { 
-        where: { id: orderId }, 
-        relations: ['user'] // Phải load quan hệ user để lấy email
-      }) as Order | null;
+      order = await manager
+        .createQueryBuilder(Order, 'order')
+        .leftJoinAndSelect('order.user', 'user')
+        .where('order.id::text = :id', { id: orderId })
+        .getOne();
       
       if (!order) throw new NotFoundException('Order not found');
 
@@ -189,7 +190,10 @@ async findOne(id: string): Promise<Order> {
    */
   async expireOrder(orderId: string): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
-      const order = await manager.findOneBy(Order, { id: orderId });
+      const order = await manager
+        .createQueryBuilder(Order, 'order')
+        .where('order.id::text = :id', { id: orderId })
+        .getOne();
       if (order && order.status === OrderStatus.PENDING_PAYMENT) {
         order.status = OrderStatus.EXPIRED;
         await manager.save(order);
@@ -204,7 +208,10 @@ async findOne(id: string): Promise<Order> {
    */
   async markPaymentFailed(orderId: string): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
-      const order = await manager.findOneBy(Order, { id: orderId });
+      const order = await manager
+        .createQueryBuilder(Order, 'order')
+        .where('order.id::text = :id', { id: orderId })
+        .getOne();
       if (order && order.status === OrderStatus.PENDING_PAYMENT) {
         order.status = OrderStatus.PAYMENT_FAILED;
         await manager.save(order);
@@ -214,26 +221,5 @@ async findOne(id: string): Promise<Order> {
       }
     });
   }
-  async findOneWithUserByTextJoin(id: string): Promise<Order & { user: User }> {
-  const order = await this.orderRepo
-    .createQueryBuilder('order')
-    .where('order.id = :id', { id })
-    .getOne();
-
-  if (!order) {
-    throw new NotFoundException('Order not found');
-  }
-
-  const user = await this.dataSource
-    .getRepository(User)
-    .createQueryBuilder('u')
-    .where('CAST(u.id AS text) = :userId', { userId: order.userId })
-    .getOne();
-
-  if (!user) {
-    throw new NotFoundException(`User not found for order ${id}`);
-  }
-
-  return Object.assign(order, { user });
-}
+  
 }
