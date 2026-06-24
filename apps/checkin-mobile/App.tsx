@@ -1,198 +1,415 @@
-import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+﻿import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  Vibration,
-  View,
+ActivityIndicator,
+Pressable,
+SafeAreaView,
+ScrollView,
+StyleSheet,
+Text,
+TextInput,
+Vibration,
+View,
 } from 'react-native';
 import {
-  BarcodeScanningResult,
-  CameraView as ExpoCameraView,
-  useCameraPermissions,
+BarcodeScanningResult,
+CameraView as ExpoCameraView,
+useCameraPermissions,
 } from 'expo-camera';
 import * as Crypto from 'expo-crypto';
+import axios from 'axios';
+
+import {
+findLocalTicketByQrToken,
+getUnsyncedLocalLogs,
+initLocalDb,
+markLocalLogsSynced,
+saveLocalCheckinLog,
+type SyncMeta,
+} from './services/localDb';
+import {
+formatTimeToExpire,
+loadLocalSyncSummary,
+syncPreEventDataset,
+} from './services/preEventSync';
 
 const API_BASE_URL = 'http://192.168.100.60:3001/api/v1';
 const CameraView = ExpoCameraView as any;
 
+type ResultType = 'idle' | 'accepted' | 'rejected' | 'already-used';
+
+function unwrapApiResponse<T = any>(responseData: any): T {
+return responseData?.data ?? responseData;
+}
+
 export default function App() {
-  const [permission, requestPermission] = useCameraPermissions();
+const [permission, requestPermission] = useCameraPermissions();
 
-  const [accessToken, setAccessToken] = useState('');
-  const [deviceId, setDeviceId] = useState('');
-  const [deviceName, setDeviceName] = useState('Gate A Device');
-  const [concertId, setConcertId] = useState('');
-  const [gate, setGate] = useState('A1');
+const [accessToken, setAccessToken] = useState('');
+const [deviceId, setDeviceId] = useState('');
+const [deviceToken, setDeviceToken] = useState('');
+const [deviceName, setDeviceName] = useState('Gate A Device');
+const [concertId, setConcertId] = useState('');
+const [gate, setGate] = useState('A1');
 
-  const [manualCode, setManualCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [scanned, setScanned] = useState(false);
-  const [message, setMessage] = useState('');
-  const [resultType, setResultType] = useState<
-    'idle' | 'accepted' | 'rejected' | 'already-used'
-  >('idle');
+const [manualCode, setManualCode] = useState('');
+const [loading, setLoading] = useState(false);
+const [scanned, setScanned] = useState(false);
+const [message, setMessage] = useState('');
+const [resultType, setResultType] = useState<ResultType>('idle');
 
-  const authHeaders = () => ({
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${accessToken.trim()}`,
+const [syncMeta, setSyncMeta] = useState<SyncMeta | null>(null);
+const [localTicketCount, setLocalTicketCount] = useState(0);
+const [unsyncedLogCount, setUnsyncedLogCount] = useState(0);
+
+const timeToExpire = useMemo(
+() => formatTimeToExpire(syncMeta?.expiresAt),
+[syncMeta?.expiresAt],
+);
+
+const authHeaders = () => ({
+'Content-Type': 'application/json',
+Authorization: `Bearer ${accessToken.trim()}`,
+});
+
+const refreshLocalSummary = async () => {
+const summary = await loadLocalSyncSummary();
+const logs = await getUnsyncedLocalLogs();
+
+
+setSyncMeta(summary.meta ?? null);
+setLocalTicketCount(summary.ticketCount);
+setUnsyncedLogCount(logs.length);
+
+if (summary.meta) {
+  setDeviceId((current) => current || summary.meta?.deviceId || '');
+  setConcertId((current) => current || summary.meta?.eventId || '');
+  setGate((current) => current || summary.meta?.gate || 'A1');
+}
+
+
+};
+
+useEffect(() => {
+const bootstrap = async () => {
+try {
+await initLocalDb();
+await refreshLocalSummary();
+} catch (error: any) {
+setResultType('rejected');
+        setMessage(`SQLite init failed: ${error?.message ?? "Unknown error"}`);
+}
+};
+
+
+bootstrap();
+
+
+}, []);
+
+const registerDevice = async () => {
+if (loading) return;
+
+
+if (!accessToken.trim()) {
+  setResultType('rejected');
+      setMessage("Please paste a real accessToken from backend.");
+  return;
+}
+
+if (!concertId.trim()) {
+  setResultType('rejected');
+      setMessage("Please enter a real concertId.");
+  return;
+}
+
+setLoading(true);
+
+try {
+  const response = await axios.post(
+    `${API_BASE_URL}/checkin/devices/register`,
+    {
+      deviceName: deviceName.trim(),
+      concertId: concertId.trim(),
+      gate: gate.trim() || undefined,
+    },
+    {
+      headers: authHeaders(),
+    },
+  );
+
+  const data = unwrapApiResponse<any>(response.data);
+  const newDeviceId = data?.deviceId;
+  const newDeviceToken = data?.token;
+
+  if (!newDeviceId || !newDeviceToken) {
+        throw new Error("API did not return deviceId/token.");
+  }
+
+  setDeviceId(newDeviceId);
+  setDeviceToken(newDeviceToken);
+  setResultType('accepted');
+      setMessage("Device registered successfully. You can sync pre-event dataset now.");
+  Vibration.vibrate(120);
+} catch (error: any) {
+  setResultType('rejected');
+  setMessage(
+        `Register device failed: ${
+      error?.response?.data?.message ?? error?.message ?? 'Unknown error'
+    }`,
+  );
+  Vibration.vibrate([0, 300]);
+} finally {
+  setLoading(false);
+}
+
+
+};
+
+const syncPreEvent = async () => {
+if (loading) return;
+
+if (!accessToken.trim()) {
+  setResultType('rejected');
+      setMessage("Access token is required to sync dataset.");
+  return;
+}
+
+if (!deviceId || !deviceToken) {
+  setResultType('rejected');
+      setMessage("Please register device before syncing.");
+  return;
+}
+
+if (!concertId.trim()) {
+  setResultType('rejected');
+      setMessage("ConcertId is required to save local dataset.");
+  return;
+}
+
+setLoading(true);
+
+try {
+  const result = await syncPreEventDataset({
+    apiBaseUrl: API_BASE_URL,
+    accessToken,
+    deviceToken,
+    deviceId,
+    eventId: concertId.trim(),
+    gate: gate.trim() || null,
   });
 
-  const registerDevice = async () => {
-    if (loading) return;
+  await refreshLocalSummary();
 
-    if (!accessToken.trim()) {
-      setResultType('rejected');
-      setMessage('❌ Vui lòng dán accessToken trước.');
-      return;
-    }
+  setResultType('accepted');
+  setMessage(
+        `Sync completed: ${result.ticketCount} tickets. Expires: ${new Date(
+      result.expiresAt,
+    ).toLocaleString()}`,
+  );
+  Vibration.vibrate(120);
+} catch (error: any) {
+  setResultType('rejected');
+  setMessage(
+        `Sync failed: ${
+      error?.response?.data?.message ?? error?.message ?? 'Unknown error'
+    }`,
+  );
+  Vibration.vibrate([0, 300]);
+} finally {
+  setLoading(false);
+}
 
-    if (!concertId.trim()) {
-      setResultType('rejected');
-      setMessage('❌ Vui lòng nhập concertId thật.');
-      return;
-    }
 
-    try {
-      setLoading(true);
-      setResultType('idle');
-      setMessage('');
+};
 
-      const response = await fetch(`${API_BASE_URL}/checkin/devices/register`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({
-          deviceName: deviceName.trim(),
-          concertId: concertId.trim(),
-          gate: gate.trim(),
-        }),
-      });
+const validateQrToken = async (qrToken: string) => {
+if (loading) return;
 
-      const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data?.message || 'Đăng ký thiết bị thất bại.');
-      }
+const cleanToken = qrToken.trim();
 
-      const newDeviceId = data?.data?.deviceId || data?.deviceId;
+if (!cleanToken) {
+  setResultType('rejected');
+      setMessage("QR token is empty.");
+  return;
+}
 
-      if (!newDeviceId) {
-        throw new Error('API không trả về deviceId.');
-      }
+if (!deviceId) {
+  setResultType('rejected');
+      setMessage("Device is not registered or not loaded from SQLite.");
+  return;
+}
 
-      setDeviceId(newDeviceId);
+setLoading(true);
+
+try {
+  const localTicket = await findLocalTicketByQrToken(cleanToken);
+
+  if (localTicket) {
+    const localResult: 'ACCEPTED' | 'REJECTED' =
+      localTicket.status === 'ACTIVE' ? 'ACCEPTED' : 'REJECTED';
+
+    await saveLocalCheckinLog({
+      ticketId: localTicket.ticketId,
+      eventId: localTicket.eventId,
+      deviceId,
+      gate,
+      qrToken: cleanToken,
+      result: localResult,
+      reason:
+        localResult === 'ACCEPTED'
+          ? null
+          : `Local status: ${localTicket.status}`,
+    });
+
+    await refreshLocalSummary();
+
+    if (localResult === 'ACCEPTED') {
       setResultType('accepted');
-      setMessage('✅ Đăng ký thiết bị thành công.');
+      setMessage(`Offline accepted. Ticket: ${localTicket.ticketId}`);
       Vibration.vibrate(120);
-    } catch (error: any) {
+    } else {
       setResultType('rejected');
-      setMessage(`❌ ${error?.message || 'Đăng ký thiết bị thất bại.'}`);
+      setMessage(`Offline rejected. Status: ${localTicket.status}`);
       Vibration.vibrate([0, 300]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const validateQrToken = async (qrToken: string) => {
-    if (loading) return;
-
-    if (!accessToken.trim()) {
-      setResultType('rejected');
-      setMessage('❌ Vui lòng dán accessToken trước.');
-      return;
     }
 
-    if (!deviceId) {
-      setResultType('rejected');
-      setMessage('❌ Vui lòng đăng ký thiết bị trước.');
-      return;
-    }
+    return;
+  }
 
-    if (!qrToken.trim()) {
-      setResultType('rejected');
-      setMessage('❌ Vui lòng nhập mã vé.');
-      return;
-    }
+  if (!accessToken.trim()) {
+    await saveLocalCheckinLog({
+      eventId: concertId || syncMeta?.eventId || 'unknown',
+      deviceId,
+      gate,
+      qrToken: cleanToken,
+      result: 'REJECTED',
+      reason: 'Ticket not found in local dataset',
+    });
 
-    try {
-      setLoading(true);
-      setResultType('idle');
-      setMessage('');
+    await refreshLocalSummary();
 
-      const response = await fetch(`${API_BASE_URL}/checkin/validate`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({
-          qr_token: qrToken.trim(),
-          client_event_id: Crypto.randomUUID(),
-          device_id: deviceId,
-        }),
-      });
+    setResultType('rejected');
+        setMessage("Ticket not found in local SQLite dataset and no access token for online validation.");
+    Vibration.vibrate([0, 300]);
+    return;
+  }
 
-      const data = await response.json();
+  const response = await axios.post(
+    `${API_BASE_URL}/checkin/validate`,
+    {
+      qr_token: cleanToken,
+      client_event_id: Crypto.randomUUID(),
+      device_id: deviceId,
+    },
+    {
+      headers: authHeaders(),
+    },
+  );
 
-      if (!response.ok) {
-        throw new Error(data?.message || 'Check-in thất bại.');
-      }
+  const data = unwrapApiResponse<any>(response.data);
 
-      const status = data?.data?.status;
+  setResultType('accepted');
+  setMessage(`Online accepted. Log: ${data?.id ?? 'OK'}`);
+  Vibration.vibrate(120);
+} catch (error: any) {
+  const msg = error?.response?.data?.message ?? error?.message ?? 'Unknown error';
+  const lowerMsg = String(msg).toLowerCase();
 
-      if (status === 'ACCEPTED') {
-        setResultType('accepted');
-        setMessage('✅ Check-in thành công.');
-        Vibration.vibrate(120);
-      } else {
-        setResultType('rejected');
-        setMessage(`❌ Check-in bị từ chối: ${status || 'Không rõ lý do'}`);
-        Vibration.vibrate([0, 300]);
-      }
-    } catch (error: any) {
-      const msg = error?.message || 'Check-in thất bại.';
-      const lowerMsg = msg.toLowerCase();
+  if (
+    lowerMsg.includes('used') ||
+    lowerMsg.includes('already') ||
+      lowerMsg.includes("already used") ||
+      lowerMsg.includes("used ticket") ||
+      lowerMsg.includes("ticket already")
+  ) {
+    setResultType('already-used');
+      setMessage(`Ticket has already been used. ${msg}`);
+    Vibration.vibrate([0, 120, 80, 120]);
+  } else {
+    setResultType('rejected');
+      setMessage(`Check-in failed: ${msg}`);
+    Vibration.vibrate([0, 300]);
+  }
+} finally {
+  setLoading(false);
+  setScanned(false);
+}
 
-      if (
-        lowerMsg.includes('used') ||
-        lowerMsg.includes('already') ||
-        lowerMsg.includes('đã được sử dụng')||
-        lowerMsg.includes('đã sử dụng') ||
-        lowerMsg.includes('vé đã')
-      ) {
-        setResultType('already-used');
-        setMessage(`⚠️ Vé đã được sử dụng. ${msg}`);
-        Vibration.vibrate([0, 120, 80, 120]);
-      } else {
-        setResultType('rejected');
-        setMessage(`❌ ${msg}`);
-        Vibration.vibrate([0, 300]);
-      }
-    } finally {
-      setLoading(false);
-      setTimeout(() => setScanned(false), 1200);
-    }
-  };
 
-  const handleBarcodeScanned = async (result: BarcodeScanningResult) => {
-    if (loading || scanned || !deviceId) return;
+};
 
-    setScanned(true);
-    await validateQrToken(result.data);
-  };
+const syncOfflineLogs = async () => {
+if (loading) return;
 
-  const handleManualSubmit = async () => {
-    await validateQrToken(manualCode);
-    setManualCode('');
-  };
 
-  const resetDevice = () => {
-    setDeviceId('');
-    setResultType('idle');
-    setMessage('Đã xóa deviceId trên app. Có thể đăng ký lại thiết bị.');
-  };
+if (!accessToken.trim()) {
+  setResultType('rejected');
+      setMessage("Access token is required to push offline logs to backend.");
+  return;
+}
+
+const logs = await getUnsyncedLocalLogs();
+
+if (logs.length === 0) {
+  setResultType('accepted');
+      setMessage("No offline logs need syncing.");
+  return;
+}
+
+setLoading(true);
+
+try {
+  const payload = logs.map((log) => ({
+    ticket_id: log.ticketId || undefined,
+    qr_token: log.qrToken || undefined,
+    client_event_id: log.clientEventId,
+    scanned_at: log.checkedInAt,
+    device_id: log.deviceId,
+  }));
+
+  await axios.post(`${API_BASE_URL}/checkin/sync`, payload, {
+    headers: authHeaders(),
+  });
+
+  await markLocalLogsSynced(logs.map((log) => log.clientEventId));
+  await refreshLocalSummary();
+
+  setResultType('accepted');
+      setMessage(`Synced ${logs.length} offline logs to backend.`);
+  Vibration.vibrate(120);
+} catch (error: any) {
+  setResultType('rejected');
+  setMessage(
+        `Sync offline logs failed: ${
+      error?.response?.data?.message ?? error?.message ?? 'Unknown error'
+    }`,
+  );
+  Vibration.vibrate([0, 300]);
+} finally {
+  setLoading(false);
+}
+
+
+};
+
+const handleBarcodeScanned = (result: BarcodeScanningResult) => {
+setScanned(true);
+validateQrToken(result.data);
+};
+
+const handleManualSubmit = () => {
+validateQrToken(manualCode);
+setManualCode('');
+};
+
+const resetDevice = () => {
+setDeviceId('');
+setDeviceToken('');
+    setMessage("Device id was cleared. You can register this device again.");
+setResultType('idle');
+};
 
   if (!permission) {
     return (
@@ -200,7 +417,7 @@ export default function App() {
         <StatusBar style="dark" />
         <View style={styles.center}>
           <ActivityIndicator />
-          <Text>Đang kiểm tra camera...</Text>
+          <Text>Checking camera permission...</Text>
         </View>
       </SafeAreaView>
     );
@@ -211,18 +428,13 @@ export default function App() {
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="dark" />
         <View style={styles.center}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>TicketBox</Text>
-          </View>
-
-          <Text style={styles.title}>Check-in Mobile</Text>
-
-          <Text style={styles.subtitle}>
-            Ứng dụng cần quyền camera để quét QR vé tại cổng.
+          <Text style={styles.permissionTitle}>Camera permission required</Text>
+          <Text style={styles.permissionText}>
+            This app needs camera access to scan ticket QR codes.
           </Text>
 
           <Pressable style={styles.button} onPress={requestPermission}>
-            <Text style={styles.buttonText}>Cấp quyền camera</Text>
+            <Text style={styles.buttonText}>Grant camera permission</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -240,7 +452,7 @@ export default function App() {
 
         <Text style={styles.headerTitle}>Check-in Mobile</Text>
         <Text style={styles.headerSubtitle}>
-          Quét QR thật hoặc nhập mã thủ công.
+          Pre-event sync, online/offline QR scan, and local logs.
         </Text>
       </View>
 
@@ -251,103 +463,149 @@ export default function App() {
       />
 
       <ScrollView style={styles.panel} keyboardShouldPersistTaps="handled">
-        {!deviceId && (
-          <View>
-            <Text style={styles.sectionTitle}>Đăng ký thiết bị</Text>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Backend connection</Text>
 
-            <TextInput
-              style={styles.input}
-              value={accessToken}
-              onChangeText={setAccessToken}
-              placeholder="Dán accessToken từ Swagger"
-              autoCapitalize="none"
-              autoCorrect={false}
-              multiline
-            />
+          <TextInput
+            style={styles.input}
+            value={accessToken}
+            onChangeText={setAccessToken}
+            placeholder="Paste accessToken from Swagger"
+            autoCapitalize="none"
+            autoCorrect={false}
+            multiline
+          />
 
-            <TextInput
-              style={styles.input}
-              value={deviceName}
-              onChangeText={setDeviceName}
-              placeholder="Tên thiết bị"
-            />
+          <TextInput
+            style={styles.input}
+            value={deviceName}
+            onChangeText={setDeviceName}
+            placeholder="Device name"
+          />
 
-            <TextInput
-              style={styles.input}
-              value={concertId}
-              onChangeText={setConcertId}
-              placeholder="Nhập concertId thật"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+          <TextInput
+            style={styles.input}
+            value={concertId}
+            onChangeText={setConcertId}
+            placeholder="Real concertId"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
 
-            <TextInput
-              style={styles.input}
-              value={gate}
-              onChangeText={setGate}
-              placeholder="Cổng check-in"
-            />
+          <TextInput
+            style={styles.input}
+            value={gate}
+            onChangeText={setGate}
+            placeholder="Gate"
+          />
 
+          {!deviceId ? (
             <Pressable
               style={[styles.button, loading && styles.buttonDisabled]}
               onPress={registerDevice}
               disabled={loading}
             >
               <Text style={styles.buttonText}>
-                {loading ? 'Đang đăng ký...' : 'Đăng ký thiết bị'}
+                {loading ? 'Registering...' : 'Register device'}
               </Text>
             </Pressable>
-          </View>
-        )}
-
-        {!!deviceId && (
-          <>
-            <Text style={styles.deviceText}>Thiết bị: {deviceId}</Text>
-            <Text style={styles.deviceText}>Concert: {concertId}</Text>
-
-            <Pressable
-              style={[styles.secondaryButton, loading && styles.buttonDisabled]}
-              onPress={resetDevice}
-              disabled={loading}
-            >
-              <Text style={styles.secondaryButtonText}>Đăng ký lại thiết bị</Text>
-            </Pressable>
-
-            <Text style={styles.sectionTitle}>Nhập mã thủ công</Text>
-
-            <TextInput
-              style={styles.input}
-              value={manualCode}
-              onChangeText={setManualCode}
-              placeholder="Dán hoặc nhập qr_token"
-              autoCapitalize="none"
-              autoCorrect={false}
-              multiline
-            />
-
-            <Pressable
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleManualSubmit}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>
-                {loading ? 'Đang kiểm tra...' : 'Xác nhận check-in'}
+          ) : (
+            <>
+              <Text style={styles.deviceText}>Device: {deviceId}</Text>
+              <Text style={styles.deviceText}>
+                Concert: {concertId || syncMeta?.eventId || 'N/A'}
               </Text>
-            </Pressable>
-          </>
-        )}
+
+              <Pressable
+                style={[styles.secondaryButton, loading && styles.buttonDisabled]}
+                onPress={resetDevice}
+                disabled={loading}
+              >
+                <Text style={styles.secondaryButtonText}>Register another device</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Pre-event SQLite sync</Text>
+
+          <Text style={styles.metaText}>
+            Last sync:{' '}
+            {syncMeta?.lastSyncAt
+              ? new Date(syncMeta.lastSyncAt).toLocaleString()
+              : 'Not synced yet'}
+          </Text>
+
+          <Text style={styles.metaText}>
+            Expires:{' '}
+            {syncMeta?.expiresAt
+              ? new Date(syncMeta.expiresAt).toLocaleString()
+              : 'N/A'}
+          </Text>
+
+          <Text style={styles.metaText}>Time-to-expire: {timeToExpire}</Text>
+          <Text style={styles.metaText}>Local tickets: {localTicketCount}</Text>
+          <Text style={styles.metaText}>Unsynced logs: {unsyncedLogCount}</Text>
+
+          <Pressable
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={syncPreEvent}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? 'Syncing...' : 'Sync pre-event dataset'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.secondaryButton, loading && styles.buttonDisabled]}
+            onPress={syncOfflineLogs}
+            disabled={loading}
+          >
+            <Text style={styles.secondaryButtonText}>Push offline logs to backend</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Manual check-in</Text>
+
+          <TextInput
+            style={styles.input}
+            value={manualCode}
+            onChangeText={setManualCode}
+            placeholder="Paste or type qr_token"
+            autoCapitalize="none"
+            autoCorrect={false}
+            multiline
+          />
+
+          <Pressable
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleManualSubmit}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? 'Checking...' : 'Check-in manually'}
+            </Text>
+          </Pressable>
+
+          <Pressable style={styles.secondaryButton} onPress={() => setScanned(false)}>
+            <Text style={styles.secondaryButtonText}>Allow QR scan again</Text>
+          </Pressable>
+        </View>
 
         {!!message && (
-          <Text
+          <View
             style={[
-              styles.message,
-              resultType === 'accepted' && styles.successMessage,
-              resultType === 'rejected' && styles.errorMessage,
-              resultType === 'already-used' && styles.warningMessage,
+              styles.resultBox,
+              resultType === 'accepted' && styles.acceptedBox,
+              resultType === 'rejected' && styles.rejectedBox,
+              resultType === 'already-used' && styles.alreadyUsedBox,
             ]}
           >
-            {message}
-          </Text>
+            <Text style={styles.resultText}>{message}</Text>
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -357,136 +615,144 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#07111f',
   },
   center: {
     flex: 1,
+    padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
     backgroundColor: '#f8fafc',
-    gap: 12,
+  },
+  permissionTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: 8,
+    color: '#0f172a',
+  },
+  permissionText: {
+    fontSize: 15,
+    textAlign: 'center',
+    color: '#475569',
+    marginBottom: 18,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 14,
-    backgroundColor: '#0f172a',
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 12,
+    backgroundColor: '#07111f',
   },
   badge: {
     alignSelf: 'flex-start',
-    marginBottom: 10,
+    backgroundColor: '#0ea5e9',
     borderRadius: 999,
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 8,
   },
   badgeText: {
-    color: '#f8fafc',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
-  title: {
-    color: '#0f172a',
-    fontSize: 34,
+    color: 'white',
     fontWeight: '800',
-    letterSpacing: -0.8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    marginTop: 12,
-    color: '#475569',
-    fontSize: 16,
-    lineHeight: 24,
-    textAlign: 'center',
-    maxWidth: 320,
   },
   headerTitle: {
-    color: '#f8fafc',
+    color: 'white',
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   headerSubtitle: {
-    marginTop: 4,
     color: '#cbd5e1',
-    fontSize: 14,
+    marginTop: 4,
   },
   camera: {
-    flex: 1,
-    backgroundColor: '#020617',
+    height: 220,
+    marginHorizontal: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#111827',
   },
   panel: {
-    maxHeight: 330,
+    flex: 1,
     padding: 16,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+  },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   sectionTitle: {
+    fontSize: 17,
+    fontWeight: '800',
     color: '#0f172a',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 10,
-  },
-  deviceText: {
-    color: '#334155',
-    fontSize: 12,
     marginBottom: 10,
   },
   input: {
+    minHeight: 44,
     borderWidth: 1,
     borderColor: '#cbd5e1',
     borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 12,
-    color: '#0f172a',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
     backgroundColor: '#f8fafc',
-    minHeight: 48,
+    color: '#0f172a',
   },
   button: {
-    backgroundColor: '#0f172a',
-    paddingVertical: 14,
+    backgroundColor: '#0ea5e9',
     borderRadius: 12,
+    paddingVertical: 13,
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  secondaryButton: {
-    backgroundColor: '#e2e8f0',
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  secondaryButtonText: {
-    color: '#0f172a',
-    fontSize: 14,
-    fontWeight: '700',
+    marginTop: 4,
   },
   buttonDisabled: {
-    opacity: 0.65,
+    opacity: 0.6,
   },
   buttonText: {
-    color: '#f8fafc',
-    fontSize: 15,
-    fontWeight: '700',
+    color: 'white',
+    fontWeight: '800',
   },
-  message: {
-    marginTop: 4,
-    marginBottom: 24,
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: '#0ea5e9',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+    backgroundColor: 'white',
+  },
+  secondaryButtonText: {
+    color: '#0284c7',
+    fontWeight: '800',
+  },
+  deviceText: {
+    color: '#334155',
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  metaText: {
+    color: '#334155',
+    marginBottom: 5,
+  },
+  resultBox: {
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 28,
+    backgroundColor: '#e2e8f0',
+  },
+  resultText: {
+    fontWeight: '800',
     color: '#0f172a',
-    fontWeight: '700',
-    textAlign: 'center',
   },
-  successMessage: {
-    color: '#16a34a',
+  acceptedBox: {
+    backgroundColor: '#bbf7d0',
   },
-  errorMessage: {
-    color: '#dc2626',
+  rejectedBox: {
+    backgroundColor: '#fecaca',
   },
-  warningMessage: {
-    color: '#d97706',
+  alreadyUsedBox: {
+    backgroundColor: '#fde68a',
   },
 });
