@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowSquareOut, FileMagnifyingGlass, SpinnerGap } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowSquareOut, DownloadSimple, FileMagnifyingGlass, SpinnerGap } from '@phosphor-icons/react';
 import { operationsService, type CsvImportJobStatus } from '@/lib/services/operations.service';
 
 function formatDateTime(value?: string) {
@@ -47,6 +47,7 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [resolvedJobId, setResolvedJobId] = useState<string | null>(null);
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -77,6 +78,32 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
     };
   }, [params]);
 
+  const handleDownloadErrorReport = async () => {
+    if (!resolvedJobId) {
+      return;
+    }
+
+    setIsDownloadingReport(true);
+
+    try {
+      const report = await operationsService.downloadCsvErrorReport(resolvedJobId);
+      const csv = report.csv ?? 'rowNumber,status,errorReason\n';
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = report.filename ?? `csv-error-report-${resolvedJobId}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải error report.');
+    } finally {
+      setIsDownloadingReport(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="rounded-[32px] border border-border bg-surface p-6 shadow-sm">
@@ -97,6 +124,15 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
             <ArrowSquareOut size={16} />
             Open queue board
           </a>
+          <button
+            type="button"
+            onClick={() => void handleDownloadErrorReport()}
+            disabled={!resolvedJobId || isDownloadingReport}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm font-medium text-primary disabled:opacity-60"
+          >
+            {isDownloadingReport ? <SpinnerGap size={16} className="animate-spin" /> : <DownloadSimple size={16} />}
+            Download error report
+          </button>
         </div>
       </div>
 
@@ -204,6 +240,36 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
               <p>GET /imports/:jobId/status</p>
               <p className="mt-1">POST /imports/csv</p>
               <p className="mt-1">Bull Board /admin/queues</p>
+            </div>
+          </div>
+
+          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-primary">CSV template guide</h2>
+            <p className="mt-2 text-sm leading-6 text-muted">
+              The upload form chooses the concert separately. Use these row columns in the CSV file so the backend can validate each guest row.
+            </p>
+            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-surface/80 text-muted">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Column</th>
+                    <th className="px-4 py-3 font-medium">Purpose</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {[
+                    ['email', 'Guest email, used for deduplication'],
+                    ['name', 'Guest name to store in VIP guest list'],
+                    ['phone', 'Optional phone number'],
+                    ['ticketTypeId', 'Ticket type assigned to that row'],
+                  ].map(([column, purpose]) => (
+                    <tr key={column}>
+                      <td className="px-4 py-3 font-medium text-primary">{column}</td>
+                      <td className="px-4 py-3 text-muted">{purpose}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 

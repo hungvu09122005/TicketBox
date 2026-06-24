@@ -66,6 +66,13 @@ export interface CsvImportJobStatus {
   [key: string]: unknown;
 }
 
+export interface CsvErrorReportResponse {
+  jobId?: string;
+  filename?: string;
+  rowCount?: number;
+  csv?: string;
+}
+
 export interface NotificationProbePayload {
   email: string;
   ticketId: string;
@@ -209,6 +216,11 @@ export const operationsService = {
 
   retryCsvImportJob: async (jobId: string): Promise<RetryResult> => {
     const response = await apiClient.post(`/imports/${jobId}/retry`);
+    return response.data.data ?? response.data;
+  },
+
+  downloadCsvErrorReport: async (jobId: string): Promise<CsvErrorReportResponse> => {
+    const response = await apiClient.get(`/imports/${jobId}/error-report`);
     return response.data.data ?? response.data;
   },
 

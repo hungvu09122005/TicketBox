@@ -602,6 +602,22 @@ export default function OperationsPage() {
         </div>
       </SectionCard>
 
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {[
+          ['Create artist', 'Start a real artist record, upload avatar, and prepare bio content.', '/artists/create'],
+          ['Create concert', 'Use the real concert form to draft a new event.', '/concerts/create'],
+          ['Ticketing setup', 'Add ticket types and upload SVG zones from the ticketing page.', '/concerts'],
+          ['Test accounts', 'Manage demo accounts and roles from RBAC.', '/rbac'],
+        ].map(([title, description, href]) => (
+          <div key={String(title)} className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+            <Link href={String(href)} className="text-base font-semibold text-primary hover:underline underline-offset-4">
+              {title}
+            </Link>
+            <p className="mt-2 text-sm leading-6 text-muted">{description}</p>
+          </div>
+        ))}
+      </section>
+
       <SectionCard
         title="Order and payment management"
         description="Front-end reads a real order by ID, then shows status, expiry, and the exact backend contract behind the record."

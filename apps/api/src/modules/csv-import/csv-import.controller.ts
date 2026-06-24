@@ -51,4 +51,10 @@ export class CsvImportController {
   async retryJob(@Param('jobId') jobId: string) {
     return this.csvImportService.retryJob(jobId);
   }
+
+  @Get(':jobId/error-report')
+  @RequirePermissions(Permission.VIP_IMPORT)
+  async getErrorReport(@Param('jobId') jobId: string) {
+    return this.csvImportService.getErrorReport(jobId);
+  }
 }

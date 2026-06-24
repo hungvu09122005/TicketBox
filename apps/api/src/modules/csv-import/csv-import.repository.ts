@@ -36,4 +36,11 @@ export class CsvImportRepository {
   async updateStatus(jobId: string, status: CsvImportJobStatus): Promise<void> {
     await this.jobRepo.update(jobId, { status });
   }
+
+  async findRowsByJobId(jobId: string): Promise<CsvImportRow[]> {
+    return this.rowRepo.find({
+      where: { jobId },
+      order: { rowNumber: 'ASC' },
+    });
+  }
 }

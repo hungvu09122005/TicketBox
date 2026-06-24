@@ -481,6 +481,7 @@ export default function JobsPage() {
                   <th className="px-4 py-3 font-medium">Job</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Artist</th>
+                  <th className="px-4 py-3 font-medium">Draft</th>
                   <th className="px-4 py-3 font-medium">Created</th>
                   <th className="px-4 py-3 font-medium">Action</th>
                 </tr>
@@ -488,7 +489,7 @@ export default function JobsPage() {
               <tbody className="divide-y divide-border">
                 {pageLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-muted">
+                    <td colSpan={6} className="px-4 py-8 text-center text-muted">
                       <div className="inline-flex items-center gap-2">
                         <SpinnerGap size={16} className="animate-spin" />
                         Loading jobs...
@@ -497,7 +498,7 @@ export default function JobsPage() {
                   </tr>
                 ) : filteredAiJobs.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-muted">
+                    <td colSpan={6} className="px-4 py-8 text-center text-muted">
                       No AI jobs found for the selected status.
                     </td>
                   </tr>
@@ -514,21 +515,38 @@ export default function JobsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-muted">{job.artistId ?? '--'}</td>
+                        <td className="px-4 py-3 text-muted">
+                          <div className="max-w-[360px] whitespace-normal leading-6">
+                            {job.draftContent?.trim()
+                              ? job.draftContent.slice(0, 140)
+                              : 'No draft content returned yet.'}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-muted">{formatDateTime(job.createdAt)}</td>
                         <td className="px-4 py-3">
-                          {retryable && canRetryAi ? (
-                            <button
-                              type="button"
-                              onClick={() => handleRetry('ai', String(job.id))}
-                              disabled={retrying === `ai:${String(job.id)}`}
-                              className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary disabled:opacity-60"
-                            >
-                              {retrying === `ai:${String(job.id)}` ? <SpinnerGap size={14} className="animate-spin" /> : <ArrowClockwise size={14} />}
-                              Retry
-                            </button>
-                          ) : (
-                            <span className="text-xs text-muted">{canRetryAi ? 'No action' : 'Retry locked'}</span>
-                          )}
+                          <div className="flex flex-wrap gap-2">
+                            {job.artistId ? (
+                              <Link
+                                href={`/artists/${job.artistId}/edit`}
+                                className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary"
+                              >
+                                Review & publish
+                              </Link>
+                            ) : null}
+                            {retryable && canRetryAi ? (
+                              <button
+                                type="button"
+                                onClick={() => handleRetry('ai', String(job.id))}
+                                disabled={retrying === `ai:${String(job.id)}`}
+                                className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary disabled:opacity-60"
+                              >
+                                {retrying === `ai:${String(job.id)}` ? <SpinnerGap size={14} className="animate-spin" /> : <ArrowClockwise size={14} />}
+                                Retry
+                              </button>
+                            ) : (
+                              <span className="text-xs text-muted">{canRetryAi ? 'No action' : 'Retry locked'}</span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

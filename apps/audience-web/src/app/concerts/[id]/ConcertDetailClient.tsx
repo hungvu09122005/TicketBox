@@ -422,6 +422,16 @@ export default function ConcertDetailClient({ id }: Readonly<{ id: string }>) {
   const extractPaymentUrl = (result: Awaited<ReturnType<typeof concertService.initiatePayment>>) =>
     result.paymentUrl ?? result.redirectUrl ?? result.url ?? null;
 
+  const buildWaitingRoomHref = (queueToken: string) => {
+    const params = new URLSearchParams({
+      ticketTypeId: selectedTicketType?.id ?? '',
+      quantity: String(quantity),
+      queueToken,
+    });
+
+    return `/concerts/${concert?.id ?? id}/waiting-room?${params.toString()}`;
+  };
+
   const handleCreateOrder = async () => {
     if (!selectedTicketType || !concert || quantity < 1 || checkoutLockRef.current) {
       return;
@@ -443,21 +453,45 @@ export default function ConcertDetailClient({ id }: Readonly<{ id: string }>) {
 
     try {
       const response = await concertService.createOrder(payload, checkoutIdempotencyKey);
-      const paymentResult = await concertService.initiatePayment(response.id, checkoutIdempotencyKey);
-      const paymentUrl = extractPaymentUrl(paymentResult);
+      if ('id' in response) {
+        const paymentResult = await concertService.initiatePayment(response.id, checkoutIdempotencyKey);
+        const paymentUrl = extractPaymentUrl(paymentResult);
 
-      setSubmitSuccess(`Đã tạo đơn giữ vé ${response.id}. Đang chuyển sang cổng thanh toán thật.`);
-      await loadConcert();
+        setSubmitSuccess(`Đã tạo đơn giữ vé ${response.id}. Đang chuyển sang cổng thanh toán thật.`);
+        await loadConcert();
 
-      if (paymentUrl) {
-        window.location.assign(paymentUrl);
+        if (paymentUrl) {
+          window.location.assign(paymentUrl);
+          return;
+        }
+
+        setPaymentReviewHref(`/payments/return?orderId=${encodeURIComponent(response.id)}&status=pending`);
+        setSubmitSuccess(
+          `Đã tạo order ${response.id}. Backend chưa trả payment URL, bạn có thể kiểm tra lại trạng thái trên trang return.`,
+        );
         return;
       }
 
-      setPaymentReviewHref(`/payments/return?orderId=${encodeURIComponent(response.id)}&status=pending`);
-      setSubmitSuccess(
-        `Đã tạo order ${response.id}. Backend chưa trả payment URL, bạn có thể kiểm tra lại trạng thái trên trang return.`,
-      );
+      if (response.status === 'QUEUED') {
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem(
+            `ticketbox:waiting-room:${concert.id}`,
+            JSON.stringify({
+              concertId: concert.id,
+              ticketTypeId: selectedTicketType.id,
+              quantity,
+              queueToken: response.queueToken ?? '',
+              idempotencyKey: checkoutIdempotencyKey,
+            }),
+          );
+        }
+
+        setSubmitSuccess(
+          response.message ??
+            'Đơn của bạn đang ở hàng đợi. Bạn sẽ được chuyển sang waiting room để tự động tạo order khi đến lượt.',
+        );
+        router.push(buildWaitingRoomHref(response.queueToken ?? ''));
+      }
     } catch (error) {
       setSubmitError(extractApiMessages(error, "Không thể giữ vé hoặc khởi tạo thanh toán lúc này."));
     } finally {

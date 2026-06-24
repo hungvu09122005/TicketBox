@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Eye, MusicNotes, Notebook, PencilSimple, SpinnerGap, UserCircle } from '@phosphor-icons/react';
+import { ArrowRight, Eye, MusicNotes, Notebook, PencilSimple, Plus, SpinnerGap, UserCircle } from '@phosphor-icons/react';
 import { artistService } from '@/lib/services/artist.service';
 import { Artist } from '@/lib/types';
 import { hasStoredAdminSession } from '@/lib/auth-store';
@@ -148,6 +148,13 @@ export default function ArtistsPage() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
+            <Link
+              href="/artists/create"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-primary px-4 py-3 text-sm font-medium text-surface"
+            >
+              <Plus size={16} />
+              Create artist
+            </Link>
             <div className="rounded-2xl border border-border bg-background px-4 py-3">
               <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Artists</p>
               <p className="mt-1 text-lg font-semibold text-primary">{artists.length}</p>
