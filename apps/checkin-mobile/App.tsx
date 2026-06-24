@@ -158,7 +158,9 @@ export default function App() {
       if (
         lowerMsg.includes('used') ||
         lowerMsg.includes('already') ||
-        lowerMsg.includes('đã được sử dụng')
+        lowerMsg.includes('đã được sử dụng')||
+        lowerMsg.includes('đã sử dụng') ||
+        lowerMsg.includes('vé đã')
       ) {
         setResultType('already-used');
         setMessage(`⚠️ Vé đã được sử dụng. ${msg}`);
