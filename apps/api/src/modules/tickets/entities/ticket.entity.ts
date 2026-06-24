@@ -50,4 +50,12 @@ export class Ticket {
   @ManyToOne(() => TicketType)
   @JoinColumn({ name: 'ticket_type_id' })
   ticketType!: TicketType;
+
+  @Column({
+  name: 'manual_code',
+  unique: true,
+  length: 12,
+  })
+  @Index()
+  manualCode!: string;
 }
