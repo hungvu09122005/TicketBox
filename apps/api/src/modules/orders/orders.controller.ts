@@ -94,7 +94,7 @@ export class OrdersController {
   @RequirePermissions(Permission.ORDER_READ_OWN)
   async findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     const isAdmin = user.roles.includes('SYSTEM_ADMIN');
-    const order = await this.ordersService.findOneWithUserByTextJoin(id);
+    const order = await this.ordersService.findOne(id);
     if (!isAdmin && order.userId !== user.sub) {
       throw new ForbiddenException();
     }
@@ -104,7 +104,7 @@ export class OrdersController {
   @Post('test-mail/:id')
   @RequirePermissions(Permission.ORDER_READ_ALL) // Chỉ Admin/Organizer mới được quyền test mail này
   async testSendMail(@Param('id') id: string) {
-    const order = await this.ordersService.findOneWithUserByTextJoin(id);
+    const order = await this.ordersService.findOne(id);
 
     // Lấy thông tin user để gửi mail
     // Bạn cần đảm bảo đã load relation user trong findById ở Service
