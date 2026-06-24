@@ -177,4 +177,27 @@ export class PaymentsService {
     const payments = await this.paymentsRepository.findAllByOrderId(orderId);
     return payments;
   }
+
+  async getPaymentAudit(orderId: string, userId: string, isAdmin: boolean) {
+    const order = await this.ordersService.findOne(orderId);
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    if (!isAdmin && order.userId !== userId) {
+      throw new ForbiddenException('Cannot view payment audit for this order');
+    }
+
+    const payments = await this.paymentsRepository.findAllByOrderId(orderId);
+    return payments.map((payment) => ({
+      id: payment.id,
+      orderId: payment.orderId,
+      provider: payment.provider,
+      providerTransactionId: payment.providerTxId ?? null,
+      status: payment.status,
+      amount: payment.amount,
+      createdAt: payment.createdAt,
+      updatedAt: payment.updatedAt,
+      rawCallback: payment.rawCallback ?? null,
+    }));
+  }
 }

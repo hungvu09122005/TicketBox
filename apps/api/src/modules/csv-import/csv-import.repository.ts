@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { CsvImportJob } from './entities/csv-import-job.entity';
 import { CsvImportRow } from './entities/csv-import-row.entity';
 import { VipGuest } from './entities/vip-guest.entity';
+import { CsvImportJobStatus } from './entities/csv-import-job.entity';
 
 @Injectable()
 export class CsvImportRepository {
@@ -23,5 +24,16 @@ export class CsvImportRepository {
 
   async findById(jobId: string): Promise<CsvImportJob | null> {
     return this.jobRepo.findOneBy({ id: jobId });
+  }
+
+  async findAll(status?: CsvImportJobStatus): Promise<CsvImportJob[]> {
+    return this.jobRepo.find({
+      where: status ? { status } : {},
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async updateStatus(jobId: string, status: CsvImportJobStatus): Promise<void> {
+    await this.jobRepo.update(jobId, { status });
   }
 }

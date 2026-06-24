@@ -4,6 +4,7 @@ import { Queue } from 'bull';
 import { AiBioRepository } from './ai-bio.repository';
 import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../common/ports/object-storage.port';
 import { AiBioStatus } from './entities/ai-bio-request.entity';
+import { AI_BIO_JOB } from './processors/ai-bio.processor';
 
 @Injectable()
 export class AiBioService {
@@ -14,32 +15,39 @@ export class AiBioService {
   ) {}
   
   async createRequest(pdfFile: Express.Multer.File, artistId: string, userId: string) {
-  // 1. Chuẩn bị đúng format UploadParams
-  const objectKey = `artist-bios/${artistId}-${Date.now()}.pdf`;
+    const objectKey = `artist-bios/${artistId}-${Date.now()}.pdf`;
 
-  const fileUrl = await this.storage.upload({
-    objectKey: objectKey,
-    buffer: pdfFile.buffer,
-    contentType: pdfFile.mimetype, // Lấy từ file thực tế
-    size: pdfFile.size             // Lấy từ file thực tế
-  });
+    await this.storage.upload({
+      objectKey,
+      buffer: pdfFile.buffer,
+      contentType: pdfFile.mimetype,
+      size: pdfFile.size,
+    });
 
-  // 2. Tạo record DRAFT (dùng Enum đúng cách)
-  const bio = await this.repo.create({
-    artistId,
-    pdfObjectKey: objectKey, // Lưu objectKey này vào DB
-    status: AiBioStatus.DRAFT,
-    requestedBy: userId
-  });
+    const bio = await this.repo.create({
+      artistId,
+      pdfObjectKey: objectKey,
+      status: AiBioStatus.PENDING,
+      requestedBy: userId,
+    });
 
-  // 3. Đẩy vào Background Job
-  await this.queue.add('process-bio', { bioId: bio.id, fileUrl: objectKey });
+    await this.queue.add(
+      AI_BIO_JOB,
+      { requestId: bio.id, fileUrl: objectKey },
+      { jobId: `ai-bio:${bio.id}` },
+    );
 
-  return bio;
-}
+    return bio;
+  }
 
-  async findAll(status?: AiBioStatus) {
-    return this.repo.findAll(status);
+  async findAll(status?: string) {
+    if (status?.toUpperCase() === 'SUCCESS') {
+      return this.repo.findAll([AiBioStatus.DRAFT, AiBioStatus.PUBLISHED]);
+    }
+    if (status && Object.values(AiBioStatus).includes(status as AiBioStatus)) {
+      return this.repo.findAll(status as AiBioStatus);
+    }
+    return this.repo.findAll();
   }
 
   async findById(id: string) {
@@ -58,8 +66,12 @@ export class AiBioService {
     if (bio.status !== AiBioStatus.FAILED) {
       throw new Error(`Cannot retry AI Bio job in state: ${bio.status}`);
     }
-    await this.repo.updateStatus(id, AiBioStatus.DRAFT);
-    await this.queue.add('process-bio', { bioId: bio.id, fileUrl: bio.pdfObjectKey });
+    await this.repo.updateStatus(id, AiBioStatus.PENDING);
+    await this.queue.add(
+      AI_BIO_JOB,
+      { requestId: bio.id, fileUrl: bio.pdfObjectKey },
+      { jobId: `ai-bio:${bio.id}` },
+    );
     return { success: true, message: `AI Bio job ${id} is being retried` };
   }
 }

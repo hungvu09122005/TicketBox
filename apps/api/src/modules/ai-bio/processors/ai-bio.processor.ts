@@ -42,6 +42,8 @@ export class AiBioProcessor {
     const { requestId, fileUrl } = job.data;
     
     try {
+      await this.repo.updateStatus(requestId, AiBioStatus.PROCESSING);
+
       // Tải PDF từ MinIO
       const buffer = await this.storage.download(fileUrl);
       const data = await pdf(buffer); // 4. Sử dụng pdf-parse
@@ -49,8 +51,8 @@ export class AiBioProcessor {
       // Gọi AI thông qua Circuit Breaker
       const content = await this.aiBreaker.fire(data.text, undefined);
       
-      // Lưu kết quả
-      await this.repo.updateStatus(requestId, AiBioStatus.DRAFT, content);
+      // Lưu kết quả cuối cùng
+      await this.repo.updateStatus(requestId, AiBioStatus.PUBLISHED, content);
     } catch (error) {
       // 5. Xử lý an toàn cho biến error (unknown)
       const message = error instanceof Error ? error.message : 'Unknown error';

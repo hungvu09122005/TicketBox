@@ -51,7 +51,7 @@ export class Concert {
   @OneToMany(() => SeatZone, (seatZone) => seatZone.concert)
   seatZones!: SeatZone[];
 
-  @Column({ nullable: true })
+  @Column({ name: 'banner_object_key', nullable: true })
   bannerObjectKey?: string;
 
   @Column({ nullable: true })
@@ -60,9 +60,9 @@ export class Concert {
   @Column({ nullable: true })
   venue?: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'sale_starts_at', type: 'timestamptz', nullable: true })
   saleStartsAt?: Date;
 
-  @Column({ nullable: true })
+  @Column({ name: 'sale_ends_at', type: 'timestamptz', nullable: true })
   saleEndsAt?: Date;
 }

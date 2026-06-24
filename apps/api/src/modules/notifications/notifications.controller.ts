@@ -1,11 +1,10 @@
 import { Controller, Post, Get, Param, Body, UseGuards, Query, NotFoundException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
+import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { NotificationsService } from './notifications.service';
 
 @ApiTags('notifications')
@@ -13,10 +12,7 @@ import { NotificationsService } from './notifications.service';
 @Controller('notifications')
 @UseGuards(JwtAuthGuard, RbacGuard)
 export class NotificationsController {
-  constructor(
-    @InjectQueue('notifications') private readonly notificationQueue: Queue,
-    private readonly notificationsService: NotificationsService,
-  ) {}
+  constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get('jobs')
   @RequirePermissions(Permission.REPORT_VIEW)
@@ -47,12 +43,15 @@ export class NotificationsController {
   }
 
   @Post('test-confirmation')
-  async testConfirmation(@Body() body: { email: string; ticketId: string }) {
-    // Đẩy job vào hàng đợi
-    await this.notificationQueue.add('notification.ticket_confirmation', {
+  @RequirePermissions(Permission.REPORT_VIEW)
+  async testConfirmation(
+    @Body() body: { email: string; ticketId: string },
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.notificationsService.queueTicketConfirmation({
       email: body.email,
       ticketId: body.ticketId,
+      userId: user.sub,
     });
-    return { message: 'Job ticket_confirmation đã được đẩy vào queue!' };
   }
 }

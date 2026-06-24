@@ -64,4 +64,16 @@ export class PaymentsController {
     const isAdmin = user.roles.includes('SYSTEM_ADMIN');
     return this.paymentsService.getPaymentHistory(orderId, user.sub, isAdmin);
   }
+
+  /** GET /payments/orders/:orderId/audit — Inspect callback payloads and reconciliation data */
+  @Get('orders/:orderId/audit')
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @RequirePermissions(Permission.REPORT_VIEW)
+  getPaymentAudit(
+    @Param('orderId') orderId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    return this.paymentsService.getPaymentAudit(orderId, user.sub, isAdmin);
+  }
 }
