@@ -1,5 +1,5 @@
 import { Injectable, Inject, ForbiddenException, NotFoundException, ConflictException, Logger, ServiceUnavailableException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+
 import { PaymentPort, PAYMENT_PORT, CreatePaymentParams } from '../../common/ports/payment.port';
 import { PaymentsRepository } from './payments.repository';
 import { Payment, PaymentStatus } from './entities/payment.entity';
@@ -17,7 +17,7 @@ export class PaymentsService {
   private paymentUrlBreaker: CircuitBreaker<any[], string>;
 
   constructor(
-    private readonly dataSource: DataSource,
+    
     private readonly paymentsRepository: PaymentsRepository,
     @Inject(PAYMENT_PORT) private readonly paymentPort: PaymentPort,
     private readonly ordersService: OrdersService,

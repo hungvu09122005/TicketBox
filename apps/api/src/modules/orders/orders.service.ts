@@ -5,7 +5,7 @@ import { Logger } from 'nestjs-pino';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { DataSource, Repository } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectDataSource,InjectRepository } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
 import { ConcertsService } from '../concerts/concerts.service';
 import { TicketTypesService } from '../ticket-types/ticket-types.service';
@@ -18,14 +18,21 @@ import { User } from '../users/entities/user.entity';
 @Injectable()
 export class OrdersService {
   constructor(
+    @InjectDataSource()
     private readonly dataSource: DataSource,
+
     @InjectRepository(Order) 
     private readonly orderRepo: Repository<Order>,
+
     private readonly concertsService: ConcertsService,
     private readonly ticketTypesService: TicketTypesService,
+
     @InjectQueue('orders-expiry') 
     private readonly ordersQueue: Queue,
-    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+
+    @Inject(CACHE_MANAGER) 
+    private readonly cache: Cache,
+    
     private readonly logger: Logger,
     private readonly mailService: MailService,
   ) {}

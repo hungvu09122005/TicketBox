@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 
 /** ReportingRepository — raw SQL aggregation queries only. No entity repositories from other modules. */
 @Injectable()
 export class ReportingRepository {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(@InjectDataSource()private readonly dataSource: DataSource) {}
 
   private buildConcertWhere(
     params: unknown[],
