@@ -123,4 +123,21 @@ export class TicketsService {
       return await this.ticketsRepository.saveTickets(tickets);
     }
   }
+
+  async findByManualCode(
+  manualCode: string,
+): Promise<Ticket> {
+  const ticket =
+    await this.ticketsRepository.findOne({
+      where: { manualCode },
+    });
+
+  if (!ticket) {
+    throw new NotFoundException(
+      'Không tìm thấy vé',
+    );
+  }
+
+  return ticket;
+}
 }
