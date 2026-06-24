@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  Vibration,
   View,
 } from 'react-native';
 import {
@@ -33,6 +34,9 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [scanned, setScanned] = useState(false);
   const [message, setMessage] = useState('');
+  const [resultType, setResultType] = useState<
+    'idle' | 'accepted' | 'rejected' | 'already-used'
+  >('idle');
 
   const authHeaders = () => ({
     'Content-Type': 'application/json',
@@ -40,18 +44,23 @@ export default function App() {
   });
 
   const registerDevice = async () => {
+    if (loading) return;
+
     if (!accessToken.trim()) {
-      setMessage('Vui lòng dán accessToken trước.');
+      setResultType('rejected');
+      setMessage('❌ Vui lòng dán accessToken trước.');
       return;
     }
 
     if (!concertId.trim()) {
-      setMessage('Vui lòng nhập concertId thật.');
+      setResultType('rejected');
+      setMessage('❌ Vui lòng nhập concertId thật.');
       return;
     }
 
     try {
       setLoading(true);
+      setResultType('idle');
       setMessage('');
 
       const response = await fetch(`${API_BASE_URL}/checkin/devices/register`, {
@@ -77,32 +86,42 @@ export default function App() {
       }
 
       setDeviceId(newDeviceId);
-      setMessage('Đăng ký thiết bị thành công.');
+      setResultType('accepted');
+      setMessage('✅ Đăng ký thiết bị thành công.');
+      Vibration.vibrate(120);
     } catch (error: any) {
-      setMessage(error?.message || 'Đăng ký thiết bị thất bại.');
+      setResultType('rejected');
+      setMessage(`❌ ${error?.message || 'Đăng ký thiết bị thất bại.'}`);
+      Vibration.vibrate([0, 300]);
     } finally {
       setLoading(false);
     }
   };
 
   const validateQrToken = async (qrToken: string) => {
+    if (loading) return;
+
     if (!accessToken.trim()) {
-      setMessage('Vui lòng dán accessToken trước.');
+      setResultType('rejected');
+      setMessage('❌ Vui lòng dán accessToken trước.');
       return;
     }
 
     if (!deviceId) {
-      setMessage('Vui lòng đăng ký thiết bị trước.');
+      setResultType('rejected');
+      setMessage('❌ Vui lòng đăng ký thiết bị trước.');
       return;
     }
 
     if (!qrToken.trim()) {
-      setMessage('Vui lòng nhập mã vé.');
+      setResultType('rejected');
+      setMessage('❌ Vui lòng nhập mã vé.');
       return;
     }
 
     try {
       setLoading(true);
+      setResultType('idle');
       setMessage('');
 
       const response = await fetch(`${API_BASE_URL}/checkin/validate`, {
@@ -121,9 +140,34 @@ export default function App() {
         throw new Error(data?.message || 'Check-in thất bại.');
       }
 
-      setMessage('Check-in thành công.');
+      const status = data?.data?.status;
+
+      if (status === 'ACCEPTED') {
+        setResultType('accepted');
+        setMessage('✅ Check-in thành công.');
+        Vibration.vibrate(120);
+      } else {
+        setResultType('rejected');
+        setMessage(`❌ Check-in bị từ chối: ${status || 'Không rõ lý do'}`);
+        Vibration.vibrate([0, 300]);
+      }
     } catch (error: any) {
-      setMessage(error?.message || 'Check-in thất bại.');
+      const msg = error?.message || 'Check-in thất bại.';
+      const lowerMsg = msg.toLowerCase();
+
+      if (
+        lowerMsg.includes('used') ||
+        lowerMsg.includes('already') ||
+        lowerMsg.includes('đã được sử dụng')
+      ) {
+        setResultType('already-used');
+        setMessage(`⚠️ Vé đã được sử dụng. ${msg}`);
+        Vibration.vibrate([0, 120, 80, 120]);
+      } else {
+        setResultType('rejected');
+        setMessage(`❌ ${msg}`);
+        Vibration.vibrate([0, 300]);
+      }
     } finally {
       setLoading(false);
       setTimeout(() => setScanned(false), 1200);
@@ -144,6 +188,7 @@ export default function App() {
 
   const resetDevice = () => {
     setDeviceId('');
+    setResultType('idle');
     setMessage('Đã xóa deviceId trên app. Có thể đăng ký lại thiết bị.');
   };
 
@@ -199,9 +244,7 @@ export default function App() {
 
       <CameraView
         style={styles.camera}
-        barcodeScannerSettings={{
-          barcodeTypes: ['qr'],
-        }}
+        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
         onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
       />
 
@@ -258,6 +301,7 @@ export default function App() {
         {!!deviceId && (
           <>
             <Text style={styles.deviceText}>Thiết bị: {deviceId}</Text>
+            <Text style={styles.deviceText}>Concert: {concertId}</Text>
 
             <Pressable
               style={[styles.secondaryButton, loading && styles.buttonDisabled]}
@@ -291,7 +335,18 @@ export default function App() {
           </>
         )}
 
-        {!!message && <Text style={styles.message}>{message}</Text>}
+        {!!message && (
+          <Text
+            style={[
+              styles.message,
+              resultType === 'accepted' && styles.successMessage,
+              resultType === 'rejected' && styles.errorMessage,
+              resultType === 'already-used' && styles.warningMessage,
+            ]}
+          >
+            {message}
+          </Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -422,5 +477,14 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     fontWeight: '700',
     textAlign: 'center',
+  },
+  successMessage: {
+    color: '#16a34a',
+  },
+  errorMessage: {
+    color: '#dc2626',
+  },
+  warningMessage: {
+    color: '#d97706',
   },
 });
