@@ -9,6 +9,8 @@ import { NotificationProcessor } from './processors/notification.processor';
 import { ReminderScheduler } from './schedulers/reminder.scheduler';
 import { SendgridAdapter } from './adapters/sendgrid.adapter';
 import { NOTIFICATION_PORT } from '../../common/ports/notification.port';
+import { MailModule } from '../../mail/mail.module';
+
 
 /**
  * NotificationsModule — email delivery + 24h reminder scheduler.
@@ -25,6 +27,7 @@ import { NOTIFICATION_PORT } from '../../common/ports/notification.port';
     TypeOrmModule.forFeature([NotificationLog]),
     BullModule.registerQueue({ name: 'notifications' }),
     ScheduleModule.forRoot(),
+    MailModule,
   ],
   providers: [
     NotificationsService,

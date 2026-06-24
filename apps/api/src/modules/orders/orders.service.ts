@@ -31,7 +31,8 @@ export class OrdersService {
   ) {}
 
   async createOrder(dto: CreateOrderDto, userId: string): Promise<Order> {
-    let savedOrder: Order;
+    let savedOrder: Order | null = null;
+    let savedOrderId: string | null = null;
     let userEmail: string | null = null;
 
     await this.dataSource.transaction(async (manager) => {
@@ -66,6 +67,7 @@ export class OrdersService {
 
       // LƯU ĐƠN HÀNG
       savedOrder = await manager.save(order);
+      savedOrderId = savedOrder.id;
 
       // Lấy email user trong transaction
       const user = await manager.findOneBy(User, { id: userId });
@@ -77,14 +79,24 @@ export class OrdersService {
     });
 
     // GỬI MAIL SAU TRANSACTION
-    if (userEmail) {
-      this.mailService.sendTestEmail(userEmail).catch(err => 
-        this.logger.error(`Gửi mail thất bại: ${err.message}`)
-      );
+    if (userEmail && savedOrderId) {
+      this.mailService.sendEmail({
+      to: userEmail,
+      subject: '[TicketBox] Order created',
+      html: `
+        <h2>TicketBox Order Created</h2>
+        <p>Đơn hàng của bạn đã được tạo.</p>
+        <p>Order ID: ${savedOrderId}</p>
+      `,
+  text: `TicketBox Order Created\nOrder ID: ${savedOrderId}`,
+}).catch((err: Error) =>
+  this.logger.error(`Gửi mail thất bại: ${err.message}`),
+);
     }
 
     return savedOrder!;
   }
+
 async findOne(id: string): Promise<Order> {
     const order = await this.orderRepo.findOne({ 
       where: { id },
@@ -155,9 +167,18 @@ async findOne(id: string): Promise<Order> {
     // GỬI MAIL SAU KHI TRANSACTION XONG
     if (order && (order as Order).user?.email) {
       const userEmail = (order as Order).user.email;
-      this.mailService.sendTestEmail(userEmail).catch(err => {
-        this.logger.error(`Gửi mail thất bại cho đơn ${orderId}: ${err.message}`);
-      });
+      this.mailService.sendEmail({
+      to: userEmail,
+      subject: '[TicketBox] Payment confirmed',
+   html: `
+      <h2>TicketBox Payment Confirmed</h2>
+      <p>Thanh toán của bạn đã được xác nhận.</p>
+      <p>Order ID: ${orderId}</p>
+    `,
+    text: `TicketBox Payment Confirmed\nOrder ID: ${orderId}`,
+  }).catch((err: Error) => {
+    this.logger.error(`Gửi mail thất bại cho đơn ${orderId}: ${err.message}`);
+  });
     }
     
     return order!;
@@ -193,4 +214,26 @@ async findOne(id: string): Promise<Order> {
       }
     });
   }
+  async findOneWithUserByTextJoin(id: string): Promise<Order & { user: User }> {
+  const order = await this.orderRepo
+    .createQueryBuilder('order')
+    .where('order.id = :id', { id })
+    .getOne();
+
+  if (!order) {
+    throw new NotFoundException('Order not found');
+  }
+
+  const user = await this.dataSource
+    .getRepository(User)
+    .createQueryBuilder('u')
+    .where('CAST(u.id AS text) = :userId', { userId: order.userId })
+    .getOne();
+
+  if (!user) {
+    throw new NotFoundException(`User not found for order ${id}`);
+  }
+
+  return Object.assign(order, { user });
+}
 }
