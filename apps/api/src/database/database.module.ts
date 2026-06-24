@@ -41,5 +41,6 @@ import { UsersModule } from '../modules/users/users.module';
   ],
 
   providers: [BootstrapService],
+  exports: [TypeOrmModule],
 })
 export class DatabaseModule {}

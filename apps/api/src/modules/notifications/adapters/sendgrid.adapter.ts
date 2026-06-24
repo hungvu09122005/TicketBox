@@ -13,6 +13,9 @@ export class SendgridAdapter implements NotificationPort {
 
   async sendTicketConfirmation(params: TicketConfirmationParams): Promise<void> {
     const concertDate = new Date(params.concertDate).toLocaleString('vi-VN');
+    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+const ticketUrl = `${frontendUrl}/tickets/${params.ticketId}`;
+const qrUrl = `${frontendUrl}/tickets/${params.ticketId}/qr`;
 
     const html = `
       <h2>TicketBox - Xác nhận vé</h2>
