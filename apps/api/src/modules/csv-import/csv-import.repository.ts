@@ -37,10 +37,29 @@ export class CsvImportRepository {
     await this.jobRepo.update(jobId, { status });
   }
 
+  async updateJobProgress(
+    jobId: string,
+    data: Partial<Pick<CsvImportJob, 'status' | 'totalRows' | 'successRows' | 'errorRows'>>,
+  ): Promise<void> {
+    await this.jobRepo.update(jobId, data);
+  }
+
   async findRowsByJobId(jobId: string): Promise<CsvImportRow[]> {
     return this.rowRepo.find({
       where: { jobId },
       order: { rowNumber: 'ASC' },
     });
+  }
+
+  async addRow(row: Partial<CsvImportRow>): Promise<CsvImportRow> {
+    return this.rowRepo.save(this.rowRepo.create(row));
+  }
+
+  async findVipGuest(concertId: string, dedupKey: string): Promise<VipGuest | null> {
+    return this.vipRepo.findOneBy({ concertId, dedupKey });
+  }
+
+  async saveVipGuest(data: Partial<VipGuest>): Promise<VipGuest> {
+    return this.vipRepo.save(this.vipRepo.create(data));
   }
 }

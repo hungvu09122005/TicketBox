@@ -65,4 +65,23 @@ export class AiBioController {
   async retryAiBioJob(@Param('id') id: string) {
     return this.aiBioService.retryJob(id);
   }
+
+  @Patch(':id')
+  @RequirePermissions(Permission.AI_GENERATE_BIO)
+  async updateDraft(
+    @Param('id') id: string,
+    @Body('draftContent') draftContent: string,
+  ) {
+    if (!draftContent?.trim()) {
+      throw new BadRequestException('draftContent is required');
+    }
+
+    return this.aiBioService.updateDraft(id, draftContent);
+  }
+
+  @Patch(':id/publish')
+  @RequirePermissions(Permission.AI_GENERATE_BIO)
+  async publishDraft(@Param('id') id: string) {
+    return this.aiBioService.publishDraft(id);
+  }
 }

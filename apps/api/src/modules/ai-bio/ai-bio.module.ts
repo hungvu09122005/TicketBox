@@ -10,6 +10,7 @@ import { AiBioProcessor } from './processors/ai-bio.processor';
 import { OpenAIAdapter } from './adapters/openai.adapter';
 import { AI_TEXT_GENERATION_PORT } from '../../common/ports/ai-text-generation.port';
 import { StorageModule } from '../storage/storage.module';
+import { Artist } from '../artists/entities/artist.entity';
 
 /**
  * AiBioModule — PDF upload → AI generation → draft → publish pipeline.
@@ -22,7 +23,7 @@ import { StorageModule } from '../storage/storage.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AiBioRequest]),
+    TypeOrmModule.forFeature([AiBioRequest, Artist]),
     BullModule.registerQueue({ name: 'ai-bio' }),
     StorageModule,
   ],

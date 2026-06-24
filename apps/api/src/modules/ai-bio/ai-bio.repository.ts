@@ -15,6 +15,10 @@ export class AiBioRepository {
     await this.repo.update(id, { status, failureReason });
   }
 
+  async updateDraft(id: string, draftContent: string, status: AiBioStatus = AiBioStatus.DRAFT): Promise<void> {
+    await this.repo.update(id, { draftContent, status });
+  }
+
   // Phương thức tạo mới
   async create(data: Partial<AiBioRequest>): Promise<AiBioRequest> {
     const newRequest = this.repo.create(data);

@@ -277,6 +277,16 @@ export const operationsService = {
     return response.data.data ?? response.data;
   },
 
+  updateAiBioDraft: async (jobId: string, draftContent: string): Promise<AiBioRequestResult> => {
+    const response = await apiClient.patch(`/api/artist-bio/${jobId}`, { draftContent });
+    return response.data.data ?? response.data;
+  },
+
+  publishAiBioDraft: async (jobId: string): Promise<AiBioRequestResult> => {
+    const response = await apiClient.patch(`/api/artist-bio/${jobId}/publish`);
+    return response.data.data ?? response.data;
+  },
+
   getPaymentHistory: async (orderId: string): Promise<PaymentHistoryRecord[]> => {
     const response = await apiClient.get(`/payments/orders/${orderId}/history`);
     return extractListData<PaymentHistoryRecord>(response.data.data ?? response.data);

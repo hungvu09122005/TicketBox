@@ -1,10 +1,13 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { AiBioRepository } from './ai-bio.repository';
 import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../common/ports/object-storage.port';
 import { AiBioStatus } from './entities/ai-bio-request.entity';
 import { AI_BIO_JOB } from './processors/ai-bio.processor';
+import { Artist } from '../artists/entities/artist.entity';
 
 @Injectable()
 export class AiBioService {
@@ -12,6 +15,7 @@ export class AiBioService {
     private readonly repo: AiBioRepository,
     @Inject(OBJECT_STORAGE_PORT) private readonly storage: ObjectStoragePort,
     @InjectQueue('ai-bio') private readonly queue: Queue,
+    @InjectRepository(Artist) private readonly artistRepo: Repository<Artist>,
   ) {}
   
   async createRequest(pdfFile: Express.Multer.File, artistId: string, userId: string) {
@@ -73,5 +77,38 @@ export class AiBioService {
       { jobId: `ai-bio:${bio.id}` },
     );
     return { success: true, message: `AI Bio job ${id} is being retried` };
+  }
+
+  async updateDraft(id: string, draftContent: string) {
+    const bio = await this.repo.findById(id);
+    if (!bio) {
+      throw new Error(`AI Bio job ${id} not found`);
+    }
+
+    await this.repo.updateDraft(id, draftContent, AiBioStatus.DRAFT);
+    return this.repo.findById(id);
+  }
+
+  async publishDraft(id: string) {
+    const bio = await this.repo.findById(id);
+    if (!bio) {
+      throw new Error(`AI Bio job ${id} not found`);
+    }
+
+    const content = bio.draftContent?.trim();
+    if (!content) {
+      throw new Error('No draft content available to publish');
+    }
+
+    const artist = await this.artistRepo.findOneBy({ id: bio.artistId });
+    if (!artist) {
+      throw new Error(`Artist ${bio.artistId} not found`);
+    }
+
+    artist.shortBio = content;
+    await this.artistRepo.save(artist);
+    await this.repo.updateDraft(id, content, AiBioStatus.PUBLISHED);
+
+    return this.repo.findById(id);
   }
 }

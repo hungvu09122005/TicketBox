@@ -525,6 +525,14 @@ export default function JobsPage() {
                         <td className="px-4 py-3 text-muted">{formatDateTime(job.createdAt)}</td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
+                            {job.id ? (
+                              <Link
+                                href={`/operations/jobs/ai/${job.id}`}
+                                className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary"
+                              >
+                                Review draft
+                              </Link>
+                            ) : null}
                             {job.artistId ? (
                               <Link
                                 href={`/artists/${job.artistId}/edit`}
