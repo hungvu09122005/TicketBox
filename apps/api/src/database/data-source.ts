@@ -19,7 +19,11 @@ export const AppDataSource = new DataSource({
   synchronize: false,
   entities: [join(projectRoot, 'src', '**', '*.entity.{ts,js}')],
   migrations: [
-    join(projectRoot, 'src', 'migrations', '*.{ts,js}'),
-    join(projectRoot, 'src', 'database', 'migrations', '*.{ts,js}'),
+    join(projectRoot, 'src', 'database', 'migrations', '1781899060208-InitialSchemaMigration.{ts,js}'),
+    join(projectRoot, 'src', 'migrations', '1781900000000-CreateCheckinDevice.{ts,js}'),
+    join(projectRoot, 'src', 'migrations', '1782244000000-FixOrdersUserIdType.{ts,js}'),
+    join(projectRoot, 'src', 'migrations', '1782444000000-AddFailureReasonToCsvAndNotifications.{ts,js}'),
+    join(projectRoot, 'src', 'migrations', '1782450000000-AddConcertMetadata.{ts,js}'),
+    join(projectRoot, 'src', 'migrations', '1782460000000-AddManualCodeToTickets.{ts,js}'),
   ],
 });

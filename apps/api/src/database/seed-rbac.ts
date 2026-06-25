@@ -13,14 +13,13 @@ export async function seedRbac(manager: EntityManager) {
 
   // 1. Seed Permissions
   const permissionCodes = Object.values(Permission);
-  // Lưu ý: dùng 'code' thay vì 'name' nếu trong Entity bạn đặt tên trường là 'code'
   await permRepo.upsert(
-    permissionCodes.map((name) => ({ name })), // Giả sử Entity có cả name và code
-    ['name'], 
+    permissionCodes.map((code) => ({ name: code, code })),
+    ['code'],
   );
 
   const savedPermissions = await permRepo.find();
-  const permissionByCode = new Map(savedPermissions.map((p) => [p.name, p]));
+  const permissionByCode = new Map(savedPermissions.map((p) => [p.code, p]));
   console.log(`✅ Đã đồng bộ ${savedPermissions.length} permissions.`);
 
   // 2. Seed Roles
