@@ -1,7 +1,7 @@
 ﻿import { Processor, Process } from '@nestjs/bull';
 import { Job } from 'bull';
 import { Logger, Inject } from '@nestjs/common';
-const pdf = require('pdf-parse');
+const pdf = require('pdf-parse'); 
 import { AI_TEXT_GENERATION_PORT, AITextGenerationPort } from '../../../common/ports/ai-text-generation.port';
 import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../../common/ports/object-storage.port';
 import { AiBioRepository } from '../ai-bio.repository';
@@ -62,9 +62,9 @@ export class AiBioProcessor {
 
   constructor(
     @Inject(AI_TEXT_GENERATION_PORT) private readonly aiPort: AITextGenerationPort,
-    @Inject(OBJECT_STORAGE_PORT) private readonly storage: ObjectStoragePort,
-    private readonly repo: AiBioRepository,
-    private readonly configService: ConfigService,
+    @Inject(OBJECT_STORAGE_PORT) private readonly storage: ObjectStoragePort, 
+    private readonly repo: AiBioRepository,   
+    private readonly configService: ConfigService,                                
   ) {
 
     this.maxPromptChars =
@@ -81,8 +81,8 @@ export class AiBioProcessor {
       },
     )as unknown as CircuitBreaker<[text: string, hint?: string], string>;
 
-
-
+    
+    
     this.aiBreaker.fallback(() => {
       throw new Error('AI Provider is currently unavailable. Manual biography entry required.');
     });
@@ -167,5 +167,5 @@ export class AiBioProcessor {
 
     return sanitizedText;
 
-}
+  }
 }

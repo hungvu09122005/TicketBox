@@ -14,9 +14,14 @@ export class OpenAIAdapter implements AITextGenerationPort {
   private readonly model: string;
 
   constructor(private readonly configService: ConfigService) {
-    const apiKey = this.configService.get<string>('app.ai.openaiApiKey') || 'dummy-key-for-now';
-    this.model = this.configService.get<string>('app.ai.openaiModel') || 'gpt-4o-mini';
-    this.openai = new OpenAI({ apiKey });
+    const apiKey = this.configService.get<string>('app.ai.openaiApiKey');
+
+    if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is required for real AI integration.');
+  }
+
+  this.model = this.configService.get<string>('app.ai.openaiModel') || 'gpt-4o-mini';
+  this.openai = new OpenAI({ apiKey });
   }
 
   async generateArtistBio(extractedText: string, promptHint?: string): Promise<string> {
