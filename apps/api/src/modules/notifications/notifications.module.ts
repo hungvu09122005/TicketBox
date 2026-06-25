@@ -11,6 +11,7 @@ import { SendgridAdapter } from './adapters/sendgrid.adapter';
 import { NOTIFICATION_PORT } from '../../common/ports/notification.port';
 import { MailModule } from '../../mail/mail.module';
 import { NotificationsController } from './notifications.controller';
+import { DatabaseModule } from '../../database/database.module';
 
 /**
  * NotificationsModule — email delivery + 24h reminder scheduler.
@@ -24,6 +25,7 @@ import { NotificationsController } from './notifications.controller';
  */
 @Module({
   imports: [
+    DatabaseModule,
     TypeOrmModule.forFeature([NotificationLog]),
     BullModule.registerQueue({ name: 'notifications' }),
     ScheduleModule.forRoot(),

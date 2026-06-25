@@ -20,9 +20,43 @@ export class NotificationsRepository {
     return this.repo.save(this.repo.create(data));
   }
 
-  async markSent(id: string, sentAt = new Date()): Promise<void> {
-    await this.repo.update(id, { status: NotificationStatus.SENT, sentAt });
+  async createQueuedLogIfAbsent(data: {
+  ticketId: string;
+  userId: string;
+  type: NotificationType;
+  channel: NotificationChannel;
+}): Promise<NotificationLog | null> {
+  const result = await this.repo
+    .createQueryBuilder()
+    .insert()
+    .into(NotificationLog)
+    .values({
+      ticketId: data.ticketId,
+      userId: data.userId,
+      type: data.type,
+      channel: data.channel,
+      status: NotificationStatus.QUEUED,
+    })
+    .orIgnore()
+    .returning('id')
+    .execute();
+
+  const insertedId = result.identifiers[0]?.id ?? result.raw?.[0]?.id;
+
+  if (!insertedId) {
+    return null;
   }
+
+  return this.repo.findOne({ where: { id: insertedId } });
+}
+
+  async markSent(id: string): Promise<void> {
+  await this.repo.update(id, {
+    status: NotificationStatus.SENT,
+    sentAt: new Date(),
+    failureReason: null,
+  });
+}
 
   async markFailed(id: string, reason?: string): Promise<void> {
     await this.repo.update(id, { status: NotificationStatus.FAILED, failureReason: reason });
