@@ -14,6 +14,7 @@ import { OrderQueryDto } from './dto/order-query.dto';
 import { OrderStatus } from './enums/order-status.enum';
 import { MailService } from '../../mail/mail.service';
 import { User } from '../users/entities/user.entity';
+import { InjectDataSource } from '@nestjs/typeorm';
 
 @Injectable()
 export class OrdersService {
@@ -38,23 +39,37 @@ export class OrdersService {
   ) {}
 
   async createOrder(dto: CreateOrderDto, userId: string): Promise<Order> {
-    let savedOrder: Order;
+
+    console.log('===== SERVICE CREATE ORDER START =====');
+    console.log('DTO:', dto);
+    console.log('USER ID:', userId);
+
+    let savedOrder: Order | null = null;
+    let savedOrderId: string | null = null;
     let userEmail: string | null = null;
 
     await this.dataSource.transaction(async (manager) => {
       // 1. Kiểm tra trạng thái concert
+      console.log('TX STEP 1: before assertPublishedAndSaleOpen');
       await this.concertsService.assertPublishedAndSaleOpen(dto.concertId);
+      console.log('TX STEP 2: after assertPublishedAndSaleOpen');
 
       // 2. Lock kho vé
+
+      console.log('TX STEP 3: before holdInventory');
       const ticketType = await this.ticketTypesService.holdInventory(dto.ticketTypeId, dto.quantity, manager);
+      console.log('TX STEP 4: after holdInventory', ticketType);
 
       // 3. Kiểm tra limit người dùng
+      console.log('TX STEP 5: before existingOrders query');
       const existingOrders = await manager.createQueryBuilder(Order, 'order')
         .select('SUM(order.quantity)', 'total')
         .where('order.userId = :userId', { userId })
         .andWhere('order.ticketTypeId = :ticketTypeId', { ticketTypeId: dto.ticketTypeId })
         .andWhere('order.status IN (:...statuses)', { statuses: [OrderStatus.PENDING_PAYMENT, OrderStatus.PAID] })
         .getRawOne();
+      console.log('TX STEP 6: after existingOrders query', existingOrders);
+
       
       const boughtQuantity = parseInt(existingOrders?.total || '0', 10);
       if (boughtQuantity + dto.quantity > ticketType.maxPerUser) {
@@ -72,37 +87,63 @@ export class OrdersService {
       order.expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
       // LƯU ĐƠN HÀNG
+      console.log('TX STEP 7: before save order');
       savedOrder = await manager.save(order);
+      console.log('TX STEP 8: after save order', savedOrder);
+      savedOrderId = savedOrder.id;
 
       // Lấy email user trong transaction
       const user = await manager.findOneBy(User, { id: userId });
       userEmail = user?.email ?? null;
 
       // 5. Enqueue job
+      console.log('TX STEP 9: before ordersQueue.add');
       await this.ordersQueue.add('expire-order', { orderId: savedOrder.id }, { delay: 10 * 60 * 1000 });
+      console.log('TX STEP 10: after ordersQueue.add');
       await this.cache.del(`concert:${dto.concertId}:availability`);
     });
 
     // GỬI MAIL SAU TRANSACTION
-    if (userEmail) {
-      this.mailService.sendTestEmail(userEmail).catch(err => 
-        this.logger.error(`Gửi mail thất bại: ${err.message}`)
-      );
+    if (userEmail && savedOrderId) {
+      this.mailService.sendEmail({
+      to: userEmail,
+      subject: '[TicketBox] Order created',
+      html: `
+        <h2>TicketBox Order Created</h2>
+        <p>Đơn hàng của bạn đã được tạo.</p>
+        <p>Order ID: ${savedOrderId}</p>
+      `,
+  text: `TicketBox Order Created\nOrder ID: ${savedOrderId}`,
+}).catch((err: Error) =>
+  this.logger.error(`Gửi mail thất bại: ${err.message}`),
+);
     }
 
     return savedOrder!;
   }
-  async findOne(id: string): Promise<Order> {
-    const order = await this.orderRepo
-      .createQueryBuilder('order')
-      .leftJoinAndSelect('order.user', 'user')
-      .where('order.id::text = :id', { id })
-      .getOne();
 
-    if (!order) throw new NotFoundException('Order not found');
-    return order;
+  async findOne(id: string): Promise<Order> {
+  const order = await this.orderRepo
+    .createQueryBuilder('o')
+    .where('o.id::text = :id', { id })
+    .getOne();
+
+  if (!order) {
+    throw new NotFoundException('Order not found');
   }
 
+  const user = await this.dataSource
+    .getRepository(User)
+    .createQueryBuilder('u')
+    .where('u.id::text = :userId', { userId: order.userId })
+    .getOne();
+
+  if (user) {
+    (order as any).user = user;
+  }
+
+  return order;
+}
   async findByUser(userId: string): Promise<Order[]> {
     return await this.orderRepo.findBy({ userId });
   }
@@ -144,9 +185,9 @@ export class OrdersService {
 
     await this.dataSource.transaction(async (manager) => {
       order = await manager
-        .createQueryBuilder(Order, 'order')
-        .leftJoinAndSelect('order.user', 'user')
-        .where('order.id::text = :id', { id: orderId })
+        .createQueryBuilder(Order, 'o')
+        .leftJoinAndSelect('o.user', 'u')
+        .where('o.id::text = :id', { id: orderId })
         .getOne();
       
       if (!order) throw new NotFoundException('Order not found');
@@ -162,12 +203,21 @@ export class OrdersService {
     });
 
     // GỬI MAIL SAU KHI TRANSACTION XONG
-    if (order && (order as Order).user?.email) {
-      const userEmail = (order as Order).user.email;
-      this.mailService.sendTestEmail(userEmail).catch(err => {
-        this.logger.error(`Gửi mail thất bại cho đơn ${orderId}: ${err.message}`);
-      });
-    }
+    //if (order && (order as Order).user?.email) {
+      //const userEmail = (order as Order).user.email;
+      //this.mailService.sendEmail({
+      //to: userEmail,
+      //subject: '[TicketBox] Payment confirmed',
+   //html: `
+      //<h2>TicketBox Payment Confirmed</h2>
+      //<p>Thanh toán của bạn đã được xác nhận.</p>
+      //<p>Order ID: ${orderId}</p>
+    //`,
+    //text: `TicketBox Payment Confirmed\nOrder ID: ${orderId}`,
+ // }).catch((err: Error) => {
+   // this.logger.error(`Gửi mail thất bại cho đơn ${orderId}: ${err.message}`);
+ // });
+  //  }
     
     return order!;
   }
@@ -178,8 +228,8 @@ export class OrdersService {
   async expireOrder(orderId: string): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
       const order = await manager
-        .createQueryBuilder(Order, 'order')
-        .where('order.id::text = :id', { id: orderId })
+        .createQueryBuilder(Order, 'o')
+        .where('o.id::text = :id', { id: orderId })
         .getOne();
       if (order && order.status === OrderStatus.PENDING_PAYMENT) {
         order.status = OrderStatus.EXPIRED;
@@ -196,8 +246,8 @@ export class OrdersService {
   async markPaymentFailed(orderId: string): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
       const order = await manager
-        .createQueryBuilder(Order, 'order')
-        .where('order.id::text = :id', { id: orderId })
+        .createQueryBuilder(Order, 'o')
+        .where('o.id::text = :id', { id: orderId })
         .getOne();
       if (order && order.status === OrderStatus.PENDING_PAYMENT) {
         order.status = OrderStatus.PAYMENT_FAILED;
@@ -208,4 +258,5 @@ export class OrdersService {
       }
     });
   }
+  
 }

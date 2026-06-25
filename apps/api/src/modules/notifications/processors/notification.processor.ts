@@ -3,7 +3,7 @@ import { Job } from 'bull'; // Import từ 'bull'
 import { Logger, Inject } from '@nestjs/common';
 import { NOTIFICATION_PORT, NotificationPort } from '../../../common/ports/notification.port';
 import { NotificationsRepository } from '../notifications.repository';
-import { NotificationChannel, NotificationStatus, NotificationType } from '../entities/notification-log.entity';
+import { NotificationChannel, NotificationType } from '../entities/notification-log.entity';
 
 @Processor('notifications') // Tên queue
 export class NotificationProcessor {
@@ -36,22 +36,33 @@ export class NotificationProcessor {
       }
       this.logger.log(`Ticket confirmation sent for job: ${job.id}`);
     } catch (err: unknown) {
-      const error = err instanceof Error ? err : new Error(String(err));
-      this.logger.error(`Failed to process ticket_confirmation. Job: ${job.id}`, error.stack);
-      if (job.data?.logId) {
-        await this.notificationsRepository.markFailed(String(job.data.logId));
-      } else if (job.data?.ticketId) {
-        const log = await this.notificationsRepository.findByTicketTypeChannel(
-          String(job.data.ticketId),
-          NotificationType.TICKET_CONFIRMATION,
-          NotificationChannel.EMAIL,
-        );
-        if (log) {
-          await this.notificationsRepository.markFailed(log.id);
-        }
+  const error = err instanceof Error ? err : new Error(String(err));
+
+  this.logger.error(
+    `Failed to process ticket_confirmation. Job: ${job.id}, attempt ${job.attemptsMade}/${job.opts.attempts}`,
+    error.stack,
+  );
+
+  const maxAttempts = Number(job.opts.attempts ?? 1);
+  const isFinalAttempt = job.attemptsMade >= maxAttempts;
+
+  if (isFinalAttempt) {
+    if (job.data?.logId) {
+      await this.notificationsRepository.markFailed(String(job.data.logId));
+    } else if (job.data?.ticketId) {
+      const log = await this.notificationsRepository.findByTicketTypeChannel(
+        String(job.data.ticketId),
+        NotificationType.TICKET_CONFIRMATION,
+        NotificationChannel.EMAIL,
+      );
+      if (log) {
+        await this.notificationsRepository.markFailed(log.id);
       }
-      throw error; 
     }
+  }
+
+  throw error;
+}
   }
 
   @Process('notification.reminder')
