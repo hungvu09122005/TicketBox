@@ -5,6 +5,7 @@ import { CsvImportRepository } from './csv-import.repository';
 import { OBJECT_STORAGE_PORT } from '../../common/ports/object-storage.port';
 import { ObjectStoragePort } from '../../common/ports/object-storage.port';
 import { CsvImportJobStatus } from './entities/csv-import-job.entity';
+import { CsvRowStatus } from './entities/csv-import-row.entity';
 import { CSV_IMPORT_JOB } from './processors/csv-import.processor';
 
 @Injectable()
@@ -61,6 +62,29 @@ export class CsvImportService {
     return {
       success: true,
       message: `CSV job ${job.id} is being retried`,
+    };
+  }
+
+  async getErrorReport(jobId: string) {
+    const job = await this.repo.findById(jobId);
+    if (!job) {
+      throw new NotFoundException(`Job ${jobId} not found`);
+    }
+
+    const rows = await this.repo.findRowsByJobId(jobId);
+    const failedOrSkipped = rows.filter((r) => r.status !== CsvRowStatus.SUCCESS);
+
+    let csvContent = 'rowNumber,status,errorReason\n';
+    for (const r of failedOrSkipped) {
+      const reason = r.errorReason ? `"${r.errorReason.replace(/"/g, '""')}"` : '';
+      csvContent += `${r.rowNumber},${r.status},${reason}\n`;
+    }
+
+    return {
+      jobId,
+      filename: `csv-error-report-${jobId}.csv`,
+      rowCount: failedOrSkipped.length,
+      csv: csvContent,
     };
   }
 }

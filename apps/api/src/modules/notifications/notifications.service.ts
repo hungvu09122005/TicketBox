@@ -195,4 +195,68 @@ export class NotificationsService {
     await job.retry();
     return { success: true, message: `Job ${id} is being retried` };
   }
+
+  async queueVipWelcome(params: {
+    toEmail: string;
+    toName: string;
+    ticketId: string;
+    userId: string;
+    concertName: string;
+  }) {
+    const type = NotificationType.VIP_WELCOME;
+    const channel = NotificationChannel.EMAIL;
+    const jobId = `notification.vip_welcome:${params.ticketId}`;
+
+    const existing = await this.repo.findByTicketTypeChannel(params.ticketId, type, channel);
+    if (existing && existing.status !== NotificationStatus.FAILED) {
+      return { success: true, message: 'Notification is already queued or sent.', logId: existing.id };
+    }
+
+    const log = existing
+      ? existing
+      : await this.repo.createLog({
+          ticketId: params.ticketId,
+          userId: params.userId,
+          type,
+          channel,
+          status: NotificationStatus.QUEUED,
+        });
+
+    const existingJob = await this.queue.getJob(jobId);
+    if (existingJob) {
+      await existingJob.remove();
+    }
+    if (existing) {
+      await this.repo.markQueued(existing.id);
+    }
+
+    await this.queue.add(
+      'notification.vip_welcome',
+      {
+        toEmail: params.toEmail,
+        toName: params.toName,
+        ticketId: params.ticketId,
+        userId: params.userId,
+        concertName: params.concertName,
+        type,
+        channel,
+        logId: log.id,
+      },
+      {
+        jobId,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+        removeOnComplete: {
+          age: 3600,
+          count: 100,
+        },
+        removeOnFail: false,
+      },
+    );
+
+    return { success: true, message: 'VIP welcome notification queued.', logId: log.id };
+  }
 }

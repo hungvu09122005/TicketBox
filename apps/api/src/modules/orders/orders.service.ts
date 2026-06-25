@@ -14,7 +14,6 @@ import { OrderQueryDto } from './dto/order-query.dto';
 import { OrderStatus } from './enums/order-status.enum';
 import { MailService } from '../../mail/mail.service';
 import { User } from '../users/entities/user.entity';
-import { InjectDataSource } from '@nestjs/typeorm';
 
 @Injectable()
 export class OrdersService {

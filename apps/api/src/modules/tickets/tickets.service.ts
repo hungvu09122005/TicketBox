@@ -5,6 +5,8 @@ import { QrCodeGeneratorPort, QR_CODE_GENERATOR_PORT } from '../../common/ports/
 import { TicketsRepository } from './tickets.repository';
 import { Ticket, TicketStatus } from './entities/ticket.entity';
 import { Order } from '../orders/entities/order.entity';
+import { OrderItem } from '../orders/entities/order-item.entity';
+import { OrderStatus } from '../orders/enums/order-status.enum';
 import { randomUUID } from 'crypto';
 
 @Injectable()
@@ -124,20 +126,81 @@ export class TicketsService {
     }
   }
 
-  async findByManualCode(
-  manualCode: string,
-): Promise<Ticket> {
-  const ticket =
-    await this.ticketsRepository.findOne({
-      where: { manualCode },
-    });
+  async issueVipTicket(
+    params: {
+      userId: string;
+      concertId: string;
+      ticketTypeId: string;
+    },
+    manager?: EntityManager,
+  ): Promise<Ticket> {
+    const orderData = {
+      id: crypto.randomUUID(),
+      userId: params.userId,
+      concertId: params.concertId,
+      ticketTypeId: params.ticketTypeId,
+      quantity: 1,
+      totalAmount: 0,
+      status: OrderStatus.PAID,
+      expiresAt: new Date(),
+    };
 
-  if (!ticket) {
-    throw new NotFoundException(
-      'Không tìm thấy vé',
-    );
+    const run = async (m: EntityManager) => {
+      const order = m.create(Order, orderData);
+      await m.save(Order, order);
+
+      const orderItem = m.create(OrderItem, {
+        id: crypto.randomUUID(),
+        orderId: order.id,
+        ticketTypeId: params.ticketTypeId,
+        quantity: 1,
+        unitPrice: 0,
+      });
+      await m.save(OrderItem, orderItem);
+
+      const ticketId = crypto.randomUUID();
+      const qrToken = this.qrGenerator.generateToken({
+        ticketId,
+        concertId: params.concertId,
+        ticketTypeId: params.ticketTypeId,
+      });
+
+      const ticket = m.create(Ticket, {
+        id: ticketId,
+        orderId: order.id,
+        ticketTypeId: params.ticketTypeId,
+        userId: params.userId,
+        concertId: params.concertId,
+        qrToken,
+        status: TicketStatus.ACTIVE,
+        manualCode: crypto.randomBytes(6).toString('hex').toUpperCase(),
+      });
+      return await m.save(Ticket, ticket);
+    };
+
+    if (manager) {
+      return await run(manager);
+    } else {
+      return await this.ticketsRepository.repo.manager.transaction(async (m) => {
+        return await run(m);
+      });
+    }
   }
 
-  return ticket;
-}
+  async findByManualCode(
+    manualCode: string,
+  ): Promise<Ticket> {
+    const ticket =
+      await this.ticketsRepository.findOne({
+        where: { manualCode },
+      });
+
+    if (!ticket) {
+      throw new NotFoundException(
+        'Không tìm thấy vé',
+      );
+    }
+
+    return ticket;
+  }
 }

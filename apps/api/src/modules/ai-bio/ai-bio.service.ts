@@ -5,6 +5,7 @@ import { AiBioRepository } from './ai-bio.repository';
 import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../common/ports/object-storage.port';
 import { AiBioStatus } from './entities/ai-bio-request.entity';
 import { AI_BIO_JOB } from './processors/ai-bio.processor';
+import { ArtistsService } from '../artists/artists.service';
 
 const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024;
 
@@ -15,6 +16,7 @@ export class AiBioService {
     private readonly repo: AiBioRepository,
     @Inject(OBJECT_STORAGE_PORT) private readonly storage: ObjectStoragePort,
     @InjectQueue('ai-bio') private readonly queue: Queue,
+    private readonly artistsService: ArtistsService,
   ) {}
   
   async createRequest(pdfFile: Express.Multer.File, artistId: string, userId: string) {
@@ -144,5 +146,38 @@ export class AiBioService {
       },
     );
     return { success: true, message: `AI Bio job ${id} is being retried` };
+  }
+
+  async updateDraftContent(id: string, content: string) {
+    const bio = await this.repo.findById(id);
+    if (!bio) {
+      throw new NotFoundException(`AI Bio job ${id} not found`);
+    }
+    if (bio.status !== AiBioStatus.DRAFT) {
+      throw new BadRequestException(`Cannot edit bio job in state: ${bio.status}`);
+    }
+    await this.repo.updateStatus(id, AiBioStatus.DRAFT, { draftContent: content });
+    return this.repo.findById(id);
+  }
+
+  async publishBio(id: string) {
+    const bio = await this.repo.findById(id);
+    if (!bio) {
+      throw new NotFoundException(`AI Bio job ${id} not found`);
+    }
+    if (bio.status !== AiBioStatus.DRAFT) {
+      throw new BadRequestException(`Cannot publish bio job in state: ${bio.status}`);
+    }
+    if (!bio.draftContent) {
+      throw new BadRequestException('Bio draft content is empty. Cannot publish.');
+    }
+
+    // Cập nhật biography của Artist
+    await this.artistsService.update(bio.artistId, { shortBio: bio.draftContent });
+
+    // Cập nhật trạng thái bio request thành PUBLISHED
+    await this.repo.updateStatus(id, AiBioStatus.PUBLISHED);
+
+    return this.repo.findById(id);
   }
 }
