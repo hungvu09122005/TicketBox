@@ -1,31 +1,37 @@
-import { Processor, Process } from '@nestjs/bull';
+﻿import { Processor, Process } from '@nestjs/bull';
 import { Job } from 'bull';
 import { Logger, Inject } from '@nestjs/common';
-const pdf = require('pdf-parse'); // 1. Thêm import thư viện này
+const pdf = require('pdf-parse'); // 1. ThÃªm import thÆ° viá»‡n nÃ y
 import { AI_TEXT_GENERATION_PORT, AITextGenerationPort } from '../../../common/ports/ai-text-generation.port';
 import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../../common/ports/object-storage.port';
 import { AiBioRepository } from '../ai-bio.repository';
 import { AiBioStatus } from '../entities/ai-bio-request.entity';
 import { createCircuitBreaker } from '../../../common/utils/circuit-breaker.factory';
 import CircuitBreaker from 'opossum';
+import { ConfigService } from '@nestjs/config';
 
 export const AI_BIO_JOB = 'ai.bio.generate';
 
 @Processor('ai-bio')
 export class AiBioProcessor {
+
   private readonly logger = new Logger(AiBioProcessor.name);
   private aiBreaker: CircuitBreaker<[text: string, hint?: string], string>;
 
+
   constructor(
     @Inject(AI_TEXT_GENERATION_PORT) private readonly aiPort: AITextGenerationPort,
-    @Inject(OBJECT_STORAGE_PORT) private readonly storage: ObjectStoragePort, // 2. Đã thêm private
-    private readonly repo: AiBioRepository,                                   // 3. Đã thêm private
+    @Inject(OBJECT_STORAGE_PORT) private readonly storage: ObjectStoragePort, // 2. ÄÃ£ thÃªm private
+    private readonly repo: AiBioRepository,
+    private readonly configService: ConfigService,                                  // 3. ÄÃ£ thÃªm private
   ) {
+
+    const timeoutMs = this.configService.get<number>('app.ai.openaiTimeoutMs') ?? 15000;
     this.aiBreaker = createCircuitBreaker(
       (text: string, hint?: string) => this.aiPort.generateArtistBio(text, hint),
       {
         name: 'AIGeneration',
-        timeout: 15000,               // AI might take up to 15 seconds
+        timeout: timeoutMs,               // AI might take up to 15 seconds
         errorThresholdPercentage: 50, // 50% errors opens circuit
         resetTimeout: 30000,          // Try again after 30 seconds
       },
@@ -40,26 +46,26 @@ export class AiBioProcessor {
   @Process(AI_BIO_JOB)
   async handle(job: Job<{ requestId: string; fileUrl: string }>): Promise<void> {
     const { requestId, fileUrl } = job.data;
-    
+
     try {
       await this.repo.updateStatus(requestId, AiBioStatus.PROCESSING);
 
-      // Tải PDF từ MinIO
+      // Táº£i PDF tá»« MinIO
       const buffer = await this.storage.download(fileUrl);
-      const data = await pdf(buffer); // 4. Sử dụng pdf-parse
-      
-      // Gọi AI thông qua Circuit Breaker
+      const data = await pdf(buffer); // 4. Sá»­ dá»¥ng pdf-parse
+
+      // Gá»i AI thÃ´ng qua Circuit Breaker
       const content = await this.aiBreaker.fire(data.text, undefined);
-      
-      // Lưu kết quả dưới dạng DRAFT (không tự động PUBLISH)
+
+      // LÆ°u káº¿t quáº£ dÆ°á»›i dáº¡ng DRAFT (khÃ´ng tá»± Ä‘á»™ng PUBLISH)
       await this.repo.updateStatus(requestId, AiBioStatus.DRAFT, content);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to process job ${requestId} (attempt ${job.attemptsMade + 1}): ${message}`);
-      
+
       const maxAttempts = job.opts?.attempts || 1;
       const isLastAttempt = job.attemptsMade + 1 >= maxAttempts;
-      
+
       if (isLastAttempt) {
         await this.repo.updateStatus(requestId, AiBioStatus.FAILED, message);
       } else {
@@ -67,7 +73,7 @@ export class AiBioProcessor {
           failureReason: `Attempt ${job.attemptsMade + 1} failed: ${message}`
         });
       }
-      
+
       throw error;
     }
   }
