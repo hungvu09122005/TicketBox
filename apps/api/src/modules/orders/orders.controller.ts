@@ -105,9 +105,20 @@ export class OrdersController {
   @RequirePermissions(Permission.ORDER_READ_ALL) // Chỉ Admin/Organizer mới được quyền test mail này
   async testSendMail(@Param('id') id: string) {
     const order = await this.ordersService.findOne(id);
+
     // Lấy thông tin user để gửi mail
     // Bạn cần đảm bảo đã load relation user trong findById ở Service
-    await this.mailService.sendTestEmail(order.user.email);
+    await this.mailService.sendEmail({
+  to: order.user.email,
+  subject: '[TicketBox] Test email',
+  html: `
+    <h2>TicketBox Email Test</h2>
+    <p>Xin chào ${order.user.name || order.user.email},</p>
+    <p>Hệ thống gửi email đã hoạt động.</p>
+    <p>Order ID: ${order.id}</p>
+  `,
+  text: `TicketBox Email Test\nOrder ID: ${order.id}`,
+});
     return { message: `Email đã được gửi tới ${order.user.email}` };
   }
 }
