@@ -1,4 +1,4 @@
-import { Processor, Process } from '@nestjs/bull';
+﻿import { Processor, Process } from '@nestjs/bull';
 import { Job } from 'bull';
 import { Logger, Inject } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
@@ -137,10 +137,9 @@ export class CsvImportProcessor {
     this.logger.log(`Processing CSV Import Job: ${jobId}`);
 
     const importJob = await this.repo.findById(jobId);
-    if (!importJob) {
-      this.logger.error(`Job ${jobId} not found in database`);
-      return;
-    }
+if (!importJob) {
+  throw new Error(`CSV import job ${jobId} not found in database`);
+}
 
     let totalRows = 0;
     let successRows = 0;
@@ -237,110 +236,136 @@ export class CsvImportProcessor {
         }
 
         try {
-          await this.manager.transaction(async (m) => {
-            const ticketType = await m.findOne(TicketType, {
-              where: { id: ticketTypeId, concertId },
-            });
+  const notificationPayload = await this.manager.transaction(async (m) => {
+    const ticketType = await m.findOne(TicketType, {
+      where: { id: ticketTypeId, concertId },
+    });
 
-            if (!ticketType) {
-              throw new Error(`Ticket type ${ticketTypeId} not found for this concert`);
-            }
+    if (!ticketType) {
+      throw new Error(`Ticket type ${ticketTypeId} not found for this concert`);
+    }
 
-            const existingGuest = await m.findOne(VipGuest, {
-              where: [
-                { concertId, email },
-                ...(phone ? [{ concertId, phone }] : []),
-              ],
-            });
+    let user = await m.findOne(User, { where: { email } });
 
-            if (existingGuest) {
-              const skipErr = new Error('Duplicate email or phone in database');
-              (skipErr as any).isSkip = true;
-              throw skipErr;
-            }
+    if (!user) {
+      const passwordHash = await bcrypt.hash(
+        crypto.randomBytes(16).toString('hex'),
+        12,
+      );
 
-            let user = await m.findOne(User, { where: { email } });
+      const audienceRole = await m.findOne(RoleEntity, {
+        where: { name: Role.AUDIENCE },
+      });
 
-            if (!user) {
-              const passwordHash = await bcrypt.hash(
-                crypto.randomBytes(16).toString('hex'),
-                12,
-              );
-
-              const audienceRole = await m.findOne(RoleEntity, {
-                where: { name: Role.AUDIENCE },
-              });
-
-              if (!audienceRole) {
-                throw new Error('AUDIENCE role not found in database');
-              }
-
-              user = m.create(User, {
-                email,
-                name,
-                passwordHash,
-                isActive: true,
-                roles: [audienceRole],
-              });
-
-              await m.save(User, user);
-            }
-
-            const vipGuest = m.create(VipGuest, {
-              concertId,
-              ticketTypeId,
-              csvImportJobId: jobId,
-              email,
-              name,
-              phone: phone || undefined,
-              dedupKey,
-            });
-
-            await m.save(VipGuest, vipGuest);
-
-            const ticket = await this.ticketsService.issueVipTicket(
-              {
-                userId: user.id,
-                concertId,
-                ticketTypeId,
-              },
-              m,
-            );
-
-            vipGuest.ticketId = ticket.id;
-            await m.save(VipGuest, vipGuest);
-
-            await m.save(
-              CsvImportRow,
-              m.create(CsvImportRow, {
-                jobId,
-                rowNumber,
-                status: CsvRowStatus.SUCCESS,
-              }),
-            );
-
-            await this.notificationsService.queueVipWelcome({
-              toEmail: email,
-              toName: name,
-              ticketId: ticket.id,
-              userId: user.id,
-              concertName: concert.name,
-            });
-
-            successRows += 1;
-          });
-        } catch (rowError: any) {
-          errorRows += 1;
-
-          const status = rowError.isSkip
-            ? CsvRowStatus.SKIPPED_DUPLICATE
-            : CsvRowStatus.ERROR;
-
-          const reason = rowError.message || 'Unknown processing error';
-
-          await this.repo.createRowOutcome(jobId, rowNumber, status, reason);
-        }
+      if (!audienceRole) {
+        throw new Error('AUDIENCE role not found in database');
       }
+
+      user = m.create(User, {
+        email,
+        name,
+        passwordHash,
+        isActive: true,
+        roles: [audienceRole],
+      });
+
+      await m.save(User, user);
+    }
+
+    const existingGuest = await m.findOne(VipGuest, {
+      where: [
+        { concertId, email },
+        ...(phone ? [{ concertId, phone }] : []),
+      ],
+    });
+
+    if (existingGuest && existingGuest.csvImportJobId !== jobId) {
+      const skipErr = new Error('Duplicate email or phone in database');
+      (skipErr as any).isSkip = true;
+      throw skipErr;
+    }
+
+    let vipGuest = existingGuest;
+    let ticketId = existingGuest?.ticketId;
+
+    if (!vipGuest) {
+      vipGuest = m.create(VipGuest, {
+        concertId,
+        ticketTypeId,
+        csvImportJobId: jobId,
+        email,
+        name,
+        phone: phone || undefined,
+        dedupKey,
+      });
+
+      await m.save(VipGuest, vipGuest);
+    }
+
+    if (!ticketId) {
+      const ticket = await this.ticketsService.issueVipTicket(
+        {
+          userId: user.id,
+          concertId,
+          ticketTypeId,
+        },
+        m,
+      );
+
+      ticketId = ticket.id;
+      vipGuest.ticketId = ticket.id;
+      await m.save(VipGuest, vipGuest);
+    }
+
+    if (!ticketId) {
+      throw new Error('VIP ticket was not issued');
+    }
+
+    const existingRow = await m.findOne(CsvImportRow, {
+      where: { jobId, rowNumber },
+    });
+
+    if (existingRow) {
+      existingRow.status = CsvRowStatus.SUCCESS;
+      existingRow.errorReason = undefined;
+      await m.save(CsvImportRow, existingRow);
+    } else {
+      await m.save(
+        CsvImportRow,
+        m.create(CsvImportRow, {
+          jobId,
+          rowNumber,
+          status: CsvRowStatus.SUCCESS,
+        }),
+      );
+    }
+
+    return {
+      toEmail: email,
+      toName: name,
+      ticketId,
+      userId: user.id,
+      concertName: concert.name,
+    };
+  });
+
+  await this.notificationsService.queueVipWelcome(notificationPayload);
+
+  successRows += 1;
+} catch (rowError: any) {
+  errorRows += 1;
+
+  const status = rowError.isSkip
+    ? CsvRowStatus.SKIPPED_DUPLICATE
+    : CsvRowStatus.ERROR;
+
+  const reason = rowError.message || 'Unknown processing error';
+
+  await this.repo.createRowOutcome(jobId, rowNumber, status, reason);
+}
+
+      }
+
 
       if (!requiredHeadersChecked) {
         throw new Error('CSV file is empty or has no header row');
