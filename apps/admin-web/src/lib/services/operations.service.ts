@@ -73,6 +73,21 @@ export interface CsvErrorReportResponse {
   csv?: string;
 }
 
+export interface CsvImportTemplateResponse {
+  filename?: string;
+  delimiter?: string;
+  encoding?: string;
+  requiredColumns?: string[];
+  optionalColumns?: string[];
+  columns?: Array<{
+    name: string;
+    required?: boolean;
+    description?: string;
+  }>;
+  exampleRows?: Array<Record<string, string>>;
+  notes?: string[];
+}
+
 export interface NotificationProbePayload {
   email: string;
   ticketId: string;
@@ -132,6 +147,7 @@ export interface PaymentInitiationResult {
 
 export interface AiBioRequestResult {
   id?: string;
+  job_id?: string;
   artistId?: string;
   requestedBy?: string;
   pdfObjectKey?: string;
@@ -140,6 +156,37 @@ export interface AiBioRequestResult {
   failureReason?: string | null;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface DemoBootstrapStatus {
+  jobId?: string;
+  status?: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  progress?: number;
+  message?: string;
+  created?: {
+    adminUserId?: string | null;
+    organizerUserId?: string | null;
+    staffUserId?: string | null;
+    audienceUserId?: string | null;
+    artistId?: string | null;
+    concertId?: string | null;
+    ticketTypeIds?: string[];
+    csvJobId?: string | null;
+    aiBioRequestId?: string | null;
+  };
+}
+
+export interface StartDemoBootstrapResponse {
+  jobId: string;
+  status?: string;
+  message?: string;
+}
+
+function normalizeAiBioResult(payload: AiBioRequestResult): AiBioRequestResult {
+  return {
+    ...payload,
+    id: payload.id ?? payload.job_id,
+  };
 }
 
 export const operationsService = {
@@ -219,6 +266,27 @@ export const operationsService = {
     return response.data.data ?? response.data;
   },
 
+  createCsvImportJob: async (csvFile: File, concertId: string): Promise<CsvImportJobStatus> => {
+    const formData = new FormData();
+    formData.append('file', csvFile);
+    formData.append('concertId', concertId);
+
+    const response = await apiClient.post('/imports/csv', formData);
+    const payload = response.data.data ?? response.data;
+    return {
+      ...payload,
+      id: payload.id ?? payload.job_id,
+      objectKey: payload.objectKey ?? payload.object_key,
+      concertId: payload.concertId ?? payload.concert_id,
+      createdAt: payload.createdAt ?? payload.created_at,
+    };
+  },
+
+  getCsvImportTemplate: async (): Promise<CsvImportTemplateResponse> => {
+    const response = await apiClient.get('/imports/template');
+    return response.data.data ?? response.data;
+  },
+
   downloadCsvErrorReport: async (jobId: string): Promise<CsvErrorReportResponse> => {
     const response = await apiClient.get(`/imports/${jobId}/error-report`);
     return response.data.data ?? response.data;
@@ -257,7 +325,12 @@ export const operationsService = {
     formData.append('artistId', artistId);
 
     const response = await apiClient.post('/api/artist-bio', formData);
-    return response.data.data ?? response.data;
+    return normalizeAiBioResult(response.data.data ?? response.data);
+  },
+
+  createManualAiBioDraft: async (artistId: string, bio: string): Promise<AiBioRequestResult> => {
+    const response = await apiClient.post('/api/artist-bio/manual', { artistId, bio });
+    return normalizeAiBioResult(response.data.data ?? response.data);
   },
 
   listAiBioJobs: async (status?: AiBioRequestResult['status'] | 'SUCCESS'): Promise<AiBioRequestResult[]> => {
@@ -269,7 +342,7 @@ export const operationsService = {
 
   getAiBioJobStatus: async (jobId: string): Promise<AiBioRequestResult> => {
     const response = await apiClient.get(`/api/artist-bio/${jobId}/status`);
-    return response.data.data ?? response.data;
+    return normalizeAiBioResult(response.data.data ?? response.data);
   },
 
   retryAiBioJob: async (jobId: string): Promise<RetryResult> => {
@@ -279,12 +352,12 @@ export const operationsService = {
 
   updateAiBioDraft: async (jobId: string, draftContent: string): Promise<AiBioRequestResult> => {
     const response = await apiClient.patch(`/api/artist-bio/${jobId}`, { draftContent });
-    return response.data.data ?? response.data;
+    return normalizeAiBioResult(response.data.data ?? response.data);
   },
 
   publishAiBioDraft: async (jobId: string): Promise<AiBioRequestResult> => {
     const response = await apiClient.patch(`/api/artist-bio/${jobId}/publish`);
-    return response.data.data ?? response.data;
+    return normalizeAiBioResult(response.data.data ?? response.data);
   },
 
   getPaymentHistory: async (orderId: string): Promise<PaymentHistoryRecord[]> => {
@@ -295,5 +368,15 @@ export const operationsService = {
   getPaymentAudit: async (orderId: string): Promise<PaymentAuditRecord[]> => {
     const response = await apiClient.get(`/payments/orders/${orderId}/audit`);
     return extractListData<PaymentAuditRecord>(response.data.data ?? response.data);
+  },
+
+  startDemoBootstrap: async (): Promise<StartDemoBootstrapResponse> => {
+    const response = await apiClient.post('/admin/demo/bootstrap', {});
+    return response.data.data ?? response.data;
+  },
+
+  getDemoBootstrapStatus: async (jobId: string): Promise<DemoBootstrapStatus> => {
+    const response = await apiClient.get(`/admin/demo/bootstrap/${jobId}`);
+    return response.data.data ?? response.data;
   },
 };

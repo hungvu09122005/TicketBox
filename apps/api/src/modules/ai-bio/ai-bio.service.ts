@@ -90,12 +90,7 @@ export class AiBioService {
       status: AiBioStatus.DRAFT,
     });
 
-    return {
-      success: true,
-      job_id: request.id,
-      status: request.status,
-      manual: true,
-    };
+    return this.repo.findById(request.id);
   }
   
 

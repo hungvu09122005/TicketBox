@@ -1,6 +1,6 @@
 import { Processor, Process } from '@nestjs/bull';
 import { Job } from 'bull';
-import { Logger, Inject } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { parse } from 'csv-parse/sync';
 import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../../common/ports/object-storage.port';
@@ -8,8 +8,7 @@ import { TicketsService } from '../../tickets/tickets.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { CsvImportRepository } from '../csv-import.repository';
 import { CsvImportJobStatus } from '../entities/csv-import-job.entity';
-import { CsvRowStatus } from '../entities/csv-import-row.entity';
-import { CsvImportRow } from '../entities/csv-import-row.entity';
+import { CsvImportRow, CsvRowStatus } from '../entities/csv-import-row.entity';
 import { VipGuest } from '../entities/vip-guest.entity';
 import { TicketType } from '../../ticket-types/entities/ticket-type.entity';
 import { Concert } from '../../concerts/entities/concert.entity';
@@ -21,9 +20,17 @@ import * as crypto from 'crypto';
 
 export const CSV_IMPORT_JOB = 'csv.import';
 
+type CsvImportJobPayload = {
+  jobId: string;
+  objectKey?: string;
+  fileUrl?: string;
+  concertId?: string;
+  triggeredBy?: string;
+};
+
 /**
  * CsvImportProcessor — bullmqMQ worker. Blueprint §05 §3.6.
- * Processes CSV row-by-row (streaming), supports partial success.
+ * Processes CSV row-by-row, supports partial success.
  * Retry is idempotent via VipGuest dedup_key UNIQUE constraint.
  */
 @Processor('csv-import')
@@ -36,11 +43,11 @@ export class CsvImportProcessor {
     private readonly ticketsService: TicketsService,
     private readonly notificationsService: NotificationsService,
     private readonly manager: EntityManager,
-  ) { }
+  ) {}
 
   @Process(CSV_IMPORT_JOB)
-  async handle(job: Job<{ jobId: string; fileUrl: string; concertId: string }>): Promise<void> {
-    const { jobId, fileUrl, concertId } = job.data;
+  async handle(job: Job<CsvImportJobPayload>): Promise<void> {
+    const { jobId } = job.data;
     this.logger.log(`Processing CSV Import Job: ${jobId}`);
 
     const importJob = await this.repo.findById(jobId);
@@ -49,40 +56,41 @@ export class CsvImportProcessor {
       return;
     }
 
-    let records: any[] = [];
+    const objectKey = job.data.objectKey ?? job.data.fileUrl ?? importJob.objectKey;
+    const concertId = job.data.concertId ?? importJob.concertId;
+    let records: Array<Record<string, string | undefined>> = [];
     let successRows = 0;
     let errorRows = 0;
 
     try {
       await this.repo.updateStatus(jobId, CsvImportJobStatus.PROCESSING);
 
-      // Download file from MinIO
-      const buffer = await this.storage.download(fileUrl);
+      const buffer = await this.storage.download(objectKey);
 
-      // Parse CSV
       try {
-        records = parse(buffer, {
+        records = parse(buffer.toString('utf8'), {
           columns: true,
           skip_empty_lines: true,
           trim: true,
-        });
-      } catch (parseError: any) {
-        throw new Error(`Failed to parse CSV file: ${parseError.message}`);
+        }) as Array<Record<string, string | undefined>>;
+      } catch (parseError) {
+        const message = parseError instanceof Error ? parseError.message : 'Unknown parse error';
+        throw new Error(`Failed to parse CSV file: ${message}`);
       }
 
       if (records.length === 0) {
         throw new Error('CSV file is empty or has no valid rows');
       }
 
-      // Check required headers
       const firstRecord = records[0];
-      const requiredHeaders = ['email', 'name', 'ticketTypeId'];
-      const missingHeaders = requiredHeaders.filter((h) => !(h in firstRecord));
+      const missingHeaders = ['email', 'name'].filter((header) => !(header in firstRecord));
+      if (!('ticketTypeId' in firstRecord) && !('ticket_type_id' in firstRecord)) {
+        missingHeaders.push('ticketTypeId');
+      }
       if (missingHeaders.length > 0) {
         throw new Error(`CSV is missing required headers: ${missingHeaders.join(', ')}`);
       }
 
-      // Fetch Concert details to get name for notification
       const concert = await this.manager.findOne(Concert, { where: { id: concertId } });
       if (!concert) {
         throw new Error(`Concert ${concertId} not found`);
@@ -91,58 +99,50 @@ export class CsvImportProcessor {
       const processedEmails = new Set<string>();
       const processedPhones = new Set<string>();
 
-      for (let i = 0; i < records.length; i++) {
-        const record = records[i];
-        const rowNumber = i + 2; // Data row starts at row 2 (row 1 is header)
-
-        const email = record.email?.trim();
+      for (let index = 0; index < records.length; index += 1) {
+        const record = records[index];
+        const rowNumber = index + 2;
+        const email = record.email?.trim().toLowerCase();
         const name = record.name?.trim();
-        const ticketTypeId = record.ticketTypeId?.trim();
-        const phone = record.phone?.trim();
+        const ticketTypeId = (record.ticketTypeId ?? record.ticket_type_id)?.trim();
+        const phone = record.phone?.trim() || undefined;
 
-        // 1. Simple column presence validation
         if (!email || !name || !ticketTypeId) {
-          errorRows++;
+          errorRows += 1;
           await this.repo.createRowOutcome(jobId, rowNumber, CsvRowStatus.ERROR, 'Missing email, name, or ticketTypeId');
           continue;
         }
 
-        // 2. Validate email format
         if (!email.includes('@')) {
-          errorRows++;
+          errorRows += 1;
           await this.repo.createRowOutcome(jobId, rowNumber, CsvRowStatus.ERROR, 'Invalid email format');
           continue;
         }
 
-        // 3. Normalize email for dedup checks
-        const dedupKey = email.toLowerCase();
-
-        // 4. Check for duplicates in the current CSV file
-        if (processedEmails.has(dedupKey)) {
-          errorRows++;
+        if (processedEmails.has(email)) {
+          errorRows += 1;
           await this.repo.createRowOutcome(jobId, rowNumber, CsvRowStatus.SKIPPED_DUPLICATE, 'Duplicate email in CSV file');
           continue;
         }
+
         if (phone && processedPhones.has(phone)) {
-          errorRows++;
+          errorRows += 1;
           await this.repo.createRowOutcome(jobId, rowNumber, CsvRowStatus.SKIPPED_DUPLICATE, 'Duplicate phone in CSV file');
           continue;
         }
-        processedEmails.add(dedupKey);
+
+        processedEmails.add(email);
         if (phone) {
           processedPhones.add(phone);
         }
 
         try {
-          // Process row in isolated transaction to support partial success
           await this.manager.transaction(async (m) => {
-            // Check if ticket type exists and is active for this concert
             const ticketType = await m.findOne(TicketType, { where: { id: ticketTypeId, concertId } });
             if (!ticketType) {
               throw new Error(`Ticket type ${ticketTypeId} not found for this concert`);
             }
 
-            // Check duplicate email or phone scoped to concert in PostgreSQL
             const existingGuest = await m.findOne(VipGuest, {
               where: [
                 { concertId, email },
@@ -150,12 +150,11 @@ export class CsvImportProcessor {
               ],
             });
             if (existingGuest) {
-              const skipErr = new Error('Duplicate email or phone in database');
-              (skipErr as any).isSkip = true;
-              throw skipErr;
+              const skipError = new Error('Duplicate email or phone in database');
+              (skipError as Error & { isSkip?: boolean }).isSkip = true;
+              throw skipError;
             }
 
-            // Find or create user
             let user = await m.findOne(User, { where: { email } });
             if (!user) {
               const passwordHash = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 12);
@@ -163,6 +162,7 @@ export class CsvImportProcessor {
               if (!audienceRole) {
                 throw new Error('AUDIENCE role not found in database');
               }
+
               user = m.create(User, {
                 email,
                 name,
@@ -173,37 +173,38 @@ export class CsvImportProcessor {
               await m.save(User, user);
             }
 
-            // Save VIP Guest (without ticketId first, then update it)
             const vipGuest = m.create(VipGuest, {
               concertId,
               ticketTypeId,
               csvImportJobId: jobId,
               email,
               name,
-              phone: phone || undefined,
-              dedupKey,
+              phone,
+              dedupKey: email,
             });
             await m.save(VipGuest, vipGuest);
 
-            // Issue ticket
-            const ticket = await this.ticketsService.issueVipTicket({
-              userId: user.id,
-              concertId,
-              ticketTypeId,
-            }, m);
+            const ticket = await this.ticketsService.issueVipTicket(
+              {
+                userId: user.id,
+                concertId,
+                ticketTypeId,
+              },
+              m,
+            );
 
-            // Link ticket back to VIP Guest
             vipGuest.ticketId = ticket.id;
             await m.save(VipGuest, vipGuest);
 
-            // Create row outcome (SUCCESS)
-            await m.save(CsvImportRow, m.create(CsvImportRow, {
-              jobId,
-              rowNumber,
-              status: CsvRowStatus.SUCCESS,
-            }));
+            await m.save(
+              CsvImportRow,
+              m.create(CsvImportRow, {
+                jobId,
+                rowNumber,
+                status: CsvRowStatus.SUCCESS,
+              }),
+            );
 
-            // Enqueue welcome notification
             await this.notificationsService.queueVipWelcome({
               toEmail: email,
               toName: name,
@@ -212,20 +213,23 @@ export class CsvImportProcessor {
               concertName: concert.name,
             });
 
-            successRows++;
+            successRows += 1;
           });
-        } catch (rowError: any) {
-          errorRows++;
-          const status = rowError.isSkip ? CsvRowStatus.SKIPPED_DUPLICATE : CsvRowStatus.ERROR;
-          const reason = rowError.message || 'Unknown processing error';
+        } catch (rowError) {
+          errorRows += 1;
+          const rowErrorWithSkip = rowError as Error & { isSkip?: boolean };
+          const status = rowErrorWithSkip.isSkip ? CsvRowStatus.SKIPPED_DUPLICATE : CsvRowStatus.ERROR;
+          const reason = rowError instanceof Error ? rowError.message : 'Unknown processing error';
           await this.repo.createRowOutcome(jobId, rowNumber, status, reason);
         }
       }
 
-      // Update final job statistics and status
-      const finalStatus = errorRows === 0 ? CsvImportJobStatus.COMPLETED :
-        successRows === 0 ? CsvImportJobStatus.FAILED :
-          CsvImportJobStatus.PARTIALLY_COMPLETED;
+      const finalStatus =
+        errorRows === 0
+          ? CsvImportJobStatus.COMPLETED
+          : successRows === 0
+            ? CsvImportJobStatus.FAILED
+            : CsvImportJobStatus.PARTIALLY_COMPLETED;
 
       await this.repo.updateJobStats(jobId, {
         totalRows: records.length,
@@ -234,32 +238,25 @@ export class CsvImportProcessor {
         status: finalStatus,
       });
 
-      this.logger.log(`CSV Import Job ${jobId} completed. status=${finalStatus}, total=${records.length}, success=${successRows}, error=${errorRows}`);
-
-    } catch (jobError: any) {
+      this.logger.log(
+        `CSV Import Job ${jobId} completed. status=${finalStatus}, total=${records.length}, success=${successRows}, error=${errorRows}`,
+      );
+    } catch (jobError) {
       const message = jobError instanceof Error ? jobError.message : 'Unknown error';
-      this.logger.error(`Failed to process CSV Import Job ${jobId} (attempt ${job.attemptsMade + 1}): ${message}`);
+      const attemptNumber = (job.attemptsMade ?? 0) + 1;
+      this.logger.error(`Failed to process CSV Import Job ${jobId} (attempt ${attemptNumber}): ${message}`);
 
       const maxAttempts = job.opts?.attempts || 1;
-      const isLastAttempt = job.attemptsMade + 1 >= maxAttempts;
+      const isLastAttempt = attemptNumber >= maxAttempts;
 
-      if (isLastAttempt) {
-        await this.repo.updateJobStats(jobId, {
-          totalRows: records.length || 0,
-          successRows,
-          errorRows,
-          status: CsvImportJobStatus.FAILED,
-          failureReason: message,
-        });
-      } else {
-        await this.repo.updateJobStats(jobId, {
-          totalRows: records.length || 0,
-          successRows,
-          errorRows,
-          status: CsvImportJobStatus.PROCESSING,
-          failureReason: `Attempt ${job.attemptsMade + 1} failed: ${message}`,
-        });
-      }
+      await this.repo.updateJobStats(jobId, {
+        totalRows: records.length || 0,
+        successRows,
+        errorRows,
+        status: isLastAttempt ? CsvImportJobStatus.FAILED : CsvImportJobStatus.PROCESSING,
+        failureReason: isLastAttempt ? message : `Attempt ${attemptNumber} failed: ${message}`,
+      });
+
       throw jobError;
     }
   }

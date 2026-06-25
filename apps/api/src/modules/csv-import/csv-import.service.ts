@@ -25,7 +25,7 @@ const ALLOWED_CSV_MIME_TYPES = new Set([
   'application/vnd.ms-excel',
 ]);
 
-const EXPECTED_HEADERS = ['name', 'email', 'phone', 'ticket_type_id'];
+const REQUIRED_CSV_HEADERS = ['email', 'name'];
 
 @Injectable()
 export class CsvImportService {
@@ -171,15 +171,18 @@ export class CsvImportService {
     const actualHeaders = firstLine
       .replace(/^\uFEFF/, '')
       .split(',')
-      .map((header) => header.trim().toLowerCase());
+      .map((header) => header.trim());
 
-    const isValidHeader =
-      actualHeaders.length === EXPECTED_HEADERS.length &&
-      EXPECTED_HEADERS.every((header, index) => actualHeaders[index] === header);
+    const missingHeaders = REQUIRED_CSV_HEADERS.filter(
+      (header) => !actualHeaders.includes(header),
+    );
+    if (!actualHeaders.includes('ticketTypeId') && !actualHeaders.includes('ticket_type_id')) {
+      missingHeaders.push('ticketTypeId');
+    }
 
-    if (!isValidHeader) {
+    if (missingHeaders.length > 0) {
       throw new BadRequestException(
-        `Invalid CSV header. Expected: ${EXPECTED_HEADERS.join(',')}`,
+        `Invalid CSV header. Missing required columns: ${missingHeaders.join(', ')}`,
       );
     }
   }
@@ -188,29 +191,6 @@ export class CsvImportService {
     const content = buffer.toString('utf8');
     const [firstLine] = content.split(/\r?\n/);
     return firstLine?.trim() ?? '';
-  }
-
-  async getErrorReport(jobId: string) {
-    const job = await this.repo.findById(jobId);
-    if (!job) {
-      throw new NotFoundException(`Job ${jobId} not found`);
-    }
-
-    const rows = await this.repo.findRowsByJobId(jobId);
-    const failedOrSkipped = rows.filter((r) => r.status !== CsvRowStatus.SUCCESS);
-
-    let csvContent = 'rowNumber,status,errorReason\n';
-    for (const r of failedOrSkipped) {
-      const reason = r.errorReason ? `"${r.errorReason.replace(/"/g, '""')}"` : '';
-      csvContent += `${r.rowNumber},${r.status},${reason}\n`;
-    }
-
-    return {
-      jobId,
-      filename: `csv-error-report-${jobId}.csv`,
-      rowCount: failedOrSkipped.length,
-      csv: csvContent,
-    };
   }
 
   async getErrorReport(jobId: string) {

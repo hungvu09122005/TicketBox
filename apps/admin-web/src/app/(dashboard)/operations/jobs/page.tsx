@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowSquareOut, CloudArrowUp, FileMagnifyingGlass, SpinnerGap, ArrowClockwise } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowSquareOut, CloudArrowUp, Database, DownloadSimple, FileMagnifyingGlass, Play, SpinnerGap, ArrowClockwise } from '@phosphor-icons/react';
 import { Permission } from '@/lib/permissions';
 import { useAuthStore } from '@/lib/auth-store';
 import { artistService } from '@/lib/services/artist.service';
-import { operationsService, type AiBioRequestResult, type CsvImportJobStatus, type NotificationJobRecord } from '@/lib/services/operations.service';
-import type { Artist } from '@/lib/types';
+import { concertService } from '@/lib/services/concert.service';
+import { operationsService, type AiBioRequestResult, type CsvImportJobStatus, type DemoBootstrapStatus, type NotificationJobRecord } from '@/lib/services/operations.service';
+import type { Artist, Concert } from '@/lib/types';
 
 const queueDashboardHref = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
@@ -82,17 +83,22 @@ function NotificationRowStatus({ item }: Readonly<{ item: NotificationJobRecord 
 }
 
 export default function JobsPage() {
+  const admin = useAuthStore((state) => state.admin);
   const permissions = useAuthStore((state) => state.permissions);
   const canViewJobs = permissions.includes(Permission.VIP_IMPORT) || permissions.includes(Permission.AI_GENERATE_BIO) || permissions.includes(Permission.REPORT_VIEW) || permissions.includes(Permission.RBAC_MANAGE);
+  const canUploadCsv = permissions.includes(Permission.VIP_IMPORT);
   const canRetryCsv = permissions.includes(Permission.VIP_IMPORT);
   const canRetryAi = permissions.includes(Permission.AI_GENERATE_BIO);
   const canRetryNotifications = permissions.includes(Permission.RBAC_MANAGE);
+  const canManageDemo = permissions.includes(Permission.RBAC_MANAGE);
 
   const [csvJobs, setCsvJobs] = useState<CsvImportJobStatus[]>([]);
   const [aiJobs, setAiJobs] = useState<AiBioRequestResult[]>([]);
   const [notificationJobs, setNotificationJobs] = useState<NotificationJobRecord[]>([]);
   const [artists, setArtists] = useState<Artist[]>([]);
+  const [concerts, setConcerts] = useState<Concert[]>([]);
   const [selectedArtistId, setSelectedArtistId] = useState('');
+  const [selectedConcertId, setSelectedConcertId] = useState('');
   const [csvFilter, setCsvFilter] = useState<MonitorFilter>('all');
   const [aiFilter, setAiFilter] = useState<MonitorFilter>('all');
   const [notificationFilter, setNotificationFilter] = useState<MonitorFilter>('FAILED');
@@ -107,6 +113,18 @@ export default function JobsPage() {
   const [csvLookupResult, setCsvLookupResult] = useState<CsvImportJobStatus | null>(null);
   const [csvLookupError, setCsvLookupError] = useState<string | null>(null);
   const [csvLookupLoading, setCsvLookupLoading] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvUploadLoading, setCsvUploadLoading] = useState(false);
+  const [csvUploadMessage, setCsvUploadMessage] = useState<string | null>(null);
+  const [csvUploadError, setCsvUploadError] = useState<string | null>(null);
+  const [manualBioContent, setManualBioContent] = useState('');
+  const [manualBioLoading, setManualBioLoading] = useState(false);
+  const [manualBioMessage, setManualBioMessage] = useState<string | null>(null);
+  const [manualBioError, setManualBioError] = useState<string | null>(null);
+  const [demoJobId, setDemoJobId] = useState<string | null>(null);
+  const [demoStatus, setDemoStatus] = useState<DemoBootstrapStatus | null>(null);
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoError, setDemoError] = useState<string | null>(null);
 
   const loadAllJobs = async () => {
     setPageLoading(true);
@@ -135,12 +153,45 @@ export default function JobsPage() {
     } catch {
       setArtists([]);
     }
+
+    try {
+      const nextConcerts = await concertService.getConcerts(admin);
+      setConcerts(nextConcerts);
+      setSelectedConcertId((current) => current || nextConcerts[0]?.id || '');
+    } catch {
+      setConcerts([]);
+    }
   };
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- load initial jobs and artists when the page mounts
     void loadAllJobs();
   }, []);
+
+  useEffect(() => {
+    if (!demoJobId || demoStatus?.status === 'COMPLETED' || demoStatus?.status === 'FAILED') {
+      return;
+    }
+
+    let isActive = true;
+    const intervalId = window.setInterval(async () => {
+      try {
+        const nextStatus = await operationsService.getDemoBootstrapStatus(demoJobId);
+        if (isActive) {
+          setDemoStatus(nextStatus);
+        }
+      } catch (error) {
+        if (isActive) {
+          setDemoError(error instanceof Error ? error.message : 'Unable to load demo bootstrap status.');
+        }
+      }
+    }, 3000);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+    };
+  }, [demoJobId, demoStatus?.status]);
 
   const filteredCsvJobs = useMemo(
     () => csvJobs.filter((job) => csvFilter === 'all' || normalizeCsvStatus(job.status) === csvFilter),
@@ -179,6 +230,104 @@ export default function JobsPage() {
       setCreateError(error instanceof Error ? error.message : 'Unable to create AI bio request.');
     } finally {
       setCreateLoading(false);
+    }
+  };
+
+  const handleCreateManualBio = async () => {
+    if (!selectedArtistId) {
+      setManualBioError('Please choose an artist.');
+      return;
+    }
+    if (!manualBioContent.trim()) {
+      setManualBioError('Manual bio content is required.');
+      return;
+    }
+
+    setManualBioLoading(true);
+    setManualBioError(null);
+    setManualBioMessage(null);
+
+    try {
+      const result = await operationsService.createManualAiBioDraft(selectedArtistId, manualBioContent.trim());
+      setManualBioMessage(result.id ? `Manual draft created: ${result.id}` : 'Manual draft created.');
+      setManualBioContent('');
+      await loadAllJobs();
+    } catch (error) {
+      setManualBioError(error instanceof Error ? error.message : 'Unable to create manual bio draft.');
+    } finally {
+      setManualBioLoading(false);
+    }
+  };
+
+  const handleCsvUpload = async () => {
+    if (!selectedConcertId) {
+      setCsvUploadError('Please choose a concert.');
+      return;
+    }
+    if (!csvFile) {
+      setCsvUploadError('Please choose a CSV file.');
+      return;
+    }
+
+    setCsvUploadLoading(true);
+    setCsvUploadError(null);
+    setCsvUploadMessage(null);
+
+    try {
+      const result = await operationsService.createCsvImportJob(csvFile, selectedConcertId);
+      setCsvUploadMessage(result.id ? `CSV import queued: ${result.id}` : 'CSV import queued.');
+      setCsvLookupId(result.id ?? '');
+      setCsvLookupResult(result);
+      await loadAllJobs();
+    } catch (error) {
+      setCsvUploadError(error instanceof Error ? error.message : 'Unable to upload CSV import.');
+    } finally {
+      setCsvUploadLoading(false);
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    setCsvUploadError(null);
+
+    try {
+      const template = await operationsService.getCsvImportTemplate();
+      const columns = template.columns?.map((column) => column.name) ?? ['email', 'name', 'phone', 'ticketTypeId'];
+      const exampleRows = template.exampleRows && template.exampleRows.length > 0 ? template.exampleRows : [];
+      const csvLines = [
+        columns.join(','),
+        ...exampleRows.map((row) => columns.map((column) => row[column] ?? '').join(',')),
+      ];
+      const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = template.filename ?? 'vip-import-template.csv';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setCsvUploadError(error instanceof Error ? error.message : 'Unable to download CSV template.');
+    }
+  };
+
+  const handleStartDemoBootstrap = async () => {
+    setDemoLoading(true);
+    setDemoError(null);
+
+    try {
+      const result = await operationsService.startDemoBootstrap();
+      setDemoJobId(result.jobId);
+      setDemoStatus({
+        jobId: result.jobId,
+        status: result.status === 'PENDING' ? 'PENDING' : 'PROCESSING',
+        progress: 0,
+        message: result.message,
+      });
+    } catch (error) {
+      setDemoError(error instanceof Error ? error.message : 'Unable to start demo bootstrap.');
+    } finally {
+      setDemoLoading(false);
     }
   };
 
@@ -308,8 +457,163 @@ export default function JobsPage() {
             </div>
             {createMessage ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{createMessage}</div> : null}
             {createError ? <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{createError}</div> : null}
+
+            <div className="rounded-2xl border border-border bg-background p-4">
+              <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
+                <label className="block space-y-2">
+                  <span className="text-sm font-medium text-primary">Manual bio fallback</span>
+                  <textarea
+                    value={manualBioContent}
+                    onChange={(event) => setManualBioContent(event.target.value)}
+                    rows={4}
+                    placeholder="Write a manual artist bio when AI generation fails."
+                    className="w-full rounded-2xl border border-border bg-surface px-4 py-3 text-sm leading-6 text-primary outline-none focus:border-primary"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void handleCreateManualBio()}
+                  disabled={manualBioLoading || !selectedArtistId}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-medium text-primary disabled:opacity-60"
+                >
+                  {manualBioLoading ? <SpinnerGap size={16} className="animate-spin" /> : <CloudArrowUp size={16} />}
+                  Create manual draft
+                </button>
+              </div>
+              {manualBioMessage ? <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{manualBioMessage}</div> : null}
+              {manualBioError ? <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{manualBioError}</div> : null}
+            </div>
           </div>
         </section>
+
+        <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl border border-border bg-background p-3 text-primary">
+              <CloudArrowUp size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-primary">Upload CSV import</h2>
+              <p className="text-sm text-muted">Creates a real CSV import job through `/imports/csv`.</p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_1fr_auto_auto] lg:items-end">
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-primary">Concert</span>
+              <select
+                value={selectedConcertId}
+                onChange={(event) => setSelectedConcertId(event.target.value)}
+                disabled={!canUploadCsv}
+                className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-sm text-primary outline-none focus:border-primary disabled:opacity-60"
+              >
+                <option value="">Select concert</option>
+                {concerts.map((concert) => (
+                  <option key={concert.id} value={concert.id}>
+                    {concert.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 text-sm font-medium text-primary">
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(event) => setCsvFile(event.target.files?.[0] ?? null)}
+                className="hidden"
+                disabled={!canUploadCsv}
+              />
+              <span className="truncate">{csvFile ? csvFile.name : 'Choose CSV'}</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => void handleCsvUpload()}
+              disabled={csvUploadLoading || !canUploadCsv}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-surface disabled:opacity-60"
+            >
+              {csvUploadLoading ? <SpinnerGap size={16} className="animate-spin" /> : <CloudArrowUp size={16} />}
+              Upload
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDownloadTemplate()}
+              disabled={!canUploadCsv}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-background px-4 text-sm font-medium text-primary disabled:opacity-60"
+            >
+              <DownloadSimple size={16} />
+              Template
+            </button>
+          </div>
+
+          <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-surface/80 text-muted">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Column</th>
+                  <th className="px-4 py-3 font-medium">Required</th>
+                  <th className="px-4 py-3 font-medium">Purpose</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {[
+                  ['email', 'Yes', 'Guest email and dedup key'],
+                  ['name', 'Yes', 'Guest display name'],
+                  ['phone', 'No', 'Optional duplicate check'],
+                  ['ticketTypeId', 'Yes', 'Ticket type assigned to the guest'],
+                ].map(([column, required, purpose]) => (
+                  <tr key={column}>
+                    <td className="px-4 py-3 font-medium text-primary">{column}</td>
+                    <td className="px-4 py-3 text-muted">{required}</td>
+                    <td className="px-4 py-3 text-muted">{purpose}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {csvUploadMessage ? <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{csvUploadMessage}</div> : null}
+          {csvUploadError ? <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{csvUploadError}</div> : null}
+        </section>
+
+        {canManageDemo ? (
+          <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl border border-border bg-background p-3 text-primary">
+                  <Database size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-primary">Demo data bootstrap</h2>
+                  <p className="text-sm text-muted">Starts the admin demo bootstrap API and polls its Redis-backed progress.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleStartDemoBootstrap()}
+                disabled={demoLoading || demoStatus?.status === 'PROCESSING'}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-surface disabled:opacity-60"
+              >
+                {demoLoading ? <SpinnerGap size={16} className="animate-spin" /> : <Play size={16} />}
+                Start bootstrap
+              </button>
+            </div>
+            {demoStatus ? (
+              <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm leading-6 text-muted">
+                <p>Status: {demoStatus.status ?? '--'} · Progress: {demoStatus.progress ?? 0}%</p>
+                <p className="mt-1">{demoStatus.message ?? '--'}</p>
+                {demoStatus.created ? (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <p>Admin user: {demoStatus.created.adminUserId ?? '--'}</p>
+                    <p>Organizer user: {demoStatus.created.organizerUserId ?? '--'}</p>
+                    <p>Staff user: {demoStatus.created.staffUserId ?? '--'}</p>
+                    <p>Audience user: {demoStatus.created.audienceUserId ?? '--'}</p>
+                    <p>Concert: {demoStatus.created.concertId ?? '--'}</p>
+                    <p>CSV job: {demoStatus.created.csvJobId ?? '--'}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {demoError ? <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{demoError}</div> : null}
+          </section>
+        ) : null}
 
         <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
           <div className="flex items-center gap-3">
