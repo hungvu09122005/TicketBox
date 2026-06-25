@@ -300,6 +300,43 @@ export async function findLocalTicketByQrToken(qrToken: string) {
   );
 }
 
+export async function findLocalTicketByTicketId(ticketId: string) {
+  const db = await getDb();
+
+  return await db.getFirstAsync<LocalTicket>(
+    `
+    SELECT
+      ticket_id as ticketId,
+      event_id as eventId,
+      zone_id as zoneId,
+      gate,
+      order_id as orderId,
+      holder_name as holderName,
+      qr_token as qrToken,
+      status,
+      raw_json as rawJson,
+      synced_at as syncedAt
+    FROM synced_tickets
+    WHERE ticket_id = ?
+    LIMIT 1
+    `,
+    [ticketId],
+  );
+}
+
+export async function markLocalTicketUsed(ticketId: string) {
+  const db = await getDb();
+
+  await db.runAsync(
+    `
+    UPDATE synced_tickets
+    SET status = 'USED'
+    WHERE ticket_id = ?
+    `,
+    [ticketId],
+  );
+}
+
 export async function saveLocalCheckinLog(params: {
   ticketId?: string | null;
   eventId: string;
