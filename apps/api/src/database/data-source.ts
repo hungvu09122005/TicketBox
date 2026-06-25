@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 import { join, resolve } from 'path';
 
-const projectRoot = process.cwd().endsWith('/apps/api')
+const projectRoot = process.cwd().endsWith('apps/api') || process.cwd().endsWith('apps\\api')
   ? process.cwd()
   : resolve(process.cwd(), 'apps/api');
 

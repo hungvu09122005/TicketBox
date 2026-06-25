@@ -42,8 +42,9 @@ export class OpenAIAdapter implements AITextGenerationPort {
         throw new Error('No content returned from OpenAI response.');
       }
       return choice;
-    } catch (error) {
-      throw error;
+    } catch (error: any) {
+      const message = error?.message || 'Unknown OpenAI API error';
+      throw new Error(`AI text generation failed: ${message}`);
     }
   }
 }

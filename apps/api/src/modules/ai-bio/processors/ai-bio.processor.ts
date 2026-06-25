@@ -54,17 +54,21 @@ export class AiBioProcessor {
       // Lưu kết quả dưới dạng DRAFT (không tự động PUBLISH)
       await this.repo.updateStatus(requestId, AiBioStatus.DRAFT, content);
     } catch (error) {
-      // 5. Xử lý an toàn cho biến error (unknown)
       const message = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`Failed to process job ${requestId}: ${message}`);
+      this.logger.error(`Failed to process job ${requestId} (attempt ${job.attemptsMade + 1}): ${message}`);
       
-      // Update as FAILED so Admin can enter manually, then we don't throw to BullMQ to avoid useless retries while Circuit is Open
-      await this.repo.updateStatus(requestId, AiBioStatus.FAILED, message);
+      const maxAttempts = job.opts?.attempts || 1;
+      const isLastAttempt = job.attemptsMade + 1 >= maxAttempts;
       
-      // We don't re-throw if it's the fallback error, to prevent BullMQ from retrying 100 times during an outage.
-      if (!message.includes('Manual biography entry required')) {
-        throw error;
+      if (isLastAttempt) {
+        await this.repo.updateStatus(requestId, AiBioStatus.FAILED, message);
+      } else {
+        await this.repo.updateStatus(requestId, AiBioStatus.PROCESSING, {
+          failureReason: `Attempt ${job.attemptsMade + 1} failed: ${message}`
+        });
       }
+      
+      throw error;
     }
   }
 }

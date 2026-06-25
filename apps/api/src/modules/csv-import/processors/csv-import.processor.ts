@@ -49,6 +49,10 @@ export class CsvImportProcessor {
       return;
     }
 
+    let records: any[] = [];
+    let successRows = 0;
+    let errorRows = 0;
+
     try {
       await this.repo.updateStatus(jobId, CsvImportJobStatus.PROCESSING);
 
@@ -56,7 +60,6 @@ export class CsvImportProcessor {
       const buffer = await this.storage.download(fileUrl);
 
       // Parse CSV
-      let records: any[] = [];
       try {
         records = parse(buffer, {
           columns: true,
@@ -85,9 +88,8 @@ export class CsvImportProcessor {
         throw new Error(`Concert ${concertId} not found`);
       }
 
-      let successRows = 0;
-      let errorRows = 0;
       const processedEmails = new Set<string>();
+      const processedPhones = new Set<string>();
 
       for (let i = 0; i < records.length; i++) {
         const record = records[i];
@@ -121,7 +123,15 @@ export class CsvImportProcessor {
           await this.repo.createRowOutcome(jobId, rowNumber, CsvRowStatus.SKIPPED_DUPLICATE, 'Duplicate email in CSV file');
           continue;
         }
+        if (phone && processedPhones.has(phone)) {
+          errorRows++;
+          await this.repo.createRowOutcome(jobId, rowNumber, CsvRowStatus.SKIPPED_DUPLICATE, 'Duplicate phone in CSV file');
+          continue;
+        }
         processedEmails.add(dedupKey);
+        if (phone) {
+          processedPhones.add(phone);
+        }
 
         try {
           // Process row in isolated transaction to support partial success
@@ -132,10 +142,15 @@ export class CsvImportProcessor {
               throw new Error(`Ticket type ${ticketTypeId} not found for this concert`);
             }
 
-            // Check duplicate email scoped to concert in PostgreSQL
-            const existingGuest = await m.findOne(VipGuest, { where: { concertId, dedupKey } });
+            // Check duplicate email or phone scoped to concert in PostgreSQL
+            const existingGuest = await m.findOne(VipGuest, {
+              where: [
+                { concertId, email },
+                ...(phone ? [{ concertId, phone }] : []),
+              ],
+            });
             if (existingGuest) {
-              const skipErr = new Error('Duplicate email in database');
+              const skipErr = new Error('Duplicate email or phone in database');
               (skipErr as any).isSkip = true;
               throw skipErr;
             }
@@ -222,13 +237,30 @@ export class CsvImportProcessor {
       this.logger.log(`CSV Import Job ${jobId} completed. status=${finalStatus}, total=${records.length}, success=${successRows}, error=${errorRows}`);
 
     } catch (jobError: any) {
-      this.logger.error(`CSV Import Job ${jobId} failed: ${jobError.message}`);
-      await this.repo.updateJobStats(jobId, {
-        totalRows: 0,
-        successRows: 0,
-        errorRows: 0,
-        status: CsvImportJobStatus.FAILED,
-      });
+      const message = jobError instanceof Error ? jobError.message : 'Unknown error';
+      this.logger.error(`Failed to process CSV Import Job ${jobId} (attempt ${job.attemptsMade + 1}): ${message}`);
+
+      const maxAttempts = job.opts?.attempts || 1;
+      const isLastAttempt = job.attemptsMade + 1 >= maxAttempts;
+
+      if (isLastAttempt) {
+        await this.repo.updateJobStats(jobId, {
+          totalRows: records.length || 0,
+          successRows,
+          errorRows,
+          status: CsvImportJobStatus.FAILED,
+          failureReason: message,
+        });
+      } else {
+        await this.repo.updateJobStats(jobId, {
+          totalRows: records.length || 0,
+          successRows,
+          errorRows,
+          status: CsvImportJobStatus.PROCESSING,
+          failureReason: `Attempt ${job.attemptsMade + 1} failed: ${message}`,
+        });
+      }
+      throw jobError;
     }
   }
 }

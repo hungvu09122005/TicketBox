@@ -192,6 +192,12 @@ export class NotificationsService {
     if (state !== 'failed') {
       return { success: false, message: `Cannot retry job in state: ${state}` };
     }
+
+    if (job.data?.logId) {
+      await this.repo.markQueued(String(job.data.logId));
+      await this.repo.updateFailureReason(String(job.data.logId), '');
+    }
+
     await job.retry();
     return { success: true, message: `Job ${id} is being retried` };
   }

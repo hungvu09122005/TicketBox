@@ -39,7 +39,7 @@ export class CsvImportRepository {
 
   async updateJobStats(
     jobId: string,
-    stats: { totalRows: number; successRows: number; errorRows: number; status: CsvImportJobStatus },
+    stats: { totalRows: number; successRows: number; errorRows: number; status: CsvImportJobStatus; failureReason?: string },
   ): Promise<void> {
     await this.jobRepo.update(jobId, stats);
   }

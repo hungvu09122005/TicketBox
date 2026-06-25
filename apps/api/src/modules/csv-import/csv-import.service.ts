@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadRequestException,
   ConflictException,
   Injectable,
@@ -49,12 +49,28 @@ export class CsvImportService {
 
     const job = await this.repo.createJob(concertId, userId, objectKey);
 
-    await this.queue.add(CSV_IMPORT_JOB, {
-      jobId: job.id,
-      objectKey,
-      concertId,
-      triggeredBy: userId,
-    });
+    await this.queue.add(
+      CSV_IMPORT_JOB,
+      {
+        jobId: job.id,
+        objectKey,
+        concertId,
+        triggeredBy: userId,
+      },
+      {
+        jobId: `csv-import:${job.id}`,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+        removeOnComplete: {
+          age: 3600,
+          count: 100,
+        },
+        removeOnFail: false,
+      },
+    );
 
     return {
       job_id: job.id,
@@ -92,12 +108,28 @@ export class CsvImportService {
 
     await this.repo.updateStatus(job.id, CsvImportJobStatus.PENDING);
 
-    await this.queue.add(CSV_IMPORT_JOB, {
-      jobId: job.id,
-      objectKey: job.objectKey,
-      concertId: job.concertId,
-      triggeredBy: job.triggeredBy,
-    });
+    await this.queue.add(
+      CSV_IMPORT_JOB,
+      {
+        jobId: job.id,
+        objectKey: job.objectKey,
+        concertId: job.concertId,
+        triggeredBy: job.triggeredBy,
+      },
+      {
+        jobId: `csv-import:${job.id}`,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+        removeOnComplete: {
+          age: 3600,
+          count: 100,
+        },
+        removeOnFail: false,
+      },
+    );
 
     return {
       success: true,
@@ -156,6 +188,8 @@ export class CsvImportService {
     const content = buffer.toString('utf8');
     const [firstLine] = content.split(/\r?\n/);
     return firstLine?.trim() ?? '';
+  }
+
   async getErrorReport(jobId: string) {
     const job = await this.repo.findById(jobId);
     if (!job) {
