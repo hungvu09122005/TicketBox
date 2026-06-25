@@ -44,7 +44,18 @@ export class NotificationsService {
     };
   }
 
-  async queueTicketConfirmation(params: { email: string; ticketId: string; userId: string }) {
+  async queueTicketConfirmation(params: {
+  toEmail: string;
+  toName: string;
+  ticketId: string;
+  userId: string;
+  orderId: string;
+  concertName: string;
+  concertDate: string | Date;
+  venue: string;
+  ticketTypeName: string;
+  qrToken: string;
+}) {
     const type = NotificationType.TICKET_CONFIRMATION;
     const channel = NotificationChannel.EMAIL;
     const jobId = `notification.ticket_confirmation:${params.ticketId}`;
@@ -75,15 +86,34 @@ export class NotificationsService {
     await this.queue.add(
       'notification.ticket_confirmation',
       {
-        email: params.email,
+        toEmail: params.toEmail,
+        toName: params.toName,
         ticketId: params.ticketId,
         userId: params.userId,
+        orderId: params.orderId,
+        concertName: params.concertName,
+        concertDate: params.concertDate,
+        venue: params.venue,
+        ticketTypeName: params.ticketTypeName,
+        qrToken: params.qrToken,
         type,
         channel,
         logId: log.id,
       },
       {
+        
         jobId,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+        removeOnComplete: {
+          age: 3600,
+          count: 100,
+        },
+        removeOnFail: false,
+
       },
     );
 

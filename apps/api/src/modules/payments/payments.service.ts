@@ -1,14 +1,14 @@
 import { Injectable, Inject, ForbiddenException, NotFoundException, ConflictException, Logger, ServiceUnavailableException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+//import { DataSource } from 'typeorm';
 import { PaymentPort, PAYMENT_PORT, CreatePaymentParams } from '../../common/ports/payment.port';
 import { PaymentsRepository } from './payments.repository';
-import { Payment, PaymentStatus } from './entities/payment.entity';
+import { PaymentStatus } from './entities/payment.entity';
 import { OrdersService } from '../orders/orders.service';
 import { TicketsService } from '../tickets/tickets.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { OrderStatus } from '../orders/enums/order-status.enum';
+//import { OrderStatus } from '../orders/enums/order-status.enum';
 import { Order } from '../orders/entities/order.entity';
-import { createCircuitBreaker } from '../../common/utils/circuit-breaker.factory';
+//import { createCircuitBreaker } from '../../common/utils/circuit-breaker.factory';
 import CircuitBreaker = require('opossum') ;
 
 @Injectable()
@@ -17,7 +17,7 @@ export class PaymentsService {
   private paymentUrlBreaker: CircuitBreaker<any[], string>;
 
   constructor(
-    private readonly dataSource: DataSource,
+    //private readonly dataSource: DataSource,
     private readonly paymentsRepository: PaymentsRepository,
     @Inject(PAYMENT_PORT) private readonly paymentPort: PaymentPort,
     private readonly ordersService: OrdersService,
@@ -40,7 +40,13 @@ export class PaymentsService {
   }
 
   async initiatePayment(orderId: string, userId: string, idempotencyKey: string, ipAddress: string) {
+    try {
+    console.log('===== INITIATE PAYMENT START =====');
+    console.log({ orderId, userId, idempotencyKey, ipAddress });
+
     const order = await this.ordersService.findOne(orderId);
+    console.log('PAYMENT_ORDER:', order);
+
     if (!order) {
       throw new NotFoundException('Order not found');
     }
@@ -88,7 +94,14 @@ export class PaymentsService {
       paymentId: payment.id,
       paymentUrl,
     };
+  }catch (err) {
+    console.error('=========== PAYMENT_ERROR ===========');
+    console.error(err);
+    console.error(err instanceof Error ? err.stack : err);
+    console.error('=====================================');
+    throw err;
   }
+}
 
   async handleVnpayCallback(query: Record<string, string>) {
     const callback = await this.paymentPort.verifyCallback(query);
@@ -131,6 +144,22 @@ export class PaymentsService {
   }
     const tickets = await this.ticketsService.issueTickets(order as Order);
 
+    for (const ticket of tickets) {
+  void this.notificationsService.queueTicketConfirmation({
+    toEmail: order.user.email,
+    toName: order.user.name || order.user.email,
+    ticketId: ticket.id,
+    userId: order.userId,
+    orderId: order.id,
+    concertName: `Concert ${order.concertId}`,
+    concertDate: order.createdAt,
+    venue: `Concert venue ${order.concertId}`,
+    ticketTypeName: ticket.ticketType?.name || order.ticketTypeId,
+    qrToken: ticket.qrToken,
+  }).catch((err) => {
+    this.logger.error(`Queue ticket confirmation failed for ticket ${ticket.id}: ${err.message}`);
+  });
+}
     return {
       success: true,
       orderId: order.id,
