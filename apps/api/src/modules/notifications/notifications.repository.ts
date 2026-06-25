@@ -24,8 +24,12 @@ export class NotificationsRepository {
     await this.repo.update(id, { status: NotificationStatus.SENT, sentAt });
   }
 
-  async markFailed(id: string): Promise<void> {
-    await this.repo.update(id, { status: NotificationStatus.FAILED });
+  async markFailed(id: string, reason?: string): Promise<void> {
+    await this.repo.update(id, { status: NotificationStatus.FAILED, failureReason: reason });
+  }
+
+  async updateFailureReason(id: string, reason: string): Promise<void> {
+    await this.repo.update(id, { failureReason: reason });
   }
 
   async markQueued(id: string): Promise<void> {

@@ -11,8 +11,22 @@ export class AiBioRepository {
   ) {}
 
   // Ép kiểu status là AiBioStatus thay vì string
-  async updateStatus(id: string, status: AiBioStatus, failureReason?: string): Promise<void> {
-    await this.repo.update(id, { status, failureReason });
+  async updateStatus(
+    id: string,
+    status: AiBioStatus,
+    extra?: string | { draftContent?: string; failureReason?: string },
+  ): Promise<void> {
+    const updateData: any = { status };
+    if (typeof extra === 'string') {
+      if (status === AiBioStatus.FAILED) {
+        updateData.failureReason = extra;
+      } else {
+        updateData.draftContent = extra;
+      }
+    } else if (extra) {
+      Object.assign(updateData, extra);
+    }
+    await this.repo.update(id, updateData);
   }
 
   async updateDraft(id: string, draftContent: string, status: AiBioStatus = AiBioStatus.DRAFT): Promise<void> {

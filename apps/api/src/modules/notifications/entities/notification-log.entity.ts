@@ -15,5 +15,6 @@ export class NotificationLog {
   @Column({ type: 'enum', enum: NotificationChannel }) channel!: NotificationChannel;
   @Column({ type: 'enum', enum: NotificationStatus, default: NotificationStatus.QUEUED }) status!: NotificationStatus;
   @Column({ name: 'sent_at', type: 'timestamptz', nullable: true }) sentAt?: Date;
+  @Column({ name: 'failure_reason', type: 'text', nullable: true }) failureReason?: string;
   @CreateDateColumn({ name: 'created_at' }) createdAt!: Date;
 }

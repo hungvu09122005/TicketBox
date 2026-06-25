@@ -1,7 +1,7 @@
 import { Processor, Process } from '@nestjs/bull';
 import { Job } from 'bull';
 import { Logger, Inject } from '@nestjs/common';
-import pdf from 'pdf-parse'; // 1. Thêm import thư viện này
+const pdf = require('pdf-parse'); // 1. Thêm import thư viện này
 import { AI_TEXT_GENERATION_PORT, AITextGenerationPort } from '../../../common/ports/ai-text-generation.port';
 import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../../common/ports/object-storage.port';
 import { AiBioRepository } from '../ai-bio.repository';
@@ -14,7 +14,7 @@ export const AI_BIO_JOB = 'ai.bio.generate';
 @Processor('ai-bio')
 export class AiBioProcessor {
   private readonly logger = new Logger(AiBioProcessor.name);
-  private aiBreaker: CircuitBreaker<any[], string>;
+  private aiBreaker: CircuitBreaker<[text: string, hint?: string], string>;
 
   constructor(
     @Inject(AI_TEXT_GENERATION_PORT) private readonly aiPort: AITextGenerationPort,
@@ -28,8 +28,8 @@ export class AiBioProcessor {
         timeout: 15000,               // AI might take up to 15 seconds
         errorThresholdPercentage: 50, // 50% errors opens circuit
         resetTimeout: 30000,          // Try again after 30 seconds
-      }
-    );
+      },
+    )as unknown as CircuitBreaker<[text: string, hint?: string], string>;
 
     // Fallback if AI provider fails or circuit is open
     this.aiBreaker.fallback(() => {
@@ -51,20 +51,25 @@ export class AiBioProcessor {
       // Gọi AI thông qua Circuit Breaker
       const content = await this.aiBreaker.fire(data.text, undefined);
       
-      // Giữ ở trạng thái draft để organizer review/publish trước khi public
-      await this.repo.updateDraft(requestId, content, AiBioStatus.DRAFT);
+      // Lưu kết quả dưới dạng DRAFT (không tự động PUBLISH)
+      await this.repo.updateStatus(requestId, AiBioStatus.DRAFT, content);
     } catch (error) {
-      // 5. Xử lý an toàn cho biến error (unknown)
       const message = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`Failed to process job ${requestId}: ${message}`);
+      const attemptNumber = (job.attemptsMade ?? 0) + 1;
+      this.logger.error(`Failed to process job ${requestId} (attempt ${attemptNumber}): ${message}`);
       
-      // Update as FAILED so Admin can enter manually, then we don't throw to BullMQ to avoid useless retries while Circuit is Open
-      await this.repo.updateStatus(requestId, AiBioStatus.FAILED, message);
+      const maxAttempts = job.opts?.attempts || 1;
+      const isLastAttempt = attemptNumber >= maxAttempts;
       
-      // We don't re-throw if it's the fallback error, to prevent BullMQ from retrying 100 times during an outage.
-      if (!message.includes('Manual biography entry required')) {
-        throw error;
+      if (isLastAttempt) {
+        await this.repo.updateStatus(requestId, AiBioStatus.FAILED, message);
+      } else {
+        await this.repo.updateStatus(requestId, AiBioStatus.PROCESSING, {
+          failureReason: `Attempt ${attemptNumber} failed: ${message}`
+        });
       }
+      
+      throw error;
     }
   }
 }

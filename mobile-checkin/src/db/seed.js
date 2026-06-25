@@ -1,14 +1,14 @@
-// src/db/seed.js
-import { initDatabase, db } from './database';
+import { initDatabase, getDatabase } from './database';
 
 export const seedDatabase = async () => {
   try {
     await initDatabase();
+    const db = getDatabase();
 
     // Seed một số vé mẫu cho test offline
     await db.runAsync(`
       INSERT OR IGNORE INTO local_tickets 
-        (ticket_id, qr_token, ticket_type, owner_name, concert_id, status)
+        (ticket_id, qr_token, ticket_type, owner_id, concert_id, status)
       VALUES 
         ('TICKET001', 'QR_VIP_001', 'VIP', 'Nguyễn Văn A', 'CONCERT001', 'VALID'),
         ('TICKET002', 'QR_GA_001', 'GA', 'Trần Thị B', 'CONCERT001', 'VALID'),

@@ -48,6 +48,42 @@ export class AiBioController {
     return this.aiBioService.createRequest(file, artistId, user.sub);
   }
 
+  @Post('manual')
+  @RequirePermissions(Permission.AI_GENERATE_BIO)
+  @ApiBody({
+  schema: {
+    type: 'object',
+    properties: {
+      artistId: {
+        type: 'string',
+        example: 'c6258bff-29cb-4e4e-9422-a265e02797fc',
+      },
+      bio: {
+        type: 'string',
+        example: 'Taylor Swift là nghệ sĩ biểu diễn nổi bật, có sức ảnh hưởng lớn trong âm nhạc đại chúng.',
+      },
+    },
+    required: ['artistId', 'bio'],
+  },
+})
+  async createManualBio(
+  @Body('artistId') artistId: string,
+  @Body('bio') bio: string,
+  @CurrentUser() user: AuthenticatedUser,
+) {
+  if (!artistId) {
+    throw new BadRequestException('artistId is required');
+  }
+
+  if (!bio || !bio.trim()) {
+    throw new BadRequestException('bio is required');
+  }
+
+  return this.aiBioService.createManualBio(artistId, bio, user.sub);
+}
+
+
+
   @Get()
   @RequirePermissions(Permission.REPORT_VIEW)
   async getAiBioJobs(@Query('status') status?: string) {
@@ -68,20 +104,19 @@ export class AiBioController {
 
   @Patch(':id')
   @RequirePermissions(Permission.AI_GENERATE_BIO)
-  async updateDraft(
+  async updateDraftContent(
     @Param('id') id: string,
     @Body('draftContent') draftContent: string,
   ) {
-    if (!draftContent?.trim()) {
+    if (!draftContent || !draftContent.trim()) {
       throw new BadRequestException('draftContent is required');
     }
-
-    return this.aiBioService.updateDraft(id, draftContent);
+    return this.aiBioService.updateDraftContent(id, draftContent.trim());
   }
 
   @Patch(':id/publish')
   @RequirePermissions(Permission.AI_GENERATE_BIO)
-  async publishDraft(@Param('id') id: string) {
-    return this.aiBioService.publishDraft(id);
+  async publishBio(@Param('id') id: string) {
+    return this.aiBioService.publishBio(id);
   }
 }

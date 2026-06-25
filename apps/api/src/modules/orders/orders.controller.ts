@@ -19,7 +19,7 @@ import { MailService } from '../../mail/mail.service';
 @ApiTags('orders')
 @ApiBearerAuth()
 @Controller('orders')
-@UseGuards(JwtAuthGuard, RbacGuard, RateLimitGuard)
+@UseGuards(JwtAuthGuard, RateLimitGuard)
 
 export class OrdersController {
   constructor(
@@ -40,41 +40,69 @@ export class OrdersController {
 
   /** POST /api/v1/orders — Audience creates an order (hold inventory). */
   @Post()
-  @RateLimitPolicy('order')
-  @RequirePermissions(Permission.ORDER_CREATE)
-  async create(
-    @CurrentUser() user: AuthenticatedUser, 
-    @Body() body: CreateOrderDto,
-    @Res({ passthrough: true }) res: any
-  ) {
+@RateLimitPolicy('order')
+@RequirePermissions(Permission.ORDER_CREATE)
+async create(
+  @CurrentUser() user: AuthenticatedUser,
+  @Body() body: CreateOrderDto,
+  @Res({ passthrough: true }) res: any,
+) {
+
+  console.log('===== CREATE START =====');
+  console.log(body);
+  console.log(user);
+  
+  try {
+    console.log('DEBUG_CREATE_ORDER_BODY:', body);
+    console.log('DEBUG_CREATE_ORDER_USER:', user);
+
     if (body.queueToken) {
-      // Validate token
-      const { isValid, isActive, userId } = await this.queueService.verifyAndCheckActive(body.concertId, body.queueToken);
+      const { isValid, isActive, userId } =
+        await this.queueService.verifyAndCheckActive(
+          body.concertId,
+          body.queueToken,
+        );
+
       if (!isValid || userId !== user.sub) {
         throw new ForbiddenException('Invalid queue token');
       }
+
       if (!isActive) {
-        throw new ForbiddenException('Queue token has expired or is not active yet');
+        throw new ForbiddenException(
+          'Queue token has expired or is not active yet',
+        );
       }
-      // Process order
-      return this.ordersService.createOrder(body, user.sub);
+
+      return await this.ordersService.createOrder(body, user.sub);
     }
 
-    // Try to enter waiting room or checkout directly
-    const queueStatus = await this.queueService.handleCheckoutRequest(body.concertId, user.sub);
-    
+    const queueStatus =
+      await this.queueService.handleCheckoutRequest(
+        body.concertId,
+        user.sub,
+      );
+
+    console.log('DEBUG_QUEUE_STATUS:', queueStatus);
+
     if (queueStatus.status === 'QUEUED') {
       res.status(202);
       return {
-        message: 'System is under heavy load. You have been placed in the virtual waiting room.',
+        message:
+          'System is under heavy load. You have been placed in the virtual waiting room.',
         status: 'QUEUED',
         queueToken: queueStatus.queueToken,
       };
     }
 
-    // Proceed to create order immediately
-    return this.ordersService.createOrder(body, user.sub);
+    return await this.ordersService.createOrder(body, user.sub);
+  } catch (err) {
+    console.error('=========== CREATE_ORDER_ERROR ===========');
+    console.error(err);
+    console.error(err instanceof Error ? err.stack : err);
+    console.error('==========================================');
+    throw err;
   }
+}
 
   /** GET /api/v1/orders/me — Audience views their own orders. */
   @Get('me')
@@ -90,24 +118,50 @@ export class OrdersController {
     return this.ordersService.findAllWithFilters(query);
   }
 
-  @Get(':id')
-  @RequirePermissions(Permission.ORDER_READ_OWN)
-  async findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+@Get(':id')
+@RequirePermissions(Permission.ORDER_READ_OWN)
+async findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+  try {
+    console.log('DEBUG_ORDER_ID:', id);
+    console.log('DEBUG_USER:', user);
+
     const isAdmin = user.roles.includes('SYSTEM_ADMIN');
     const order = await this.ordersService.findOne(id);
+
+    console.log('DEBUG_ORDER_RESULT:', order);
+
     if (!isAdmin && order.userId !== user.sub) {
       throw new ForbiddenException();
     }
+
     return order;
+  } catch (err) {
+    console.error('=========== ORDER_FINDONE_ERROR ===========');
+    console.error(err);
+    console.error(err instanceof Error ? err.stack : err);
+    console.error('===========================================');
+    throw err;
   }
+}
 
   @Post('test-mail/:id')
   @RequirePermissions(Permission.ORDER_READ_ALL) // Chỉ Admin/Organizer mới được quyền test mail này
   async testSendMail(@Param('id') id: string) {
     const order = await this.ordersService.findOne(id);
+
     // Lấy thông tin user để gửi mail
     // Bạn cần đảm bảo đã load relation user trong findById ở Service
-    await this.mailService.sendTestEmail(order.user.email);
+    await this.mailService.sendEmail({
+  to: order.user.email,
+  subject: '[TicketBox] Test email',
+  html: `
+    <h2>TicketBox Email Test</h2>
+    <p>Xin chào ${order.user.name || order.user.email},</p>
+    <p>Hệ thống gửi email đã hoạt động.</p>
+    <p>Order ID: ${order.id}</p>
+  `,
+  text: `TicketBox Email Test\nOrder ID: ${order.id}`,
+});
     return { message: `Email đã được gửi tới ${order.user.email}` };
   }
 }

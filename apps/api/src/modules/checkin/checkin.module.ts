@@ -7,11 +7,12 @@ import { CheckinDevice } from './entities/checkin-device.entity';
 import { CheckinController } from './checkin.controller';
 import { CheckinService } from './checkin.service';
 import { TicketsModule } from '../tickets/tickets.module';
+import { DatabaseModule } from '../../database/database.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([CheckinLog, CheckinDevice]),
-    TicketsModule,
+    TicketsModule,DatabaseModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

@@ -1,12 +1,13 @@
 import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { TicketsService } from '../tickets/tickets.service';
 import { Ticket, TicketStatus } from '@modules/tickets/entities/ticket.entity';
 import { CheckinLog, CheckinMode, CheckinStatus } from './entities/checkin-log.entity';
 import { CheckinDevice, DeviceStatus } from './entities/checkin-device.entity';
 import { CheckinDto, RegisterDeviceDto, SyncDatasetQueryDto } from './dto/checkin.dto';
+import { InjectDataSource } from '@nestjs/typeorm';
 
 @Injectable()
 export class CheckinService {
@@ -17,7 +18,8 @@ export class CheckinService {
     private readonly deviceRepository: Repository<CheckinDevice>,
     private readonly ticketsService: TicketsService,
     private readonly jwtService: JwtService,
-    private readonly entityManager: EntityManager,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -231,7 +233,7 @@ export class CheckinService {
 
     // If zoneId is provided, restrict dataset to that zone's ticketTypeId
     if (zoneId) {
-      const zone = await this.entityManager.query(
+      const zone = await this.dataSource.manager.query(
         `SELECT ticket_type_id FROM seat_zones WHERE id = $1 LIMIT 1`,
         [zoneId]
       );

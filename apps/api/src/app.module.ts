@@ -26,6 +26,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ReportingModule } from './modules/reporting/reporting.module';
 import { HealthModule } from './modules/health/health.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { DemoBootstrapModule } from './modules/demo-bootstrap/demo-bootstrap.module';
 import { MailModule } from './mail/mail.module';
 // Middlewares
 import { RequestIdMiddleware } from './common/middlewares/request-id.middleware';
@@ -101,6 +102,7 @@ import { BootstrapService } from '@database/bootstrap.service';
     NotificationsModule,
     ReportingModule,
     MailModule,
+    DemoBootstrapModule,
   ],
 
   providers: [BootstrapService],

@@ -19,5 +19,6 @@ export class CsvImportJob {
   @Column({ name: 'total_rows', default: 0 }) totalRows!: number;
   @Column({ name: 'success_rows', default: 0 }) successRows!: number;
   @Column({ name: 'error_rows', default: 0 }) errorRows!: number;
+  @Column({ name: 'failure_reason', type: 'text', nullable: true }) failureReason?: string;
   @CreateDateColumn({ name: 'created_at' }) createdAt!: Date;
 }

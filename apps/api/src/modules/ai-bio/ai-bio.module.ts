@@ -10,7 +10,7 @@ import { AiBioProcessor } from './processors/ai-bio.processor';
 import { OpenAIAdapter } from './adapters/openai.adapter';
 import { AI_TEXT_GENERATION_PORT } from '../../common/ports/ai-text-generation.port';
 import { StorageModule } from '../storage/storage.module';
-import { Artist } from '../artists/entities/artist.entity';
+import { ArtistsModule } from '../artists/artists.module';
 
 /**
  * AiBioModule — PDF upload → AI generation → draft → publish pipeline.
@@ -20,12 +20,13 @@ import { Artist } from '../artists/entities/artist.entity';
  *   - AITextGenerationPort fulfilled by OpenAIAdapter (circuit breaker in processor)
  *   - PDF binary in Object Storage; key in ai_bio_requests.pdf_object_key
  *   - Never auto-publishes; Organizer must explicitly PATCH to publish
- */
+  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AiBioRequest, Artist]),
+    TypeOrmModule.forFeature([AiBioRequest]),
     BullModule.registerQueue({ name: 'ai-bio' }),
     StorageModule,
+    ArtistsModule,
   ],
   controllers: [AiBioController],
   providers: [

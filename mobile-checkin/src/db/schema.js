@@ -23,6 +23,8 @@ export const DB_SCHEMA = `
     is_synced INTEGER DEFAULT 0, -- Tối ưu cho truy vấn sync
     sync_at TEXT,
     error_message TEXT,
+    client_event_id TEXT UNIQUE,
+    conflict_reason TEXT,
     FOREIGN KEY(ticket_id) REFERENCES local_tickets(ticket_id)
   );
 

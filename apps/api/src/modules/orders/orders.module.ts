@@ -14,10 +14,11 @@ import { ConcertsModule } from '../concerts/concerts.module';
 import { TicketTypesModule } from '../ticket-types/ticket-types.module';
 import { MailModule } from '../../mail/mail.module';
 import { QueueService } from './queue.service';
-
+import { DatabaseModule } from '../../database/database.module';
 
 @Module({
   imports: [
+    DatabaseModule,
     TypeOrmModule.forFeature([Order, OrderItem]),
     BullModule.registerQueue({ name: 'orders-expiry' }),
     JwtModule.registerAsync({

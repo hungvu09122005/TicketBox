@@ -34,6 +34,7 @@ export class CheckinController {
   }
 
   @Get('sync/dataset')
+  @RequirePermissions(Permission.TICKET_VALIDATE)
   async getSyncDataset(@Query() query: SyncDatasetQueryDto) {
     // Tải dữ liệu vé offline bằng deviceToken được cấp ở bước registerDevice
     return await this.checkinService.getSyncDataset(query);

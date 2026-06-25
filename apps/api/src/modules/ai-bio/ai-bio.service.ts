@@ -1,13 +1,13 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { BadRequestException, Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { AiBioRepository } from './ai-bio.repository';
 import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../common/ports/object-storage.port';
 import { AiBioStatus } from './entities/ai-bio-request.entity';
 import { AI_BIO_JOB } from './processors/ai-bio.processor';
-import { Artist } from '../artists/entities/artist.entity';
+import { ArtistsService } from '../artists/artists.service';
+
+const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024;
 
 @Injectable()
 export class AiBioService {
@@ -15,10 +15,23 @@ export class AiBioService {
     private readonly repo: AiBioRepository,
     @Inject(OBJECT_STORAGE_PORT) private readonly storage: ObjectStoragePort,
     @InjectQueue('ai-bio') private readonly queue: Queue,
-    @InjectRepository(Artist) private readonly artistRepo: Repository<Artist>,
+    private readonly artistsService: ArtistsService,
   ) {}
   
   async createRequest(pdfFile: Express.Multer.File, artistId: string, userId: string) {
+    if (!pdfFile) {
+      throw new BadRequestException('PDF file is required');
+    }
+
+    if (pdfFile.mimetype !== 'application/pdf') {
+      throw new BadRequestException('Only PDF files are allowed');
+    }
+
+    if (pdfFile.size > MAX_PDF_SIZE_BYTES) {
+      throw new BadRequestException('PDF file size must not exceed 10MB');
+    }
+
+
     const objectKey = `artist-bios/${artistId}-${Date.now()}.pdf`;
 
     await this.storage.upload({
@@ -38,11 +51,53 @@ export class AiBioService {
     await this.queue.add(
       AI_BIO_JOB,
       { requestId: bio.id, fileUrl: objectKey },
-      { jobId: `ai-bio:${bio.id}` },
+      {
+        jobId: `ai-bio:${bio.id}`,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+        removeOnComplete: {
+          age: 3600,
+          count: 100,
+        },
+        removeOnFail: false,
+      },
     );
 
-    return bio;
+    return {
+      success: true,
+      job_id: bio.id,
+      status: bio.status,
+      pdfObjectKey: bio.pdfObjectKey,
+    };
   }
+
+  async createManualBio(artistId: string, bio: string, userId: string) {
+    if (!artistId) {
+      throw new BadRequestException('artistId is required');
+    }
+
+    if (!bio || !bio.trim()) {
+      throw new BadRequestException('bio is required');
+    }
+
+    const request = await this.repo.create({
+      artistId,
+      requestedBy: userId,
+      draftContent: bio.trim(),
+      status: AiBioStatus.DRAFT,
+    });
+
+    return {
+      success: true,
+      job_id: request.id,
+      status: request.status,
+      manual: true,
+    };
+  }
+  
 
   async findAll(status?: string) {
     if (status?.toUpperCase() === 'SUCCESS') {
@@ -57,7 +112,7 @@ export class AiBioService {
   async findById(id: string) {
     const job = await this.repo.findById(id);
     if (!job) {
-      throw new Error(`AI Bio job ${id} not found`);
+      throw new NotFoundException(`AI Bio job ${id} not found`);
     }
     return job;
   }
@@ -65,49 +120,62 @@ export class AiBioService {
   async retryJob(id: string) {
     const bio = await this.repo.findById(id);
     if (!bio) {
-      throw new Error(`AI Bio job ${id} not found`);
+      throw new NotFoundException(`AI Bio job ${id} not found`);
     }
     if (bio.status !== AiBioStatus.FAILED) {
-      throw new Error(`Cannot retry AI Bio job in state: ${bio.status}`);
+      throw new NotFoundException(`Cannot retry AI Bio job in state: ${bio.status}`);
     }
     await this.repo.updateStatus(id, AiBioStatus.PENDING);
+
     await this.queue.add(
       AI_BIO_JOB,
       { requestId: bio.id, fileUrl: bio.pdfObjectKey },
-      { jobId: `ai-bio:${bio.id}` },
+      {
+        jobId: `ai-bio:${bio.id}`,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+        removeOnComplete: {
+          age: 3600,
+          count: 100,
+        },
+        removeOnFail: false,
+      },
     );
     return { success: true, message: `AI Bio job ${id} is being retried` };
   }
 
-  async updateDraft(id: string, draftContent: string) {
+  async updateDraftContent(id: string, content: string) {
     const bio = await this.repo.findById(id);
     if (!bio) {
-      throw new Error(`AI Bio job ${id} not found`);
+      throw new NotFoundException(`AI Bio job ${id} not found`);
     }
-
-    await this.repo.updateDraft(id, draftContent, AiBioStatus.DRAFT);
+    if (bio.status !== AiBioStatus.DRAFT) {
+      throw new BadRequestException(`Cannot edit bio job in state: ${bio.status}`);
+    }
+    await this.repo.updateStatus(id, AiBioStatus.DRAFT, { draftContent: content });
     return this.repo.findById(id);
   }
 
-  async publishDraft(id: string) {
+  async publishBio(id: string) {
     const bio = await this.repo.findById(id);
     if (!bio) {
-      throw new Error(`AI Bio job ${id} not found`);
+      throw new NotFoundException(`AI Bio job ${id} not found`);
+    }
+    if (bio.status !== AiBioStatus.DRAFT) {
+      throw new BadRequestException(`Cannot publish bio job in state: ${bio.status}`);
+    }
+    if (!bio.draftContent) {
+      throw new BadRequestException('Bio draft content is empty. Cannot publish.');
     }
 
-    const content = bio.draftContent?.trim();
-    if (!content) {
-      throw new Error('No draft content available to publish');
-    }
+    // Cập nhật biography của Artist
+    await this.artistsService.update(bio.artistId, { shortBio: bio.draftContent });
 
-    const artist = await this.artistRepo.findOneBy({ id: bio.artistId });
-    if (!artist) {
-      throw new Error(`Artist ${bio.artistId} not found`);
-    }
-
-    artist.shortBio = content;
-    await this.artistRepo.save(artist);
-    await this.repo.updateDraft(id, content, AiBioStatus.PUBLISHED);
+    // Cập nhật trạng thái bio request thành PUBLISHED
+    await this.repo.updateStatus(id, AiBioStatus.PUBLISHED);
 
     return this.repo.findById(id);
   }
