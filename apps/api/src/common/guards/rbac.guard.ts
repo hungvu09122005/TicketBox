@@ -15,7 +15,6 @@ import { Permission } from '../constants/permissions.enum';
 import { AuthenticatedUser } from '../decorators/current-user.decorator';
 import { User } from '../../modules/users/entities/user.entity';
 import { InjectDataSource } from '@nestjs/typeorm';
-
 /**
  * RBAC Guard — Blueprint §06-rbac-design §4.2
  *
@@ -32,7 +31,10 @@ import { InjectDataSource } from '@nestjs/typeorm';
 export class RbacGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+
+    @Inject(CACHE_MANAGER) 
+    private readonly cache: Cache,
+
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}

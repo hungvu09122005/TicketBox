@@ -1,7 +1,7 @@
 import { Processor, Process } from '@nestjs/bull';
 import { Job } from 'bull';
 import { Logger, Inject } from '@nestjs/common';
-import pdf from 'pdf-parse'; // 1. Thêm import thư viện này
+const pdf = require('pdf-parse'); // 1. Thêm import thư viện này
 import { AI_TEXT_GENERATION_PORT, AITextGenerationPort } from '../../../common/ports/ai-text-generation.port';
 import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../../common/ports/object-storage.port';
 import { AiBioRepository } from '../ai-bio.repository';
@@ -14,7 +14,7 @@ export const AI_BIO_JOB = 'ai.bio.generate';
 @Processor('ai-bio')
 export class AiBioProcessor {
   private readonly logger = new Logger(AiBioProcessor.name);
-  private aiBreaker: CircuitBreaker<any[], string>;
+  private aiBreaker: CircuitBreaker<[text: string, hint?: string], string>;
 
   constructor(
     @Inject(AI_TEXT_GENERATION_PORT) private readonly aiPort: AITextGenerationPort,
@@ -28,8 +28,8 @@ export class AiBioProcessor {
         timeout: 15000,               // AI might take up to 15 seconds
         errorThresholdPercentage: 50, // 50% errors opens circuit
         resetTimeout: 30000,          // Try again after 30 seconds
-      }
-    );
+      },
+    )as unknown as CircuitBreaker<[text: string, hint?: string], string>;
 
     // Fallback if AI provider fails or circuit is open
     this.aiBreaker.fallback(() => {

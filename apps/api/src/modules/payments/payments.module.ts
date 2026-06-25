@@ -9,7 +9,7 @@ import { PAYMENT_PORT } from '../../common/ports/payment.port';
 import { OrdersModule } from '../orders/orders.module';
 import { TicketsModule } from '../tickets/tickets.module';
 import { NotificationsModule } from '../notifications/notifications.module';
-
+import { DatabaseModule } from '../../database/database.module';
 /**
  * PaymentsModule — owns Payment entity, payment gateway integration, callback handling.
  *
@@ -27,6 +27,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     OrdersModule,
     TicketsModule,
     NotificationsModule,
+    DatabaseModule,
   ],
   controllers: [PaymentsController],
   providers: [

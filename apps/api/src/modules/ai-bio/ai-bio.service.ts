@@ -1,10 +1,13 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { BadRequestException, Injectable, Inject, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { AiBioRepository } from './ai-bio.repository';
 import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../common/ports/object-storage.port';
 import { AiBioStatus } from './entities/ai-bio-request.entity';
 import { AI_BIO_JOB } from './processors/ai-bio.processor';
+
+const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024;
+
 
 @Injectable()
 export class AiBioService {
@@ -15,6 +18,19 @@ export class AiBioService {
   ) {}
   
   async createRequest(pdfFile: Express.Multer.File, artistId: string, userId: string) {
+    if (!pdfFile) {
+      throw new BadRequestException('PDF file is required');
+    }
+
+    if (pdfFile.mimetype !== 'application/pdf') {
+      throw new BadRequestException('Only PDF files are allowed');
+    }
+
+    if (pdfFile.size > MAX_PDF_SIZE_BYTES) {
+      throw new BadRequestException('PDF file size must not exceed 10MB');
+    }
+
+
     const objectKey = `artist-bios/${artistId}-${Date.now()}.pdf`;
 
     await this.storage.upload({
@@ -34,11 +50,53 @@ export class AiBioService {
     await this.queue.add(
       AI_BIO_JOB,
       { requestId: bio.id, fileUrl: objectKey },
-      { jobId: `ai-bio:${bio.id}` },
+      {
+        jobId: `ai-bio:${bio.id}`,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+        removeOnComplete: {
+          age: 3600,
+          count: 100,
+        },
+        removeOnFail: false,
+      },
     );
 
-    return bio;
+    return {
+      success: true,
+      job_id: bio.id,
+      status: bio.status,
+      pdfObjectKey: bio.pdfObjectKey,
+    };
   }
+
+  async createManualBio(artistId: string, bio: string, userId: string) {
+    if (!artistId) {
+      throw new BadRequestException('artistId is required');
+    }
+
+    if (!bio || !bio.trim()) {
+      throw new BadRequestException('bio is required');
+    }
+
+    const request = await this.repo.create({
+      artistId,
+      requestedBy: userId,
+      draftContent: bio.trim(),
+      status: AiBioStatus.DRAFT,
+    });
+
+    return {
+      success: true,
+      job_id: request.id,
+      status: request.status,
+      manual: true,
+    };
+  }
+  
 
   async findAll(status?: string) {
     if (status?.toUpperCase() === 'SUCCESS') {
@@ -53,7 +111,7 @@ export class AiBioService {
   async findById(id: string) {
     const job = await this.repo.findById(id);
     if (!job) {
-      throw new Error(`AI Bio job ${id} not found`);
+      throw new NotFoundException(`AI Bio job ${id} not found`);
     }
     return job;
   }
@@ -61,16 +119,29 @@ export class AiBioService {
   async retryJob(id: string) {
     const bio = await this.repo.findById(id);
     if (!bio) {
-      throw new Error(`AI Bio job ${id} not found`);
+      throw new NotFoundException(`AI Bio job ${id} not found`);
     }
     if (bio.status !== AiBioStatus.FAILED) {
-      throw new Error(`Cannot retry AI Bio job in state: ${bio.status}`);
+      throw new NotFoundException(`Cannot retry AI Bio job in state: ${bio.status}`);
     }
     await this.repo.updateStatus(id, AiBioStatus.PENDING);
+
     await this.queue.add(
       AI_BIO_JOB,
       { requestId: bio.id, fileUrl: bio.pdfObjectKey },
-      { jobId: `ai-bio:${bio.id}` },
+      {
+        jobId: `ai-bio:${bio.id}`,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+        removeOnComplete: {
+          age: 3600,
+          count: 100,
+        },
+        removeOnFail: false,
+      },
     );
     return { success: true, message: `AI Bio job ${id} is being retried` };
   }
