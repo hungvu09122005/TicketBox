@@ -14,6 +14,7 @@ import {
   ObjectStoragePort,
 } from '../../common/ports/object-storage.port';
 import { CsvImportJobStatus } from './entities/csv-import-job.entity';
+import { CsvRowStatus } from './entities/csv-import-row.entity';
 import { CSV_IMPORT_JOB } from './processors/csv-import.processor';
 
 const MAX_CSV_SIZE_BYTES = 5 * 1024 * 1024;
@@ -155,5 +156,26 @@ export class CsvImportService {
     const content = buffer.toString('utf8');
     const [firstLine] = content.split(/\r?\n/);
     return firstLine?.trim() ?? '';
+  async getErrorReport(jobId: string) {
+    const job = await this.repo.findById(jobId);
+    if (!job) {
+      throw new NotFoundException(`Job ${jobId} not found`);
+    }
+
+    const rows = await this.repo.findRowsByJobId(jobId);
+    const failedOrSkipped = rows.filter((r) => r.status !== CsvRowStatus.SUCCESS);
+
+    let csvContent = 'rowNumber,status,errorReason\n';
+    for (const r of failedOrSkipped) {
+      const reason = r.errorReason ? `"${r.errorReason.replace(/"/g, '""')}"` : '';
+      csvContent += `${r.rowNumber},${r.status},${reason}\n`;
+    }
+
+    return {
+      jobId,
+      filename: `csv-error-report-${jobId}.csv`,
+      rowCount: failedOrSkipped.length,
+      csv: csvContent,
+    };
   }
 }

@@ -51,8 +51,8 @@ export class AiBioProcessor {
       // Gọi AI thông qua Circuit Breaker
       const content = await this.aiBreaker.fire(data.text, undefined);
       
-      // Lưu kết quả cuối cùng
-      await this.repo.updateStatus(requestId, AiBioStatus.PUBLISHED, content);
+      // Lưu kết quả dưới dạng DRAFT (không tự động PUBLISH)
+      await this.repo.updateStatus(requestId, AiBioStatus.DRAFT, content);
     } catch (error) {
       // 5. Xử lý an toàn cho biến error (unknown)
       const message = error instanceof Error ? error.message : 'Unknown error';

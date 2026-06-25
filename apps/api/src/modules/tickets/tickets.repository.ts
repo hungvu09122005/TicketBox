@@ -7,7 +7,7 @@ import { Ticket } from './entities/ticket.entity';
 export class TicketsRepository {
   constructor(
     @InjectRepository(Ticket) 
-    private readonly repo: Repository<Ticket>
+    public readonly repo: Repository<Ticket>
   ) {}
 
   // "Lộ" các phương thức cần thiết ra ngoài

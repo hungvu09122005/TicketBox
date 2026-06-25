@@ -36,4 +36,42 @@ export class CsvImportRepository {
   async updateStatus(jobId: string, status: CsvImportJobStatus): Promise<void> {
     await this.jobRepo.update(jobId, { status });
   }
+
+  async updateJobStats(
+    jobId: string,
+    stats: { totalRows: number; successRows: number; errorRows: number; status: CsvImportJobStatus },
+  ): Promise<void> {
+    await this.jobRepo.update(jobId, stats);
+  }
+
+  async createRowOutcome(
+    jobId: string,
+    rowNumber: number,
+    status: any, // CsvRowStatus
+    errorReason?: string,
+  ): Promise<CsvImportRow> {
+    const row = this.rowRepo.create({
+      jobId,
+      rowNumber,
+      status,
+      errorReason,
+    });
+    return this.rowRepo.save(row);
+  }
+
+  async findVipGuestByConcertAndKey(concertId: string, dedupKey: string): Promise<VipGuest | null> {
+    return this.vipRepo.findOne({ where: { concertId, dedupKey } });
+  }
+
+  async createVipGuest(data: Partial<VipGuest>): Promise<VipGuest> {
+    const guest = this.vipRepo.create(data);
+    return this.vipRepo.save(guest);
+  }
+
+  async findRowsByJobId(jobId: string): Promise<CsvImportRow[]> {
+    return this.rowRepo.find({
+      where: { jobId },
+      order: { rowNumber: 'ASC' },
+    });
+  }
 }

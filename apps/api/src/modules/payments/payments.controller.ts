@@ -11,6 +11,7 @@ import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 import type { Request } from 'express';
 
 @ApiTags('payments')
+@ApiBearerAuth()
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}

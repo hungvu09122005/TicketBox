@@ -1,5 +1,5 @@
 import { Controller, Post, Get, Param, Body, UseGuards, Query, NotFoundException } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -42,6 +42,26 @@ export class NotificationsController {
     return this.notificationsService.retryJob(id);
   }
 
+
+  @ApiBody({
+  schema: {
+    type: 'object',
+    properties: {
+      email: {
+        type: 'string',
+        example: 'MoriRan123@gmail.com',
+      },
+      ticketId: {
+        type: 'string',
+        example: 'b3f49005-3682-4d25-8f33-99cdef9890bb',
+      },
+    },
+    required: ['email', 'ticketId'],
+  },
+})
+
+
+
   @Post('test-confirmation')
   @RequirePermissions(Permission.REPORT_VIEW)
   async testConfirmation(
@@ -49,9 +69,16 @@ export class NotificationsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.notificationsService.queueTicketConfirmation({
-      email: body.email,
+      toEmail: body.email,
+      toName: user.email,
       ticketId: body.ticketId,
       userId: user.sub,
+      orderId: 'TEST_ORDER',
+      concertName: 'TicketBox Test Concert',
+      concertDate: new Date(),
+      venue: 'TicketBox Test Venue',
+      ticketTypeName: 'Test Ticket',
+      qrToken: 'TEST_QR_TOKEN',
     });
   }
 }
