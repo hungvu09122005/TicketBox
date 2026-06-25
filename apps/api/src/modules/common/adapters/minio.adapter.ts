@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client } from 'minio';
 import { ObjectStoragePort, UploadParams } from '../../../common/ports/object-storage.port';
+import { Readable } from 'stream';
 
 type MinioConfig = {
   endpoint: string;
@@ -55,6 +56,12 @@ export class MinioObjectStorageAdapter implements ObjectStoragePort {
     await this.ensureBucket();
     const stream = await this.client.getObject(this.bucketName, objectKey);
     return this.streamToBuffer(stream);
+  }
+
+    async downloadStream(objectKey: string): Promise<Readable> {
+    await this.ensureBucket();
+    const stream = await this.client.getObject(this.bucketName, objectKey);
+    return stream as Readable;
   }
 
   async delete(objectKey: string): Promise<void> {
