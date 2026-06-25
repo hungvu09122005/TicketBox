@@ -22,8 +22,8 @@ import axios from 'axios';
 import {
 findLocalTicketByQrToken, findLocalTicketByTicketId,
 getUnsyncedLocalLogs,
-initLocalDb,
-markLocalLogsSynced, markLocalTicketUsed,
+initLocalDb, recordLocalScanTransaction,
+markLocalLogsSynced,
 saveLocalCheckinLog,
 type SyncMeta,
 } from './services/localDb';
@@ -47,6 +47,39 @@ type ResultType = 'idle' | 'accepted' | 'rejected' | 'already-used';
 
 function unwrapApiResponse<T = any>(responseData: any): T {
 return responseData?.data ?? responseData;
+}
+
+function decodeBase64UrlJson<T>(value: string): T | null {
+  try {
+    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+    const padding = normalized.length % 4;
+    const base64 = padding === 0 ? normalized : normalized + '='.repeat(4 - padding);
+
+    return JSON.parse(atob(base64)) as T;
+  } catch {
+    return null;
+  }
+}
+
+function getStaffFromAccessToken(accessToken: string) {
+  const payload = accessToken.trim().split('.')[1];
+
+  if (!payload) {
+    return {
+      staffId: null,
+      staffEmail: null,
+    };
+  }
+
+  const decoded = decodeBase64UrlJson<{
+    sub?: string;
+    email?: string;
+  }>(payload);
+
+  return {
+    staffId: decoded?.sub ?? null,
+    staffEmail: decoded?.email ?? null,
+  };
 }
 
 export default function App() {
@@ -252,7 +285,7 @@ const validateQrToken = async (qrToken: string) => {
   try {
     const networkState = await NetInfo.fetch();
     const isOffline =
-      networkState.isConnected === false ||
+      networkState.isConnected !== true ||
       networkState.isInternetReachable === false;
 
     const localSummary = await loadLocalSyncSummary();
@@ -260,10 +293,14 @@ const validateQrToken = async (qrToken: string) => {
     const freshness = getOfflineDatasetFreshness(currentMeta);
 
     const rejectLocally = async (reason: string, ticketId?: string | null) => {
+      const staff = getStaffFromAccessToken(accessToken);
+
       await saveLocalCheckinLog({
         ticketId: ticketId ?? null,
         eventId: currentMeta?.eventId || concertId || 'unknown',
         deviceId,
+        staffId: staff.staffId,
+        staffEmail: staff.staffEmail,
         gate,
         qrToken: cleanToken,
         result: 'REJECTED',
@@ -330,25 +367,17 @@ const validateQrToken = async (qrToken: string) => {
         return;
       }
 
-      const localResult: 'ACCEPTED' | 'REJECTED' =
-        localTicket.status === 'ACTIVE' ? 'ACCEPTED' : 'REJECTED';
+      const staff = getStaffFromAccessToken(accessToken);
 
-      await saveLocalCheckinLog({
+      const txResult = await recordLocalScanTransaction({
         ticketId: localTicket.ticketId,
         eventId: localTicket.eventId,
         deviceId,
+        staffId: staff.staffId,
+        staffEmail: staff.staffEmail,
         gate,
         qrToken: cleanToken,
-        result: localResult,
-        reason:
-          localResult === 'ACCEPTED'
-            ? null
-            : `Local status: ${localTicket.status}`,
       });
-
-      if (localResult === 'ACCEPTED') {
-        await markLocalTicketUsed(localTicket.ticketId);
-      }
 
       await refreshLocalSummary();
 
@@ -357,16 +386,18 @@ const validateQrToken = async (qrToken: string) => {
           ? `Warning: ${freshness.message}\n`
           : '';
 
-      if (localResult === 'ACCEPTED') {
+      if (txResult.result === 'ACCEPTED') {
         setResultType('accepted');
-        setMessage(`${freshnessPrefix}Offline accepted. Ticket: ${localTicket.ticketId}`);
+        setMessage(
+          `${freshnessPrefix}Offline accepted. Ticket: ${txResult.ticket.ticketId}\nEvent: ${txResult.clientEventId}\nAt: ${txResult.checkedInAt}`,
+        );
         Vibration.vibrate(120);
       } else {
-        setResultType('rejected');
+        setResultType('already-used');
         setMessage(
-          `${freshnessPrefix}Offline rejected. Status: ${localTicket.status}`,
+          `${freshnessPrefix}Local double-scan blocked. Ticket: ${txResult.ticket.ticketId}\nEvent: ${txResult.clientEventId}\nAt: ${txResult.checkedInAt}\nReason: ${txResult.reason}`,
         );
-        Vibration.vibrate([0, 300]);
+        Vibration.vibrate([0, 120, 80, 120]);
       }
 
       return;
@@ -378,9 +409,13 @@ const validateQrToken = async (qrToken: string) => {
     }
 
     if (!accessToken.trim()) {
+      const staff = getStaffFromAccessToken(accessToken);
+
       await saveLocalCheckinLog({
         eventId: concertId || syncMeta?.eventId || 'unknown',
         deviceId,
+        staffId: staff.staffId,
+        staffEmail: staff.staffEmail,
         gate,
         qrToken: cleanToken,
         result: 'REJECTED',
@@ -438,6 +473,8 @@ const validateQrToken = async (qrToken: string) => {
     setScanned(false);
   }
 };
+
+
 
 const syncOfflineLogs = async () => {
 if (loading) return;
