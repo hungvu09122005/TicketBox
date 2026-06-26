@@ -120,7 +120,7 @@ export class CsvImportProcessor {
     @Inject(OBJECT_STORAGE_PORT) private readonly storage: ObjectStoragePort,
     private readonly ticketsService: TicketsService,
     private readonly notificationsService: NotificationsService,
-     @InjectEntityManager()
+    @InjectEntityManager()
     private readonly manager: EntityManager,
   ) {}
 
