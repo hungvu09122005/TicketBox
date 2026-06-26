@@ -37,6 +37,8 @@ export type LocalCheckinLog = {
   reason?: string | null;
   checkedInAt: string;
   syncedToServer: number;
+  staffId?: string | null;
+  staffEmail?: string | null;
 };
 
 const DB_NAME = 'ticketbox_checkin.db';
@@ -97,6 +99,8 @@ export async function initLocalDb() {
       ticket_id TEXT,
       event_id TEXT NOT NULL,
       device_id TEXT NOT NULL,
+      staff_id TEXT,
+      staff_email TEXT,
       gate TEXT,
       qr_token TEXT,
       result TEXT NOT NULL,
@@ -108,6 +112,19 @@ export async function initLocalDb() {
     CREATE INDEX IF NOT EXISTS idx_local_logs_unsynced
       ON local_checkin_logs(synced_to_server);
   `);
+
+  const logColumns = await db.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(local_checkin_logs)',
+  );
+  const logColumnNames = new Set(logColumns.map((column) => column.name));
+
+  if (!logColumnNames.has('staff_id')) {
+    await db.execAsync('ALTER TABLE local_checkin_logs ADD COLUMN staff_id TEXT;');
+  }
+
+  if (!logColumnNames.has('staff_email')) {
+    await db.execAsync('ALTER TABLE local_checkin_logs ADD COLUMN staff_email TEXT;');
+  }
 }
 
 function normalizeTicket(
@@ -300,10 +317,267 @@ export async function findLocalTicketByQrToken(qrToken: string) {
   );
 }
 
+export type LocalScanTransactionResult =
+  | {
+      result: 'ACCEPTED';
+      clientEventId: string;
+      checkedInAt: string;
+      ticket: LocalTicket;
+    }
+  | {
+      result: 'CONFLICT' | 'REJECTED';
+      clientEventId: string;
+      checkedInAt: string;
+      ticket: LocalTicket;
+      reason: string;
+    };
+
+export async function recordLocalScanTransaction(params: {
+  ticketId: string;
+  eventId: string;
+  deviceId: string;
+  staffId?: string | null;
+  staffEmail?: string | null;
+  gate?: string | null;
+  qrToken?: string | null;
+}): Promise<LocalScanTransactionResult> {
+  const db = await getDb();
+  const clientEventId = makeId();
+  const checkedInAt = new Date().toISOString();
+
+  await db.execAsync('BEGIN IMMEDIATE TRANSACTION;');
+
+  try {
+    const ticket = await db.getFirstAsync<LocalTicket>(
+      `
+      SELECT
+        ticket_id as ticketId,
+        event_id as eventId,
+        zone_id as zoneId,
+        gate,
+        order_id as orderId,
+        holder_name as holderName,
+        qr_token as qrToken,
+        status,
+        raw_json as rawJson,
+        synced_at as syncedAt
+      FROM synced_tickets
+      WHERE ticket_id = ?
+      LIMIT 1
+      `,
+      [params.ticketId],
+    );
+
+    if (!ticket) {
+      const reason = 'Ticket not found in local SQLite dataset.';
+
+      await db.runAsync(
+        `
+        INSERT INTO local_checkin_logs (
+          id,
+          client_event_id,
+          ticket_id,
+          event_id,
+          device_id,
+          staff_id,
+          staff_email,
+          gate,
+          qr_token,
+          result,
+          reason,
+          checked_in_at,
+          synced_to_server
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+        `,
+        [
+          makeId(),
+          clientEventId,
+          params.ticketId,
+          params.eventId,
+          params.deviceId,
+          params.staffId ?? null,
+          params.staffEmail ?? null,
+          params.gate ?? null,
+          params.qrToken ?? null,
+          'REJECTED',
+          reason,
+          checkedInAt,
+        ],
+      );
+
+      await db.execAsync('COMMIT;');
+
+      return {
+        result: 'REJECTED',
+        clientEventId,
+        checkedInAt,
+        ticket: {
+          ticketId: params.ticketId,
+          eventId: params.eventId,
+          qrToken: params.qrToken ?? '',
+          status: 'UNKNOWN',
+          rawJson: '{}',
+          syncedAt: checkedInAt,
+        },
+        reason,
+      };
+    }
+
+    if (ticket.status !== 'ACTIVE') {
+      const reason = `Local double-scan blocked. Status: ${ticket.status}`;
+
+      await db.runAsync(
+        `
+        INSERT INTO local_checkin_logs (
+          id,
+          client_event_id,
+          ticket_id,
+          event_id,
+          device_id,
+          staff_id,
+          staff_email,
+          gate,
+          qr_token,
+          result,
+          reason,
+          checked_in_at,
+          synced_to_server
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+        `,
+        [
+          makeId(),
+          clientEventId,
+          ticket.ticketId,
+          ticket.eventId,
+          params.deviceId,
+          params.staffId ?? null,
+          params.staffEmail ?? null,
+          params.gate ?? null,
+          params.qrToken ?? ticket.qrToken,
+          'CONFLICT',
+          reason,
+          checkedInAt,
+        ],
+      );
+
+      await db.execAsync('COMMIT;');
+
+      return {
+        result: 'CONFLICT',
+        clientEventId,
+        checkedInAt,
+        ticket,
+        reason,
+      };
+    }
+
+    await db.runAsync(
+      `
+      INSERT INTO local_checkin_logs (
+        id,
+        client_event_id,
+        ticket_id,
+        event_id,
+        device_id,
+        staff_id,
+        staff_email,
+        gate,
+        qr_token,
+        result,
+        reason,
+        checked_in_at,
+        synced_to_server
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+      `,
+      [
+        makeId(),
+        clientEventId,
+        ticket.ticketId,
+        ticket.eventId,
+        params.deviceId,
+        params.staffId ?? null,
+        params.staffEmail ?? null,
+        params.gate ?? null,
+        params.qrToken ?? ticket.qrToken,
+        'ACCEPTED',
+        null,
+        checkedInAt,
+      ],
+    );
+
+    await db.runAsync(
+      `
+      UPDATE synced_tickets
+      SET status = 'USED'
+      WHERE ticket_id = ?
+        AND status = 'ACTIVE'
+      `,
+      [ticket.ticketId],
+    );
+
+    await db.execAsync('COMMIT;');
+
+    return {
+      result: 'ACCEPTED',
+      clientEventId,
+      checkedInAt,
+      ticket: {
+        ...ticket,
+        status: 'USED',
+      },
+    };
+  } catch (error) {
+    await db.execAsync('ROLLBACK;');
+    throw error;
+  }
+}
+
+export async function findLocalTicketByTicketId(ticketId: string) {
+  const db = await getDb();
+
+  return await db.getFirstAsync<LocalTicket>(
+    `
+    SELECT
+      ticket_id as ticketId,
+      event_id as eventId,
+      zone_id as zoneId,
+      gate,
+      order_id as orderId,
+      holder_name as holderName,
+      qr_token as qrToken,
+      status,
+      raw_json as rawJson,
+      synced_at as syncedAt
+    FROM synced_tickets
+    WHERE ticket_id = ?
+    LIMIT 1
+    `,
+    [ticketId],
+  );
+}
+
+export async function markLocalTicketUsed(ticketId: string) {
+  const db = await getDb();
+
+  await db.runAsync(
+    `
+    UPDATE synced_tickets
+    SET status = 'USED'
+    WHERE ticket_id = ?
+    `,
+    [ticketId],
+  );
+}
+
 export async function saveLocalCheckinLog(params: {
   ticketId?: string | null;
   eventId: string;
   deviceId: string;
+  staffId?: string | null;
+  staffEmail?: string | null;
   gate?: string | null;
   qrToken?: string | null;
   result: 'ACCEPTED' | 'REJECTED' | 'CONFLICT';
@@ -321,6 +595,8 @@ export async function saveLocalCheckinLog(params: {
       ticket_id,
       event_id,
       device_id,
+      staff_id,
+      staff_email,
       gate,
       qr_token,
       result,
@@ -328,7 +604,7 @@ export async function saveLocalCheckinLog(params: {
       checked_in_at,
       synced_to_server
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
     `,
     [
       makeId(),
@@ -341,6 +617,8 @@ export async function saveLocalCheckinLog(params: {
       params.result,
       params.reason ?? null,
       checkedInAt,
+      params.staffId ?? null,
+      params.staffEmail ?? null,
     ],
   );
 
@@ -360,6 +638,8 @@ export async function getUnsyncedLocalLogs() {
       ticket_id as ticketId,
       event_id as eventId,
       device_id as deviceId,
+      staff_id as staffId,
+      staff_email as staffEmail,
       gate,
       qr_token as qrToken,
       result,

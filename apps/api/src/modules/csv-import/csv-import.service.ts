@@ -94,49 +94,67 @@ export class CsvImportService {
   }
 
   async retryJob(jobId: string) {
-    const job = await this.repo.findById(jobId);
-    if (!job) {
-      throw new NotFoundException(`Job ${jobId} not found`);
-    }
-
-    if (
-      job.status !== CsvImportJobStatus.FAILED &&
-      job.status !== CsvImportJobStatus.PARTIALLY_COMPLETED
-    ) {
-      throw new ConflictException(`Cannot retry job in state: ${job.status}`);
-    }
-
-    await this.repo.updateStatus(job.id, CsvImportJobStatus.PENDING);
-
-    await this.queue.add(
-      CSV_IMPORT_JOB,
-      {
-        jobId: job.id,
-        objectKey: job.objectKey,
-        concertId: job.concertId,
-        triggeredBy: job.triggeredBy,
-      },
-      {
-        jobId: `csv-import:${job.id}`,
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 5000,
-        },
-        removeOnComplete: {
-          age: 3600,
-          count: 100,
-        },
-        removeOnFail: false,
-      },
-    );
-
-    return {
-      success: true,
-      message: `CSV job ${job.id} is being retried`,
-      job_id: job.id,
-    };
+  const job = await this.repo.findById(jobId);
+  if (!job) {
+    throw new NotFoundException(`Job ${jobId} not found`);
   }
+
+  const retryableStatuses = new Set<CsvImportJobStatus>([
+    CsvImportJobStatus.FAILED,
+    CsvImportJobStatus.PARTIALLY_COMPLETED,
+    CsvImportJobStatus.PENDING,
+    CsvImportJobStatus.PROCESSING,
+  ]);
+
+  if (!retryableStatuses.has(job.status)) {
+    throw new ConflictException(`Cannot retry job in state: ${job.status}`);
+  }
+
+  const bullJobId = `csv-import:${job.id}`;
+  const existingBullJob = await this.queue.getJob(bullJobId);
+
+  if (existingBullJob) {
+    const state = await existingBullJob.getState();
+
+    if (state === 'active') {
+      throw new ConflictException(`Cannot retry job while Bull job is active`);
+    }
+
+    await existingBullJob.remove();
+  }
+
+  await this.repo.updateStatus(job.id, CsvImportJobStatus.PENDING);
+
+  await this.queue.add(
+    CSV_IMPORT_JOB,
+    {
+      jobId: job.id,
+      objectKey: job.objectKey,
+      concertId: job.concertId,
+      triggeredBy: job.triggeredBy,
+    },
+    {
+      jobId: bullJobId,
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 5000,
+      },
+      removeOnComplete: {
+        age: 3600,
+        count: 100,
+      },
+      removeOnFail: false,
+    },
+  );
+
+  return {
+    success: true,
+    message: `CSV job ${job.id} is being retried`,
+    job_id: job.id,
+  };
+}
+
 
   private validateCsvFile(file: Express.Multer.File) {
     if (!file) {

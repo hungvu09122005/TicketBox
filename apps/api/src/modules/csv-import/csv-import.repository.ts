@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CsvImportJob } from './entities/csv-import-job.entity';
@@ -57,14 +57,28 @@ export class CsvImportRepository {
     status: CsvRowStatus,
     errorReason?: string,
   ): Promise<CsvImportRow> {
-    const row = this.rowRepo.create({
+    const existing = await this.rowRepo.findOne({
+      where: {
       jobId,
-      rowNumber,
-      status,
-      errorReason,
+      rowNumber,}
+
     });
-    return this.rowRepo.save(row);
+    if (existing) {
+    existing.status = status;
+    existing.errorReason = errorReason;
+    return this.rowRepo.save(existing);
   }
+
+  const row = this.rowRepo.create({
+    jobId,
+    rowNumber,
+    status,
+    errorReason,
+  });
+
+  return this.rowRepo.save(row);
+}
+
 
   async findVipGuestByConcertAndKey(concertId: string, dedupKey: string): Promise<VipGuest | null> {
     return this.vipRepo.findOne({ where: { concertId, dedupKey } });

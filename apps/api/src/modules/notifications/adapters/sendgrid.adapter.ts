@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable } from '@nestjs/common';
 import { MailService } from '../../../mail/mail.service';
 import {
   ConcertReminderParams,
@@ -18,33 +18,33 @@ const ticketUrl = `${frontendUrl}/tickets/${params.ticketId}`;
 const qrUrl = `${frontendUrl}/tickets/${params.ticketId}/qr`;
 
     const html = `
-      <h2>TicketBox - Xác nhận vé</h2>
-      <p>Xin chào <b>${params.toName}</b>,</p>
-      <p>Đơn hàng <b>${params.orderId}</b> đã được xác nhận.</p>
+      <h2>TicketBox - XÃ¡c nháº­n vÃ©</h2>
+      <p>Xin chÃ o <b>${params.toName}</b>,</p>
+      <p>ÄÆ¡n hÃ ng <b>${params.orderId}</b> Ä‘Ã£ Ä‘Æ°á»£c xÃ¡c nháº­n.</p>
 
-      <h3>Thông tin vé</h3>
+      <h3>ThÃ´ng tin vÃ©</h3>
       <ul>
-        <li><b>Sự kiện:</b> ${params.concertName}</li>
-        <li><b>Thời gian:</b> ${concertDate}</li>
-        <li><b>Địa điểm:</b> ${params.venue}</li>
-        <li><b>Loại vé:</b> ${params.ticketTypeName}</li>
+        <li><b>Sá»± kiá»‡n:</b> ${params.concertName}</li>
+        <li><b>Thá»i gian:</b> ${concertDate}</li>
+        <li><b>Äá»‹a Ä‘iá»ƒm:</b> ${params.venue}</li>
+        <li><b>Loáº¡i vÃ©:</b> ${params.ticketTypeName}</li>
       </ul>
 
       <h3>E-ticket / QR token</h3>
-      <p>Xuất trình mã này tại cổng check-in:</p>
+      <p>Xuáº¥t trÃ¬nh mÃ£ nÃ y táº¡i cá»•ng check-in:</p>
       <pre style="white-space: pre-wrap; word-break: break-all;">${params.qrToken}</pre>
     `;
 
     const text = `
-TicketBox - Xác nhận vé
+TicketBox - XÃ¡c nháº­n vÃ©
 
-Xin chào ${params.toName},
-Đơn hàng ${params.orderId} đã được xác nhận.
+Xin chÃ o ${params.toName},
+ÄÆ¡n hÃ ng ${params.orderId} Ä‘Ã£ Ä‘Æ°á»£c xÃ¡c nháº­n.
 
-Sự kiện: ${params.concertName}
-Thời gian: ${concertDate}
-Địa điểm: ${params.venue}
-Loại vé: ${params.ticketTypeName}
+Sá»± kiá»‡n: ${params.concertName}
+Thá»i gian: ${concertDate}
+Äá»‹a Ä‘iá»ƒm: ${params.venue}
+Loáº¡i vÃ©: ${params.ticketTypeName}
 
 QR token:
 ${params.qrToken}
@@ -59,34 +59,40 @@ ${params.qrToken}
   }
 
   async sendConcertReminder(params: ConcertReminderParams): Promise<void> {
-    const concertDate = new Date(params.concertDate).toLocaleString('vi-VN');
+    const concertDate = new Date(params.concertDate).toLocaleString('vi-VN', {
+      dateStyle: 'full',
+      timeStyle: 'short',
+      timeZone: 'Asia/Ho_Chi_Minh',
+  });
+
 
     const html = `
-      <h2>TicketBox - Nhắc lịch concert</h2>
-      <p>Xin chào <b>${params.toName}</b>,</p>
-      <p>Sự kiện <b>${params.concertName}</b> sắp diễn ra.</p>
+      <h2>TicketBox - Nháº¯c lá»‹ch concert</h2>
+      <p>Xin chÃ o <b>${params.toName}</b>,</p>
+      <p>Sá»± kiá»‡n <b>${params.concertName}</b> sáº¯p diá»…n ra trong khoáº£ng 24 giá» tá»›i .</p>
 
+      <h3>ThÃ´ng tin sá»± kiá»‡n</h3>
       <ul>
-        <li><b>Thời gian:</b> ${concertDate}</li>
-        <li><b>Địa điểm:</b> ${params.venue}</li>
-        <li><b>Loại vé:</b> ${params.ticketTypeName}</li>
+        <li><b>Thá»i gian:</b> ${concertDate}</li>
+        <li><b>Äá»‹a Ä‘iá»ƒm:</b> ${params.venue}</li>
+        <li><b>Loáº¡i vÃ©:</b> ${params.ticketTypeName}</li>
       </ul>
 
-      <p>Vui lòng chuẩn bị QR/e-ticket trước khi đến cổng check-in.</p>
+      <p>Vui lÃ²ng chuáº©n bá»‹ QR/e-ticket trÆ°á»›c khi Ä‘áº¿n cá»•ng check-in.</p>
     `;
 
     const text = `
-TicketBox - Nhắc lịch concert
+    TicketBox - Nháº¯c lá»‹ch concert
 
-Xin chào ${params.toName},
-Sự kiện ${params.concertName} sắp diễn ra.
+    Xin chÃ o ${params.toName},
+    Sá»± kiá»‡n ${params.concertName} sáº¯p diá»…n ra trong 24 giá» tá»›i.
 
-Thời gian: ${concertDate}
-Địa điểm: ${params.venue}
-Loại vé: ${params.ticketTypeName}
+    Thá»i gian: ${concertDate}
+    Äá»‹a Ä‘iá»ƒm: ${params.venue}
+    Loáº¡i vÃ©: ${params.ticketTypeName}
 
-Vui lòng chuẩn bị QR/e-ticket trước khi đến cổng check-in.
-`;
+    Vui lÃ²ng chuáº©n bá»‹ QR/e-ticket trÆ°á»›c khi Ä‘áº¿n cá»•ng check-in.
+    `;
 
     await this.mailService.sendEmail({
       to: params.toEmail,

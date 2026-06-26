@@ -46,6 +46,41 @@ export class NotificationProcessor {
     }
   }
 
+  @Process('notification.concert_reminder')
+async handleConcertReminder(job: Job): Promise<void> {
+  this.logger.log(`Processing concert_reminder job: ${job.id}`);
+
+  try {
+    await this.notificationPort.sendConcertReminder(job.data as any);
+
+    if (job.data?.logId) {
+      await this.notificationsRepository.markSent(String(job.data.logId));
+    } else if (job.data?.ticketId) {
+      const log = await this.notificationsRepository.findByTicketTypeChannel(
+        String(job.data.ticketId),
+        NotificationType.REMINDER_24H,
+        NotificationChannel.EMAIL,
+      );
+
+      if (log) {
+        await this.notificationsRepository.markSent(log.id);
+      }
+    }
+
+    this.logger.log(`Concert reminder sent for job: ${job.id}`);
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error(String(err));
+
+    this.logger.error(
+      `Failed to process concert_reminder. Job: ${job.id}, attempt ${job.attemptsMade + 1}/${job.opts.attempts}`,
+      error.stack,
+    );
+
+    await this.handleJobError(job, error, NotificationType.REMINDER_24H);
+    throw error;
+  }
+}
+
   @Process('notification.vip_welcome')
   async handleVipWelcome(job: Job): Promise<void> {
     this.logger.log(`Processing vip_welcome job: ${job.id}`);
