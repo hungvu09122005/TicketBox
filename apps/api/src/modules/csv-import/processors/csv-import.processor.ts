@@ -19,6 +19,7 @@ import { Role as RoleEntity } from '../../users/entities/role.entity';
 import { Role } from '../../../common/constants/roles.enum';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { InjectEntityManager } from '@nestjs/typeorm';
 
 export const CSV_IMPORT_JOB = 'csv.import';
 

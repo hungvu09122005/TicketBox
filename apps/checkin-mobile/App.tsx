@@ -20,10 +20,10 @@ import * as Crypto from 'expo-crypto';
 import axios from 'axios';
 
 import {
-findLocalTicketByQrToken,
+findLocalTicketByQrToken, findLocalTicketByTicketId,
 getUnsyncedLocalLogs,
 initLocalDb,
-markLocalLogsSynced,
+markLocalLogsSynced, markLocalTicketUsed,
 saveLocalCheckinLog,
 type SyncMeta,
 } from './services/localDb';
@@ -32,6 +32,13 @@ formatTimeToExpire,
 loadLocalSyncSummary,
 syncPreEventDataset,
 } from './services/preEventSync';
+
+import NetInfo from '@react-native-community/netinfo';
+
+import {
+  getOfflineDatasetFreshness,
+  verifyOfflineQrToken,
+} from './services/offlineQr';
 
 const API_BASE_URL = 'http://192.168.100.60:3001/api/v1';
 const CameraView = ExpoCameraView as any;
@@ -224,120 +231,212 @@ try {
 };
 
 const validateQrToken = async (qrToken: string) => {
-if (loading) return;
+  if (loading) return;
 
+  const cleanToken = qrToken.trim();
 
-const cleanToken = qrToken.trim();
+  if (!cleanToken) {
+    setResultType('rejected');
+    setMessage('QR token is empty.');
+    return;
+  }
 
-if (!cleanToken) {
-  setResultType('rejected');
-      setMessage("QR token is empty.");
-  return;
-}
+  if (!deviceId) {
+    setResultType('rejected');
+    setMessage('Device is not registered or not loaded from SQLite.');
+    return;
+  }
 
-if (!deviceId) {
-  setResultType('rejected');
-      setMessage("Device is not registered or not loaded from SQLite.");
-  return;
-}
+  setLoading(true);
 
-setLoading(true);
+  try {
+    const networkState = await NetInfo.fetch();
+    const isOffline =
+      networkState.isConnected === false ||
+      networkState.isInternetReachable === false;
 
-try {
-  const localTicket = await findLocalTicketByQrToken(cleanToken);
+    const localSummary = await loadLocalSyncSummary();
+    const currentMeta = localSummary.meta ?? syncMeta;
+    const freshness = getOfflineDatasetFreshness(currentMeta);
 
-  if (localTicket) {
-    const localResult: 'ACCEPTED' | 'REJECTED' =
-      localTicket.status === 'ACTIVE' ? 'ACCEPTED' : 'REJECTED';
+    const rejectLocally = async (reason: string, ticketId?: string | null) => {
+      await saveLocalCheckinLog({
+        ticketId: ticketId ?? null,
+        eventId: currentMeta?.eventId || concertId || 'unknown',
+        deviceId,
+        gate,
+        qrToken: cleanToken,
+        result: 'REJECTED',
+        reason,
+      });
 
-    await saveLocalCheckinLog({
-      ticketId: localTicket.ticketId,
-      eventId: localTicket.eventId,
-      deviceId,
-      gate,
-      qrToken: cleanToken,
-      result: localResult,
-      reason:
-        localResult === 'ACCEPTED'
-          ? null
-          : `Local status: ${localTicket.status}`,
-    });
+      await refreshLocalSummary();
 
-    await refreshLocalSummary();
-
-    if (localResult === 'ACCEPTED') {
-      setResultType('accepted');
-      setMessage(`Offline accepted. Ticket: ${localTicket.ticketId}`);
-      Vibration.vibrate(120);
-    } else {
       setResultType('rejected');
-      setMessage(`Offline rejected. Status: ${localTicket.status}`);
+      setMessage(reason);
       Vibration.vibrate([0, 300]);
+    };
+
+    if (isOffline && freshness.decision === 'BLOCK') {
+      await rejectLocally(`Offline blocked. ${freshness.message}`);
+      return;
     }
 
-    return;
-  }
+    const signedQr = verifyOfflineQrToken(cleanToken);
 
-  if (!accessToken.trim()) {
-    await saveLocalCheckinLog({
-      eventId: concertId || syncMeta?.eventId || 'unknown',
-      deviceId,
-      gate,
-      qrToken: cleanToken,
-      result: 'REJECTED',
-      reason: 'Ticket not found in local dataset',
-    });
+    if (isOffline && !signedQr.valid) {
+      await rejectLocally(`Offline rejected. ${signedQr.reason}`);
+      return;
+    }
 
-    await refreshLocalSummary();
+    if (
+      isOffline &&
+      currentMeta?.gate &&
+      gate.trim() &&
+      currentMeta.gate !== gate.trim()
+    ) {
+      await rejectLocally(
+        `Offline rejected. Device dataset is for gate ${currentMeta.gate}, current gate is ${gate.trim()}.`,
+      );
+      return;
+    }
 
-    setResultType('rejected');
-        setMessage("Ticket not found in local SQLite dataset and no access token for online validation.");
-    Vibration.vibrate([0, 300]);
-    return;
-  }
+    let localTicket = signedQr.valid
+      ? await findLocalTicketByTicketId(signedQr.payload.ticketId)
+      : null;
 
-  const response = await axios.post(
-    `${API_BASE_URL}/checkin/validate`,
-    {
-      qr_token: cleanToken,
-      client_event_id: Crypto.randomUUID(),
-      device_id: deviceId,
-    },
-    {
-      headers: authHeaders(),
-    },
-  );
+    if (!localTicket) {
+      localTicket = await findLocalTicketByQrToken(cleanToken);
+    }
 
-  const data = unwrapApiResponse<any>(response.data);
+    if (localTicket) {
+      if (signedQr.valid && localTicket.ticketId !== signedQr.payload.ticketId) {
+        await rejectLocally('Offline rejected. QR payload does not match local ticket.');
+        return;
+      }
 
-  setResultType('accepted');
-  setMessage(`Online accepted. Log: ${data?.id ?? 'OK'}`);
-  Vibration.vibrate(120);
-} catch (error: any) {
-  const msg = error?.response?.data?.message ?? error?.message ?? 'Unknown error';
-  const lowerMsg = String(msg).toLowerCase();
+      if (signedQr.valid && localTicket.eventId !== signedQr.payload.concertId) {
+        await rejectLocally('Offline rejected. QR event does not match local dataset.');
+        return;
+      }
 
-  if (
-    lowerMsg.includes('used') ||
-    lowerMsg.includes('already') ||
-      lowerMsg.includes("already used") ||
-      lowerMsg.includes("used ticket") ||
-      lowerMsg.includes("ticket already")
-  ) {
-    setResultType('already-used');
+      const activeGate = gate.trim() || currentMeta?.gate || '';
+
+      if (localTicket.gate && activeGate && localTicket.gate !== activeGate) {
+        await rejectLocally(
+          `Offline rejected. Ticket is scoped to gate ${localTicket.gate}, current gate is ${activeGate}.`,
+          localTicket.ticketId,
+        );
+        return;
+      }
+
+      const localResult: 'ACCEPTED' | 'REJECTED' =
+        localTicket.status === 'ACTIVE' ? 'ACCEPTED' : 'REJECTED';
+
+      await saveLocalCheckinLog({
+        ticketId: localTicket.ticketId,
+        eventId: localTicket.eventId,
+        deviceId,
+        gate,
+        qrToken: cleanToken,
+        result: localResult,
+        reason:
+          localResult === 'ACCEPTED'
+            ? null
+            : `Local status: ${localTicket.status}`,
+      });
+
+      if (localResult === 'ACCEPTED') {
+        await markLocalTicketUsed(localTicket.ticketId);
+      }
+
+      await refreshLocalSummary();
+
+      const freshnessPrefix =
+        isOffline && freshness.decision === 'WARN'
+          ? `Warning: ${freshness.message}\n`
+          : '';
+
+      if (localResult === 'ACCEPTED') {
+        setResultType('accepted');
+        setMessage(`${freshnessPrefix}Offline accepted. Ticket: ${localTicket.ticketId}`);
+        Vibration.vibrate(120);
+      } else {
+        setResultType('rejected');
+        setMessage(
+          `${freshnessPrefix}Offline rejected. Status: ${localTicket.status}`,
+        );
+        Vibration.vibrate([0, 300]);
+      }
+
+      return;
+    }
+
+    if (isOffline) {
+      await rejectLocally('Offline rejected. Ticket not found in local SQLite dataset.');
+      return;
+    }
+
+    if (!accessToken.trim()) {
+      await saveLocalCheckinLog({
+        eventId: concertId || syncMeta?.eventId || 'unknown',
+        deviceId,
+        gate,
+        qrToken: cleanToken,
+        result: 'REJECTED',
+        reason: 'Ticket not found in local dataset',
+      });
+
+      await refreshLocalSummary();
+
+      setResultType('rejected');
+      setMessage(
+        'Ticket not found in local SQLite dataset and no access token for online validation.',
+      );
+      Vibration.vibrate([0, 300]);
+      return;
+    }
+
+    const response = await axios.post(
+      `${API_BASE_URL}/checkin/validate`,
+      {
+        qr_token: cleanToken,
+        client_event_id: Crypto.randomUUID(),
+        device_id: deviceId,
+      },
+      {
+        headers: authHeaders(),
+      },
+    );
+
+    const data = unwrapApiResponse<any>(response.data);
+
+    setResultType('accepted');
+    setMessage(`Online accepted. Log: ${data?.id ?? 'OK'}`);
+    Vibration.vibrate(120);
+  } catch (error: any) {
+    const msg = error?.response?.data?.message ?? error?.message ?? 'Unknown error';
+    const lowerMsg = String(msg).toLowerCase();
+
+    if (
+      lowerMsg.includes('used') ||
+      lowerMsg.includes('already') ||
+      lowerMsg.includes('already used') ||
+      lowerMsg.includes('used ticket') ||
+      lowerMsg.includes('ticket already')
+    ) {
+      setResultType('already-used');
       setMessage(`Ticket has already been used. ${msg}`);
-    Vibration.vibrate([0, 120, 80, 120]);
-  } else {
-    setResultType('rejected');
+      Vibration.vibrate([0, 120, 80, 120]);
+    } else {
+      setResultType('rejected');
       setMessage(`Check-in failed: ${msg}`);
-    Vibration.vibrate([0, 300]);
+      Vibration.vibrate([0, 300]);
+    }
+  } finally {
+    setLoading(false);
+    setScanned(false);
   }
-} finally {
-  setLoading(false);
-  setScanned(false);
-}
-
-
 };
 
 const syncOfflineLogs = async () => {
