@@ -56,9 +56,11 @@ async function streamToBuffer(stream: Readable, maxBytes: number): Promise<Buffe
 
 @Processor('ai-bio')
 export class AiBioProcessor {
+
   private readonly logger = new Logger(AiBioProcessor.name);
   private readonly maxPromptChars: number;
   private aiBreaker: CircuitBreaker<[text: string, hint?: string], string>;
+
 
   constructor(
     @Inject(AI_TEXT_GENERATION_PORT) private readonly aiPort: AITextGenerationPort,
@@ -75,7 +77,7 @@ export class AiBioProcessor {
       (text: string, hint?: string) => this.aiPort.generateArtistBio(text, hint),
       {
         name: 'AIGeneration',
-        timeout: 15000,               // AI might take up to 15 seconds
+        timeout: timeoutMs,               // AI might take up to 15 seconds
         errorThresholdPercentage: 50, // 50% errors opens circuit
         resetTimeout: 30000,          // Try again after 30 seconds
       },
