@@ -3,35 +3,52 @@
 
 $PSScriptRoot = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
 
-# 1. Start Docker Compose infrastructure containers
+# 1. Start Docker Compose infrastructure containers (redis and minio)
 Write-Host "Checking Docker Compose containers..." -ForegroundColor Cyan
-docker compose -f "$PSScriptRoot\docker-compose.yml" up -d postgres redis minio
+docker compose -f "$PSScriptRoot\docker-compose.yml" up -d redis minio
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to start docker containers. Make sure Docker is running."
     exit 1
 }
 
 # 2. Setup Tunnel log files
-$logFile = Join-Path $PSScriptRoot "localtunnel.log"
-$errFile = Join-Path $PSScriptRoot "localtunnel.err"
-if (Test-Path $logFile) { Remove-Item $logFile -Force -ErrorAction SilentlyContinue }
-if (Test-Path $errFile) { Remove-Item $errFile -Force -ErrorAction SilentlyContinue }
+$cfLog = Join-Path $PSScriptRoot "cloudflared.log"
+$cfErr = Join-Path $PSScriptRoot "cloudflared.err"
+$ltLog = Join-Path $PSScriptRoot "localtunnel.log"
+$ltErr = Join-Path $PSScriptRoot "localtunnel.err"
 
-# 3. Start localtunnel on port 3001
-Write-Host "Starting localtunnel on port 3001..." -ForegroundColor Cyan
-$ltProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c npx localtunnel --port 3001" -NoNewWindow -PassThru -RedirectStandardOutput $logFile -RedirectStandardError $errFile
+foreach ($file in @($cfLog, $cfErr, $ltLog, $ltErr)) {
+    if (Test-Path $file) { Remove-Item $file -Force -ErrorAction SilentlyContinue }
+}
 
-# 4. Wait for localtunnel to output the URL
+# 3. Start Tunnel
 $url = $null
-$timeout = 30 # seconds
+$tunnelProcess = $null
+$tunnelType = ""
+
+# Try Cloudflare first
+Write-Host "Starting Cloudflare Tunnel on port 3001..." -ForegroundColor Cyan
+$tunnelProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c npx cloudflared tunnel --url http://localhost:3001" -NoNewWindow -PassThru -RedirectStandardOutput $cfLog -RedirectStandardError $cfErr
+
+$timeout = 15 # seconds
 $elapsed = 0
-Write-Host "Waiting for public URL from localtunnel..." -NoNewline -ForegroundColor Cyan
+Write-Host "Waiting for public URL from Cloudflare..." -NoNewline -ForegroundColor Cyan
 while ($elapsed -lt $timeout) {
     Write-Host "." -NoNewline -ForegroundColor Cyan
-    if (Test-Path $logFile) {
-        $logContent = Get-Content $logFile -Raw
-        if ($logContent -match "your url is: (https?://[^\s]+)") {
+    if (Test-Path $cfErr) {
+        $errContent = Get-Content $cfErr -Raw
+        if ($errContent -match "(https?://[a-zA-Z0-9-]+\.trycloudflare\.com)") {
             $url = $Matches[1].Trim()
+            $tunnelType = "Cloudflare"
+            Write-Host ""
+            break
+        }
+    }
+    if (Test-Path $cfLog) {
+        $logContent = Get-Content $cfLog -Raw
+        if ($logContent -match "(https?://[a-zA-Z0-9-]+\.trycloudflare\.com)") {
+            $url = $Matches[1].Trim()
+            $tunnelType = "Cloudflare"
             Write-Host ""
             break
         }
@@ -40,20 +57,44 @@ while ($elapsed -lt $timeout) {
     $elapsed++
 }
 
+# Fallback to localtunnel if Cloudflare failed
+if (-not $url) {
+    Write-Host "`nCloudflare Tunnel failed or timed out. Falling back to localtunnel..." -ForegroundColor Yellow
+    if ($tunnelProcess) {
+        Stop-Process -Id $tunnelProcess.Id -Force -ErrorAction SilentlyContinue
+    }
+    
+    Write-Host "Starting localtunnel on port 3001..." -ForegroundColor Cyan
+    $tunnelProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c npx localtunnel --port 3001" -NoNewWindow -PassThru -RedirectStandardOutput $ltLog -RedirectStandardError $ltErr
+    
+    $elapsed = 0
+    Write-Host "Waiting for public URL from localtunnel..." -NoNewline -ForegroundColor Cyan
+    while ($elapsed -lt $timeout) {
+        Write-Host "." -NoNewline -ForegroundColor Cyan
+        if (Test-Path $ltLog) {
+            $logContent = Get-Content $ltLog -Raw
+            if ($logContent -match "your url is: (https?://[^\s]+)") {
+                $url = $Matches[1].Trim()
+                $tunnelType = "localtunnel"
+                Write-Host ""
+                break
+            }
+        }
+        Start-Sleep -Seconds 1
+        $elapsed++
+    }
+}
+
 if (-not $url) {
     Write-Host ""
-    Write-Error "Failed to obtain localtunnel URL within $timeout seconds."
-    if (Test-Path $logFile) {
-        Write-Host "Log contents:" -ForegroundColor Yellow
-        Get-Content $logFile
-    }
-    if ($ltProcess) {
-        Stop-Process -Id $ltProcess.Id -Force -ErrorAction SilentlyContinue
+    Write-Error "Failed to obtain any public tunnel URL within time limits."
+    if ($tunnelProcess) {
+        Stop-Process -Id $tunnelProcess.Id -Force -ErrorAction SilentlyContinue
     }
     exit 1
 }
 
-Write-Host "Localtunnel successfully started! Public URL: $url" -ForegroundColor Green
+Write-Host "$tunnelType successfully started! Public URL: $url" -ForegroundColor Green
 
 # 5. Update Env Files with public callback URL
 $vnpayIpnUrl = "$url/api/v1/payments/callback/vnpay"
@@ -89,15 +130,13 @@ try {
     Set-Location (Join-Path $PSScriptRoot "..")
     pnpm dev:api
 } finally {
-    Write-Host "`nShutting down localtunnel process..." -ForegroundColor Yellow
-    if ($ltProcess) {
-        Stop-Process -Id $ltProcess.Id -Force -ErrorAction SilentlyContinue
+    Write-Host "`nShutting down tunnel process..." -ForegroundColor Yellow
+    if ($tunnelProcess) {
+        Stop-Process -Id $tunnelProcess.Id -Force -ErrorAction SilentlyContinue
     }
-    if (Test-Path $logFile) {
-        Remove-Item $logFile -Force -ErrorAction SilentlyContinue
-    }
-    if (Test-Path $errFile) {
-        Remove-Item $errFile -Force -ErrorAction SilentlyContinue
+    foreach ($file in @($cfLog, $cfErr, $ltLog, $ltErr)) {
+        if (Test-Path $file) { Remove-Item $file -Force -ErrorAction SilentlyContinue }
     }
     Write-Host "Staging environment stopped." -ForegroundColor Green
 }
+
