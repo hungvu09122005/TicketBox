@@ -1,0 +1,20 @@
+﻿config:
+  target: "{{ $processEnvironment.API_BASE_URL }}"
+  phases:
+    - duration: 10
+      arrivalRate: 20
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+scenarios:
+  - name: "Concurrent ticket purchase hold"
+    flow:
+      - post:
+          url: "/orders"
+          headers:
+            Authorization: "Bearer {{ $processEnvironment.ACCESS_TOKEN }}"
+          json:
+            concertId: "{{ $processEnvironment.CONCERT_ID }}"
+            ticketTypeId: "{{ $processEnvironment.TICKET_TYPE_ID }}"
+            quantity: 1
