@@ -265,4 +265,74 @@ export class NotificationsService {
 
     return { success: true, message: 'VIP welcome notification queued.', logId: log.id };
   }
+
+  async queueConcertReminder(params: {
+  toEmail: string;
+  toName: string;
+  ticketId: string;
+  userId: string;
+  concertName: string;
+  concertDate: string | Date;
+  venue: string;
+  ticketTypeName: string;
+}) {
+  const type = NotificationType.REMINDER_24H;
+  const channel = NotificationChannel.EMAIL;
+  const jobId = `notification.concert_reminder:${params.ticketId}`;
+
+  const log = await this.repo.createQueuedLogIfAbsent({
+    ticketId: params.ticketId,
+    userId: params.userId,
+    type,
+    channel,
+  });
+
+  if (!log) {
+    return {
+      success: true,
+      skipped: true,
+      message: '24h reminder already queued or sent.',
+    };
+  }
+
+  await this.queue.add(
+    'notification.concert_reminder',
+    {
+      toEmail: params.toEmail,
+      toName: params.toName,
+      ticketId: params.ticketId,
+      userId: params.userId,
+      concertName: params.concertName,
+      concertDate: params.concertDate,
+      venue: params.venue,
+      ticketTypeName: params.ticketTypeName,
+      type,
+      channel,
+      logId: log.id,
+    },
+    {
+      jobId,
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 5000,
+      },
+      removeOnComplete: {
+        age: 3600,
+        count: 100,
+      },
+      removeOnFail: false,
+    },
+  );
+
+  return {
+    success: true,
+    skipped: false,
+    message: '24h reminder queued.',
+    logId: log.id,
+  };
+}
+
+
+
 }

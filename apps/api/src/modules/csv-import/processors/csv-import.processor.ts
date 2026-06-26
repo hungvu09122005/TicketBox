@@ -2,6 +2,7 @@ import { Processor, Process } from '@nestjs/bull';
 import { Job } from 'bull';
 import { Logger, Inject } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
+import { InjectEntityManager } from '@nestjs/typeorm';
 import { parse } from 'csv-parse/sync';
 import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../../common/ports/object-storage.port';
 import { TicketsService } from '../../tickets/tickets.service';
@@ -36,7 +37,7 @@ export class CsvImportProcessor {
     @Inject(OBJECT_STORAGE_PORT) private readonly storage: ObjectStoragePort,
     private readonly ticketsService: TicketsService,
     private readonly notificationsService: NotificationsService,
-     @InjectEntityManager()
+    @InjectEntityManager()
     private readonly manager: EntityManager,
   ) {}
 
