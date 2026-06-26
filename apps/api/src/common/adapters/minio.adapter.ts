@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable } from '@nestjs/common';
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { ObjectStoragePort, UploadParams } from '../ports/object-storage.port';
+import { Readable } from 'stream';
 
 @Injectable()
 export class MinioObjectStorageAdapter implements ObjectStoragePort {
@@ -45,6 +46,36 @@ export class MinioObjectStorageAdapter implements ObjectStoragePort {
     const response = await this.s3.send(new GetObjectCommand({ Bucket: this.bucket, Key: objectKey }));
     const stream = await response.Body!.transformToByteArray();
     return Buffer.from(stream);
+  }
+
+  async downloadStream(objectKey: string): Promise<Readable> {
+    const response = await this.s3.send(
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: objectKey,
+      }),
+    );
+
+    const body = response.Body;
+
+    if (!body) {
+      throw new Error(`Object ${objectKey} has empty body.`);
+    }
+
+    if (body instanceof Readable) {
+      return body;
+    }
+
+    if (typeof (body as any).transformToWebStream === 'function') {
+      return Readable.fromWeb((body as any).transformToWebStream());
+    }
+
+    if (typeof (body as any).transformToByteArray === 'function') {
+      const bytes = await (body as any).transformToByteArray();
+      return Readable.from(Buffer.from(bytes));
+    }
+
+    throw new Error(`Object ${objectKey} body is not a readable stream.`);
   }
 
   async delete(objectKey: string): Promise<void> {

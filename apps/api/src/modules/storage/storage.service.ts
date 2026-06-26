@@ -2,6 +2,8 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as Minio from 'minio';
 import { ObjectStoragePort, UploadParams } from '../../common/ports/object-storage.port';
+import { Readable } from 'stream';
+
 
 @Injectable()
 export class StorageService implements OnModuleInit, ObjectStoragePort {
@@ -71,6 +73,16 @@ export class StorageService implements OnModuleInit, ObjectStoragePort {
       });
     } catch (error: any) {
       this.logger.error(`Failed to download object ${objectKey}: ${error.message}`);
+      throw error;
+    }
+  }
+
+    async downloadStream(objectKey: string): Promise<Readable> {
+    try {
+      const stream = await this.minioClient.getObject(this.defaultBucket, objectKey);
+      return stream as Readable;
+    } catch (error: any) {
+      this.logger.error(`Failed to stream object ${objectKey}: ${error.message}`);
       throw error;
     }
   }
