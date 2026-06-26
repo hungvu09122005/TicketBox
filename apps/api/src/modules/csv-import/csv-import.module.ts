@@ -11,6 +11,7 @@ import { CsvImportProcessor } from './processors/csv-import.processor';
 import { TicketsModule } from '../tickets/tickets.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { StorageModule } from '../storage/storage.module';
+import { DatabaseModule } from '../../database/database.module';
 
 /**
  * CsvImportModule — VIP guest import pipeline.
@@ -23,6 +24,7 @@ import { StorageModule } from '../storage/storage.module';
  */
 @Module({
   imports: [
+    DatabaseModule,
     TypeOrmModule.forFeature([CsvImportJob, CsvImportRow, VipGuest]),
     BullModule.registerQueue({ name: 'csv-import' }),
     TicketsModule,
