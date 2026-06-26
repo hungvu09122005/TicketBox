@@ -1,4 +1,4 @@
-﻿import { Processor, Process } from '@nestjs/bull';
+import { Processor, Process } from '@nestjs/bull';
 import { Job } from 'bull';
 import { Logger, Inject } from '@nestjs/common';
 const pdf = require('pdf-parse'); 
@@ -72,6 +72,8 @@ export class AiBioProcessor {
     this.maxPromptChars =
       this.configService.get<number>('app.ai.textMaxChars') ?? 8000;
 
+    const timeoutMs =
+      this.configService.get<number>('app.ai.openaiTimeoutMs') ?? 15000;
 
     this.aiBreaker = createCircuitBreaker(
       (text: string, hint?: string) => this.aiPort.generateArtistBio(text, hint),
@@ -82,6 +84,7 @@ export class AiBioProcessor {
         resetTimeout: 30000,          // Try again after 30 seconds
       },
     )as unknown as CircuitBreaker<[text: string, hint?: string], string>;
+
 
     
     

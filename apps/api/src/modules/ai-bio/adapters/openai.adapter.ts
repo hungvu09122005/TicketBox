@@ -22,24 +22,28 @@ export class OpenAIAdapter implements AITextGenerationPort {
 
     const apiKey = this.configService.get<string>('app.ai.openaiApiKey');
 
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is required when AI_PROVIDER=openai.');
-    }
-
     this.model = this.configService.get<string>('app.ai.openaiModel') ?? 'gpt-4o-mini';
     this.timeoutMs = this.configService.get<number>('app.ai.openaiTimeoutMs') ?? 15000;
     this.maxTokens = this.configService.get<number>('app.ai.openaiMaxTokens') ?? 1000;
     this.temperature = this.configService.get<number>('app.ai.openaiTemperature') ?? 0.7;
     this.quotaPerMinute = this.configService.get<number>('app.ai.quotaPerMinute') ?? 10;
 
-    this.openai = new OpenAI({
-      apiKey,
-      timeout: this.timeoutMs,
-      maxRetries: 1,
-    });
+    if (apiKey) {
+      this.openai = new OpenAI({
+        apiKey,
+        timeout: this.timeoutMs,
+        maxRetries: 1,
+      });
+    } else {
+      console.warn('WARN: OPENAI_API_KEY is not configured. AI services will fail when called.');
+      this.openai = null as any;
+    }
   }
 
   async generateArtistBio(extractedText: string, promptHint?: string): Promise<string> {
+    if (!this.openai) {
+      throw new Error('OPENAI_API_KEY is required when AI_PROVIDER=openai.');
+    }
     this.enforceQuota();
 
     try {

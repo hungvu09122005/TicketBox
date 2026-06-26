@@ -24,7 +24,6 @@ import { OrderStatus } from '../orders/enums/order-status.enum';
 import { Role } from '../../common/constants/roles.enum';
 import { seedRbac } from '../../database/seed-rbac';
 import { resetSeedTables } from '../../database/seed-full';
-import { InjectDataSource } from '@nestjs/typeorm';
 
 @Injectable()
 export class DemoBootstrapService {
