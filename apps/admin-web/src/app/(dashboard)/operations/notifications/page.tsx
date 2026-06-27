@@ -237,12 +237,12 @@ export default function NotificationsPage() {
             <table className="min-w-full whitespace-nowrap text-left text-sm">
               <thead className="bg-surface/80 text-muted">
                 <tr>
-                  <th className="px-4 py-3 text-center font-medium">Job</th>
-                  <th className="px-4 py-3 text-center font-medium">Status</th>
-                  <th className="px-4 py-3 text-center font-medium">Reason</th>
-                  <th className="px-4 py-3 text-center font-medium">Attempts</th>
-                  <th className="px-4 py-3 text-center font-medium">Created</th>
-                  <th className="px-4 py-3 text-center font-medium">Action</th>
+                  <th className="px-4 py-3 text-left font-medium">Job</th>
+                  <th className="px-4 py-3 text-left font-medium">Status</th>
+                  <th className="px-4 py-3 text-left font-medium">Reason</th>
+                  <th className="px-4 py-3 text-left font-medium">Attempts</th>
+                  <th className="px-4 py-3 text-left font-medium">Created</th>
+                  <th className="px-4 py-3 text-left font-medium">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

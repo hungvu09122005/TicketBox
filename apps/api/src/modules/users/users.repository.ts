@@ -26,6 +26,10 @@ export interface CreateUserData {
   isActive?: boolean;
 }
 
+export interface UpdateOwnProfileData {
+  name?: string;
+}
+
 /**
  * UsersRepository — data access layer for UsersModule.
  * ONLY UsersService calls this. No other module accesses it.
@@ -146,5 +150,18 @@ export class UsersRepository {
 
   async updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
     await this.repo.update({ id: userId }, { passwordHash });
+  }
+
+  async updateOwnProfile(userId: string, data: UpdateOwnProfileData): Promise<User | null> {
+    const user = await this.repo.findOne({ where: { id: userId } });
+    if (!user) {
+      return null;
+    }
+
+    if (typeof data.name === 'string') {
+      user.name = data.name.trim();
+    }
+
+    return this.repo.save(user);
   }
 }

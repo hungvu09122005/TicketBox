@@ -7,6 +7,8 @@ export const ROLE_PERMISSIONS_MAPPING: Record<Role, Permission[]> = {
   [Role.AUDIENCE]: [
     Permission.CONCERT_READ_PUBLIC,
     //Permission.ORDER_CREATE,
+    Permission.USER_READ_OWN,
+    Permission.USER_UPDATE_OWN,
     Permission.ORDER_READ_OWN,
     Permission.TICKET_VIEW_OWN,
   ],
@@ -35,9 +37,13 @@ export const ROLE_PERMISSIONS_MAPPING: Record<Role, Permission[]> = {
     Permission.AI_GENERATE_BIO,
     Permission.REPORT_VIEW,
     Permission.REPORT_EXPORT,
+    Permission.USER_READ_OWN,
+    Permission.USER_UPDATE_OWN,
   ],
   [Role.CHECKIN_STAFF]: [
     Permission.CONCERT_READ_PUBLIC,
+    Permission.USER_READ_OWN,
+    Permission.USER_UPDATE_OWN,
     Permission.TICKET_VALIDATE,
   ],
   [Role.SYSTEM_ADMIN]: [
@@ -80,5 +86,7 @@ export const ROLE_PERMISSIONS_MAPPING: Record<Role, Permission[]> = {
     Permission.PERMISSION_READ,
     Permission.PERMISSION_CREATE,
     Permission.RBAC_MANAGE,
+    Permission.USER_READ_OWN,
+    Permission.USER_UPDATE_OWN,
   ],
 };

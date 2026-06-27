@@ -1,13 +1,14 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { Logger } from 'nestjs-pino';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from '../../mail/mail.service';
-import { UsersRepository, CreateUserData, FindUsersOptions, FindUsersResult } from './users.repository';
+import { UsersRepository, CreateUserData, FindUsersOptions, FindUsersResult, UpdateOwnProfileData } from './users.repository';
 import { User } from './entities/user.entity';
 import { AuthClientApp, AuthActionPurpose } from '../auth/auth.types';
 import { v4 as uuidv4 } from 'uuid';
+import * as bcrypt from 'bcrypt';
 
 /**
  * UsersService — application service layer for user data.
@@ -30,6 +31,51 @@ export class UsersService {
 
   async findById(id: string): Promise<User | null> {
     return this.usersRepository.findById(id);
+  }
+
+  async updateOwnProfile(userId: string, data: UpdateOwnProfileData): Promise<User> {
+    const currentUser = await this.usersRepository.findById(userId);
+    if (!currentUser) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+
+    if (typeof data.name === 'string') {
+      data.name = data.name.trim();
+    }
+
+    const updated = await this.usersRepository.updateOwnProfile(userId, data);
+    if (!updated) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+
+    return updated;
+  }
+
+  async changeOwnPassword(
+    userId: string,
+    currentPassword: string,
+    nextPassword: string,
+  ): Promise<User> {
+    const currentUser = await this.usersRepository.findById(userId);
+    if (!currentUser) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+
+    const isValid = await bcrypt.compare(currentPassword, currentUser.passwordHash);
+    if (!isValid) {
+      throw new UnauthorizedException('Current password is incorrect.');
+    }
+
+    const nextPasswordHash = await bcrypt.hash(nextPassword, 12);
+    await this.usersRepository.updatePasswordHash(userId, nextPasswordHash);
+    await this.invalidatePermissionCache(userId);
+
+    const updated = await this.usersRepository.findById(userId);
+    if (!updated) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+
+    return updated;
   }
 
   async createUser(data: CreateUserData): Promise<User> {

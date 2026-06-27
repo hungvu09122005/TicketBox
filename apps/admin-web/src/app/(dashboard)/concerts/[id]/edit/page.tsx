@@ -50,16 +50,7 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
     resolver: zodResolver(concertSchema),
     defaultValues: { artistIds: [] },
   });
-
   const selectedArtistIds = watch('artistIds');
-
-  const toggleArtist = (artistId: string) => {
-    const current = selectedArtistIds || [];
-    const next = current.includes(artistId)
-      ? current.filter((aid) => aid !== artistId)
-      : [...current, artistId];
-    setValue('artistIds', next, { shouldValidate: true });
-  };
 
   useEffect(() => {
     async function loadData() {
@@ -81,7 +72,7 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
           reset({
             name: concertData.name || '',
             description: concertData.description || '',
-            artistIds: concertData.artists?.map((a: { id: string }) => a.id) || [],
+            artistIds: concertData.artists?.map((artist) => artist.id) || [],
             venue: concertData.venue || '',
             startsAt: concertData.startsAt ? formatForInput(concertData.startsAt) : '',
             endsAt: concertData.endsAt ? formatForInput(concertData.endsAt) : '',
@@ -99,6 +90,14 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
     }
     loadData();
   }, [id, reset]);
+
+  const toggleArtist = (artistId: string) => {
+    const current = selectedArtistIds || [];
+    const next = current.includes(artistId)
+      ? current.filter((id) => id !== artistId)
+      : [...current, artistId];
+    setValue('artistIds', next, { shouldValidate: true, shouldDirty: true });
+  };
 
   const handleBannerUpload = async (file?: File) => {
     if (!file) return;
@@ -194,31 +193,32 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-sm font-medium text-primary mb-1.5">Artists</label>
-              <div className={`rounded-lg border p-3 space-y-2 max-h-48 overflow-y-auto ${
+              <div className={`rounded-lg border p-3 space-y-2 max-h-36 overflow-y-auto ${
                 errors.artistIds ? 'border-red-500' : 'border-border'
               }`}>
                 {artists.length === 0 && <p className="text-xs text-muted">No artists available</p>}
-                {artists.map(a => (
-                  <label key={a.id} className="flex items-center gap-2 cursor-pointer text-sm text-primary hover:bg-primary/5 rounded px-2 py-1.5 transition-colors">
+                {artists.map((artist) => (
+                  <label key={artist.id} className="flex items-center gap-2 cursor-pointer text-sm text-primary hover:bg-primary/5 rounded px-2 py-1.5 transition-colors">
                     <input
                       type="checkbox"
-                      checked={selectedArtistIds?.includes(a.id) || false}
-                      onChange={() => toggleArtist(a.id)}
+                      checked={selectedArtistIds?.includes(artist.id) || false}
+                      onChange={() => toggleArtist(artist.id)}
                       className="rounded border-border text-primary focus:ring-primary"
                     />
-                    {a.name}
+                    {artist.name}
                   </label>
                 ))}
               </div>
               {errors.artistIds && <p className="mt-1.5 text-xs text-red-600">{errors.artistIds.message}</p>}
             </div>
 
-            <div>
+            <div className="flex h-full flex-col">
               <label htmlFor="venue" className="block text-sm font-medium text-primary mb-1.5">Venue</label>
-              <input 
+              <textarea
                 id="venue"
                 {...register('venue')}
-                className={`w-full rounded-lg border py-2.5 px-3 text-sm bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary ${
+                rows={3}
+                className={`w-full min-h-36 rounded-lg border py-2 px-3 text-sm leading-6 bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none ${
                   errors.venue ? 'border-red-500' : 'border-border focus:border-primary'
                 }`}
                 placeholder="e.g. Wembley Stadium"

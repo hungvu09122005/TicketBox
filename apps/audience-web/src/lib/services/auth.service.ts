@@ -33,6 +33,15 @@ export interface ResetPasswordPayload {
   password: string;
 }
 
+export interface UpdateOwnProfilePayload {
+  name?: string;
+}
+
+export interface ChangeOwnPasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export const authService = {
   login: async (payload: LoginPayload): Promise<AuthTokens> => {
     const response = await apiClient.post('/auth/login', payload);
@@ -61,6 +70,21 @@ export const authService = {
 
   me: async (): Promise<AudienceProfile> => {
     const response = await apiClient.get('/users/me');
+    return response.data.data;
+  },
+
+  getMyProfile: async (): Promise<AudienceProfile> => {
+    const response = await apiClient.get('/users/me/profile');
+    return response.data.data;
+  },
+
+  updateMyProfile: async (payload: UpdateOwnProfilePayload): Promise<AudienceProfile> => {
+    const response = await apiClient.patch('/users/me/profile', payload);
+    return response.data.data;
+  },
+
+  changeMyPassword: async (payload: ChangeOwnPasswordPayload): Promise<AudienceProfile> => {
+    const response = await apiClient.patch('/users/me/password', payload);
     return response.data.data;
   },
 };

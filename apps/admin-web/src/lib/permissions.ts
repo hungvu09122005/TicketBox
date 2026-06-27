@@ -30,6 +30,8 @@ export const Permission = {
   ORDER_REFUND: 'order:refund',
   TICKET_VIEW_OWN: 'ticket:view_own',
   TICKET_VALIDATE: 'ticket:validate',
+  USER_READ_OWN: 'user:read_own',
+  USER_UPDATE_OWN: 'user:update_own',
   VIP_IMPORT: 'vip:import',
   AI_GENERATE_BIO: 'ai:generate_bio',
   REPORT_VIEW: 'report:view',

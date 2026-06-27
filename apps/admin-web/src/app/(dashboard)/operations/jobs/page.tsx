@@ -17,6 +17,12 @@ const queueDashboardHref = (() => {
 
 type MonitorFilter = 'all' | 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
 
+function truncateText(value: string, maxLength: number) {
+  const trimmed = value.trim();
+  if (trimmed.length <= maxLength) return trimmed;
+  return `${trimmed.slice(0, maxLength).trimEnd()}...`;
+}
+
 function formatDateTime(value?: string | number) {
   if (!value) return '--';
   const date = typeof value === 'number' ? new Date(value) : new Date(value);
@@ -383,7 +389,7 @@ export default function JobsPage() {
     <div className="space-y-6">
       <div className="min-w-0 space-y-6">
         <div className="rounded-[32px] border border-border bg-surface p-6 shadow-sm">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="max-w-2xl space-y-3">
               <Link href="/operations" className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary">
                 <ArrowLeft size={16} />
@@ -426,7 +432,7 @@ export default function JobsPage() {
                 <span className="text-sm font-medium text-primary">Artist</span>
                 <select
                   value={selectedArtistId}
-                  onChange={(event) => setSelectedArtistId(event.target.value)}
+                  onChange={(event) => setSelectedArtistId(event.currentTarget.value)}
                   className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-sm text-primary outline-none focus:border-primary"
                 >
                   <option value="">Select artist</option>
@@ -548,9 +554,9 @@ export default function JobsPage() {
             <table className="min-w-full text-left text-sm">
               <thead className="bg-surface/80 text-muted">
                 <tr>
-                  <th className="px-4 py-3 text-center font-medium">Column</th>
-                  <th className="px-4 py-3 text-center font-medium">Required</th>
-                  <th className="px-4 py-3 text-center font-medium">Purpose</th>
+                  <th className="px-4 py-3 text-left font-medium">Column</th>
+                  <th className="px-4 py-3 text-left font-medium">Required</th>
+                  <th className="px-4 py-3 text-left font-medium">Purpose</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -675,7 +681,7 @@ export default function JobsPage() {
               <select
                 value={csvFilter}
                 onChange={(event) => setCsvFilter(event.target.value as MonitorFilter)}
-                className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-sm text-primary outline-none focus:border-primary"
+                className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-center text-sm text-primary outline-none focus:border-primary"
               >
                 {(['all', 'PENDING', 'PROCESSING', 'SUCCESS', 'FAILED'] as const).map((status) => (
                   <option key={status} value={status}>
@@ -688,10 +694,10 @@ export default function JobsPage() {
 
         <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
           <div className="overflow-x-auto">
-            <table className="min-w-full whitespace-nowrap text-left text-sm">
+            <table className="min-w-full whitespace-nowrap text-center text-sm">
               <thead className="bg-surface/80 text-muted">
                 <tr>
-                  <th className="px-4 py-3 text-center font-medium">Job</th>
+                  <th className="px-4 py-3 text-center align-middle font-medium">Job</th>
                   <th className="px-4 py-3 text-center font-medium">Status</th>
                   <th className="px-4 py-3 text-center font-medium">Rows</th>
                   <th className="px-4 py-3 text-center font-medium">Created</th>
@@ -720,17 +726,17 @@ export default function JobsPage() {
                     const retryable = job.status === 'FAILED' || job.status === 'PARTIALLY_COMPLETED';
                     return (
                       <tr key={String(job.id)}>
-                        <td className="px-4 py-3 font-medium text-primary">{job.id ?? '--'}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 align-middle font-medium text-primary">{job.id ?? '--'}</td>
+                        <td className="px-4 py-3 align-middle">
                           <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${statusTone(normalizedStatus)}`}>
                             {normalizedStatus}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-muted">
+                        <td className="px-4 py-3 align-middle text-muted">
                           {job.totalRows ?? 0} / {job.successRows ?? 0} / {job.errorRows ?? 0}
                         </td>
-                        <td className="px-4 py-3 text-muted">{formatDateTime(job.createdAt)}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 align-middle text-muted">{formatDateTime(job.createdAt)}</td>
+                        <td className="px-4 py-3 align-middle">
                           {retryable && canRetryCsv ? (
                             <button
                               type="button"
@@ -766,7 +772,7 @@ export default function JobsPage() {
               <select
                 value={aiFilter}
                 onChange={(event) => setAiFilter(event.target.value as MonitorFilter)}
-                className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-sm text-primary outline-none focus:border-primary"
+                className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-center text-sm text-primary outline-none focus:border-primary"
               >
                 {(['all', 'PENDING', 'PROCESSING', 'SUCCESS', 'FAILED'] as const).map((status) => (
                   <option key={status} value={status}>
@@ -782,7 +788,7 @@ export default function JobsPage() {
             <table className="min-w-full whitespace-nowrap text-left text-sm">
               <thead className="bg-surface/80 text-muted">
                 <tr>
-                  <th className="px-4 py-3 text-center font-medium">Job</th>
+                  <th className="px-4 py-3 text-center align-middle font-medium">Job</th>
                   <th className="px-4 py-3 text-center font-medium">Status</th>
                   <th className="px-4 py-3 text-center font-medium">Artist</th>
                   <th className="px-4 py-3 text-center font-medium">Draft</th>
@@ -812,22 +818,22 @@ export default function JobsPage() {
                     const retryable = job.status === 'FAILED';
                     return (
                       <tr key={String(job.id)}>
-                        <td className="px-4 py-3 font-medium text-primary">{job.id ?? '--'}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 align-middle font-medium text-primary">{job.id ?? '--'}</td>
+                        <td className="px-4 py-3 align-middle">
                           <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${statusTone(normalizedStatus)}`}>
                             {normalizedStatus}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-muted">{job.artistId ?? '--'}</td>
-                        <td className="px-4 py-3 text-muted">
-                          <div className="max-w-[360px] whitespace-normal leading-6">
+                        <td className="px-4 py-3 align-middle text-muted">{job.artistId ?? '--'}</td>
+                        <td className="px-4 py-3 align-middle text-muted">
+                          <div className="max-w-[360px] break-words leading-6">
                             {job.draftContent?.trim()
-                              ? job.draftContent.slice(0, 140)
+                              ? truncateText(job.draftContent, 120)
                               : 'No draft content returned yet.'}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-muted">{formatDateTime(job.createdAt)}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 align-middle text-muted">{formatDateTime(job.createdAt)}</td>
+                        <td className="px-4 py-3 align-middle">
                           <div className="flex flex-nowrap gap-2">
                             {job.id ? (
                               <Link
@@ -871,7 +877,7 @@ export default function JobsPage() {
         </section>
 
         <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-primary">Notification jobs</h2>
               <p className="mt-2 text-sm leading-6 text-muted">Failed delivery jobs are visible here with reasons and retry buttons for admins.</p>
@@ -881,7 +887,7 @@ export default function JobsPage() {
               <select
                 value={notificationFilter}
                 onChange={(event) => setNotificationFilter(event.target.value as MonitorFilter)}
-                className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-sm text-primary outline-none focus:border-primary"
+                className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-center text-sm text-primary outline-none focus:border-primary"
               >
                 {(['FAILED', 'PENDING', 'PROCESSING', 'SUCCESS', 'all'] as const).map((status) => (
                   <option key={status} value={status}>
@@ -897,7 +903,7 @@ export default function JobsPage() {
             <table className="min-w-full whitespace-nowrap text-left text-sm">
               <thead className="bg-surface/80 text-muted">
                 <tr>
-                  <th className="px-4 py-3 text-center font-medium">Job</th>
+                  <th className="px-4 py-3 text-center align-middle font-medium">Job</th>
                   <th className="px-4 py-3 text-center font-medium">Status</th>
                   <th className="px-4 py-3 text-center font-medium">Reason</th>
                   <th className="px-4 py-3 text-center font-medium">Attempts</th>
@@ -926,14 +932,14 @@ export default function JobsPage() {
                     const retryable = job.status === 'FAILED';
                     return (
                       <tr key={String(job.id)}>
-                        <td className="px-4 py-3 font-medium text-primary">{job.name ?? String(job.id)}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 align-middle font-medium text-primary">{job.name ?? String(job.id)}</td>
+                        <td className="px-4 py-3 align-middle">
                           <NotificationRowStatus item={job} />
                         </td>
-                        <td className="px-4 py-3 text-muted">{job.failedReason ?? '--'}</td>
-                        <td className="px-4 py-3 text-muted">{job.attemptsMade ?? 0}</td>
-                        <td className="px-4 py-3 text-muted">{formatDateTime(job.timestamp)}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 align-middle text-muted">{job.failedReason ?? '--'}</td>
+                        <td className="px-4 py-3 align-middle text-muted">{job.attemptsMade ?? 0}</td>
+                        <td className="px-4 py-3 align-middle text-muted">{formatDateTime(job.timestamp)}</td>
+                        <td className="px-4 py-3 align-middle">
                           {retryable && canRetryNotifications ? (
                             <button
                               type="button"

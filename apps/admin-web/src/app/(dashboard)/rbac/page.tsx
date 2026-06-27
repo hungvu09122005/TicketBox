@@ -581,8 +581,8 @@ export default function RbacPage() {
         </div>
 
         <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_200px_180px]">
-          <label className="relative block">
-            <span className="mb-2 block text-sm font-medium text-primary">Search</span>
+            <label className="relative block">
+            <span className="mb-2 block text-center text-sm font-medium text-primary">Search</span>
             <MagnifyingGlass className="absolute left-3 top-[42px] -translate-y-1/2 text-muted" size={18} />
             <input
               type="text"
@@ -592,19 +592,19 @@ export default function RbacPage() {
                 setQuery(event.target.value);
               }}
               placeholder="Search by name or email..."
-              className="h-12 w-full rounded-lg border border-border bg-background py-0 pl-10 pr-4 text-sm text-primary outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-12 w-full rounded-lg border border-border bg-background py-0 pl-10 pr-10 text-center text-sm font-medium text-primary outline-none placeholder:text-center focus:border-primary focus:ring-1 focus:ring-primary"
             />
           </label>
 
           <div>
-            <span className="mb-2 block text-sm font-medium text-primary">Role filter</span>
+            <span className="mb-2 block text-center text-sm font-medium text-primary">Role filter</span>
             <select
               value={roleFilter}
               onChange={(event) => {
                 setPage(1);
                 setRoleFilter(event.target.value);
               }}
-              className="h-12 w-full rounded-lg border border-border bg-background px-3 py-0 text-sm text-primary outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-12 w-full rounded-lg border border-border bg-background px-3 py-0 text-center text-sm font-medium text-primary outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             >
               <option value="all">All roles</option>
               {availableRoles.map((roleName) => (
@@ -616,14 +616,14 @@ export default function RbacPage() {
           </div>
 
           <div>
-            <span className="mb-2 block text-sm font-medium text-primary">Page size</span>
+            <span className="mb-2 block text-center text-sm font-medium text-primary">Page size</span>
             <select
               value={limit}
               onChange={(event) => {
                 setPage(1);
                 setLimit(Number(event.target.value));
               }}
-              className="h-12 w-full rounded-lg border border-border bg-background px-3 py-0 text-sm text-primary outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-12 w-full rounded-lg border border-border bg-background px-3 py-0 text-center text-sm font-medium text-primary outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             >
               <option value={5}>5</option>
               <option value={10}>10</option>
