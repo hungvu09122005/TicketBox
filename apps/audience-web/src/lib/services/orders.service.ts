@@ -1,4 +1,5 @@
 import { apiClient } from '../api-client';
+import { unwrapApiData, unwrapApiList } from '../api-response';
 import type { AudienceOrder, QueuedCheckoutResponse } from '../types';
 
 export interface CreateOrderPayload {
@@ -18,7 +19,7 @@ export const ordersService = {
         'Idempotency-Key': idempotencyKey,
       },
     });
-    return response.data.data ?? response.data;
+    return unwrapApiData<AudienceOrder | QueuedCheckoutResponse>(response.data);
   },
 
   getQueueStatus: async (concertId: string): Promise<{ status: 'ACTIVE' | 'QUEUED'; position?: number }> => {
@@ -27,16 +28,16 @@ export const ordersService = {
         concertId,
       },
     });
-    return response.data.data ?? response.data;
+    return unwrapApiData<{ status: 'ACTIVE' | 'QUEUED'; position?: number }>(response.data);
   },
 
   getMyOrders: async (): Promise<AudienceOrder[]> => {
     const response = await apiClient.get('/orders/me');
-    return response.data.data;
+    return unwrapApiList<AudienceOrder>(response.data);
   },
 
   getOrderById: async (orderId: string): Promise<AudienceOrder> => {
     const response = await apiClient.get(`/orders/${orderId}`);
-    return response.data.data;
+    return unwrapApiData<AudienceOrder>(response.data);
   },
 };

@@ -67,7 +67,7 @@ function Pill({
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${toneClasses[tone]}`}
+      className={`inline-flex items-center whitespace-nowrap rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${toneClasses[tone]}`}
     >
       {children}
     </span>
@@ -592,7 +592,7 @@ export default function RbacPage() {
                 setQuery(event.target.value);
               }}
               placeholder="Search by name or email..."
-              className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm text-primary outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-12 w-full rounded-lg border border-border bg-background py-0 pl-10 pr-4 text-sm text-primary outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
           </label>
 
@@ -604,7 +604,7 @@ export default function RbacPage() {
                 setPage(1);
                 setRoleFilter(event.target.value);
               }}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-primary outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-12 w-full rounded-lg border border-border bg-background px-3 py-0 text-sm text-primary outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             >
               <option value="all">All roles</option>
               {availableRoles.map((roleName) => (
@@ -623,7 +623,7 @@ export default function RbacPage() {
                 setPage(1);
                 setLimit(Number(event.target.value));
               }}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-primary outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-12 w-full rounded-lg border border-border bg-background px-3 py-0 text-sm text-primary outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             >
               <option value={5}>5</option>
               <option value={10}>10</option>
@@ -807,13 +807,13 @@ export default function RbacPage() {
                         key={user.id}
                         className={`transition-colors hover:bg-primary/5 ${isSelected ? 'bg-primary/5' : ''}`}
                       >
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-4 align-middle">
                           <div className="min-w-0">
                             <p className="font-semibold text-primary">{user.name}</p>
                             <p className="mt-1 break-all text-xs text-muted">{user.email}</p>
                           </div>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-4 align-middle">
                           <div className="flex flex-wrap gap-2">
                             {user.roles.length > 0 ? (
                               user.roles.map((roleName) => <Pill key={roleName}>{roleLabel(roleName)}</Pill>)
@@ -822,19 +822,19 @@ export default function RbacPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-4 align-middle">
                           <Pill tone={user.isActive ? 'success' : 'warning'}>
                             {user.isActive ? 'Active' : 'Inactive'}
                           </Pill>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-4 align-middle">
                           <span className="font-medium text-primary">{user.permissions.length}</span>
                           <span className="ml-1 text-muted">codes</span>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-4 align-middle">
                           <span className="font-medium text-primary">{user.permissionVersion}</span>
                         </td>
-                        <td className="px-4 py-4 text-muted">{formatDateTime(user.updatedAt)}</td>
+                        <td className="px-4 py-4 align-middle text-muted">{formatDateTime(user.updatedAt)}</td>
                         <td className="px-4 py-4 align-middle whitespace-nowrap">
                           <div className="flex flex-nowrap justify-end gap-2">
                             <button
