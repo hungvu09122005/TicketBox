@@ -43,7 +43,7 @@ export class SeedRbac1781789000000 implements MigrationInterface {
             (gen_random_uuid(), 'role:update_permissions'),
             (gen_random_uuid(), 'permission:read'),
             (gen_random_uuid(), 'permission:create'),
-            (gen_random_uuid(), 'rbac:manage'),
+            (gen_random_uuid(), 'rbac:manage')
             ON CONFLICT (name) DO NOTHING;
         `);
 

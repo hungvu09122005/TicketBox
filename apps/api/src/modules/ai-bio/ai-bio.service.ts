@@ -27,12 +27,22 @@ export class AiBioService {
       throw new BadRequestException('Only PDF files are allowed');
     }
 
+    if (!pdfFile.originalname.toLowerCase().endsWith('.pdf')) {
+      throw new BadRequestException('Only files with .pdf extension are allowed');
+    }
+
     if (pdfFile.size > MAX_PDF_SIZE_BYTES) {
       throw new BadRequestException('PDF file size must not exceed 10MB');
     }
 
+    // Sanitize artistId to prevent path traversal in object key
+    const safeArtistId = artistId.replace(/[^a-zA-Z0-9\-_]/g, '');
+    if (!safeArtistId) {
+      throw new BadRequestException('Invalid artistId');
+    }
 
-    const objectKey = `artist-bios/${artistId}-${Date.now()}.pdf`;
+
+    const objectKey = `artist-bios/${safeArtistId}-${Date.now()}.pdf`;
 
     await this.storage.upload({
       objectKey,
