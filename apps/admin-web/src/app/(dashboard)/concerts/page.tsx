@@ -79,7 +79,7 @@ export default function ConcertsPage() {
 
       if (!normalizedQuery) return true;
 
-      return [concert.name, concert.artist?.name, concert.venue]
+      return [concert.name, ...(concert.artists?.map(a => a.name) || []), concert.venue]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(normalizedQuery));
     });
@@ -224,7 +224,7 @@ export default function ConcertsPage() {
                         {concert.name}
                       </Link>
                     </td>
-                    <td className="px-6 py-4 text-muted">{concert.artist?.name || 'Unknown'}</td>
+                    <td className="px-6 py-4 text-muted">{concert.artists?.map(a => a.name).join(', ') || 'Unknown'}</td>
                     <td className="px-6 py-4 text-muted">
                       {new Date(concert.startsAt).toLocaleDateString()}
                     </td>

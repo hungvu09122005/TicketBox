@@ -207,13 +207,14 @@ export default function ConcertDetailClient({ id }: Readonly<{ id: string }>) {
       ]);
 
       setConcert(concertData);
-      setArtist({
-        id: concertData.artist.id,
-        name: concertData.artist.name,
-        avatarUrl: concertData.artist.avatarUrl ?? null,
+      const firstArtist = concertData.artists?.[0];
+      setArtist(firstArtist ? {
+        id: firstArtist.id,
+        name: firstArtist.name,
+        avatarUrl: firstArtist.avatarUrl ?? null,
         description: null,
         shortBio: null,
-      });
+      } : null);
       setSeatMap(seatMapData);
       setTicketTypes(ticketTypeData);
       setOrders(orderData.filter((order) => order.concertId === concertData.id));
@@ -660,7 +661,7 @@ export default function ConcertDetailClient({ id }: Readonly<{ id: string }>) {
                   <div className="grid gap-4 p-5 md:grid-cols-3">
                     <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
                       <p className="text-[11px] uppercase tracking-[0.22em] text-white/55">Artist</p>
-                      <p className="mt-2 text-sm font-semibold text-white">{concert.artist.name}</p>
+                      <p className="mt-2 text-sm font-semibold text-white">{concert.artists?.map(a => a.name).join(', ') || 'Nghệ sĩ đang cập nhật'}</p>
                     </div>
                     <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
                       <p className="text-[11px] uppercase tracking-[0.22em] text-white/55">Venue</p>

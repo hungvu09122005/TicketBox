@@ -14,7 +14,7 @@ import { extractApiMessages } from '@/lib/api-errors';
 const concertSchema = z.object({
   name: z.string().min(1, 'Title is required'),
   description: z.string().min(1, 'Description is required'),
-  artistId: z.string().min(1, 'Please select an artist'),
+  artistIds: z.array(z.string()).min(1, 'Please select at least one artist'),
   venue: z.string().min(1, 'Please enter a venue'),
   startsAt: z.string().min(1, 'Start time is required'),
   endsAt: z.string().min(1, 'End time is required'),
@@ -37,10 +37,23 @@ export default function CreateConcertPage() {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<ConcertFormValues>({
     resolver: zodResolver(concertSchema),
+    defaultValues: { artistIds: [] },
   });
+
+  const selectedArtistIds = watch('artistIds');
+
+  const toggleArtist = (artistId: string) => {
+    const current = selectedArtistIds || [];
+    const next = current.includes(artistId)
+      ? current.filter((id) => id !== artistId)
+      : [...current, artistId];
+    setValue('artistIds', next, { shouldValidate: true });
+  };
 
   useEffect(() => {
     async function loadMeta() {
@@ -131,20 +144,24 @@ export default function CreateConcertPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label htmlFor="artistId" className="block text-sm font-medium text-primary mb-1.5">Artist</label>
-              <select 
-                id="artistId"
-                {...register('artistId')}
-                className={`w-full rounded-lg border py-2.5 px-3 text-sm bg-surface text-primary focus:outline-none focus:ring-1 focus:ring-primary ${
-                  errors.artistId ? 'border-red-500' : 'border-border focus:border-primary'
-                }`}
-              >
-                <option value="">Select Artist</option>
+              <label className="block text-sm font-medium text-primary mb-1.5">Artists</label>
+              <div className={`rounded-lg border p-3 space-y-2 max-h-48 overflow-y-auto ${
+                errors.artistIds ? 'border-red-500' : 'border-border'
+              }`}>
+                {artists.length === 0 && <p className="text-xs text-muted">No artists available</p>}
                 {artists.map(a => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
+                  <label key={a.id} className="flex items-center gap-2 cursor-pointer text-sm text-primary hover:bg-primary/5 rounded px-2 py-1.5 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={selectedArtistIds?.includes(a.id) || false}
+                      onChange={() => toggleArtist(a.id)}
+                      className="rounded border-border text-primary focus:ring-primary"
+                    />
+                    {a.name}
+                  </label>
                 ))}
-              </select>
-              {errors.artistId && <p className="mt-1.5 text-xs text-red-600">{errors.artistId.message}</p>}
+              </div>
+              {errors.artistIds && <p className="mt-1.5 text-xs text-red-600">{errors.artistIds.message}</p>}
             </div>
 
             <div>

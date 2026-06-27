@@ -63,4 +63,8 @@ export class ConcertsRepository {
   update(id: string, data: Partial<Concert>): Promise<void> {
     return this.repo.update(id, data).then(() => undefined);
   }
+
+  save(concert: Concert): Promise<Concert> {
+    return this.repo.save(concert);
+  }
 }

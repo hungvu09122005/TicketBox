@@ -225,17 +225,32 @@ export class ConcertsService {
   }
 
   async create(organizerId: string, dto: CreateConcertDto): Promise<Concert> {
+    const { artistIds, ...concertData } = dto;
+    const artists = artistIds.map((id) => ({ id }) as any);
     const concert = await this.concertsRepository.create({
-      ...dto,
+      ...concertData,
       organizerId,
       status: ConcertStatus.DRAFT,
+      artists,
     });
     return concert;
   }
 
   async update(id: string, organizerId: string, isAdmin: boolean, dto: UpdateConcertDto): Promise<Concert> {
-    await this.checkOwnership(id, organizerId, isAdmin);
-    await this.concertsRepository.update(id, dto);
+    const concert = await this.checkOwnership(id, organizerId, isAdmin);
+    const { artistIds, ...updateData } = dto;
+
+    // Update scalar fields
+    if (Object.keys(updateData).length > 0) {
+      await this.concertsRepository.update(id, updateData);
+    }
+
+    // Update artists relation if artistIds provided
+    if (artistIds && artistIds.length > 0) {
+      concert.artists = artistIds.map((aid) => ({ id: aid }) as any);
+      await this.concertsRepository.save(concert);
+    }
+
     await this.invalidateCacheFor(id);
     return this.concertsRepository.findById(id) as Promise<Concert>;
   }
