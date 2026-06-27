@@ -15,7 +15,7 @@ export async function seedRbac(manager: EntityManager) {
   const permissionCodes = Object.values(Permission);
   // Lưu ý: dùng 'code' thay vì 'name' nếu trong Entity bạn đặt tên trường là 'code'
   await permRepo.upsert(
-    permissionCodes.map((name) => ({ name })), // Giả sử Entity có cả name và code
+    permissionCodes.map((name) => ({ name, code: name })), // Populate both name and code to satisfy DB constraint
     ['name'], 
   );
 

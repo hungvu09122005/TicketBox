@@ -33,9 +33,8 @@ export class TicketsController {
   }
 
   @Get()
-  @RequirePermissions(Permission.TICKET_VIEW_OWN) // Hoặc quyền quản trị tùy theo dự án
+  @RequirePermissions(Permission.ORDER_READ_ALL) // Organizer/Admin only — Audience must use GET /tickets/me
   async findAll(@Query('concertId') concertId: string) {
-    // Gọi service để lấy vé theo concertId
     return await this.ticketsService.findByConcert(concertId);
   }
 
