@@ -7,7 +7,7 @@ import { operationsService } from '@/lib/services/operations.service';
 
 const queueDashboardHref = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-  return apiUrl.replace(/\/api\/v1\/?$/, '') + '/admin/queues';
+  return `${apiUrl.replace(/\/$/, '')}/admin/queues`;
 })();
 
 export default function NotificationDetailPage({ params }: Readonly<{ params: Promise<{ ticketId: string }> }>) {
@@ -76,7 +76,7 @@ export default function NotificationDetailPage({ params }: Readonly<{ params: Pr
           </div>
           <a href={queueDashboardHref} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface">
             <ArrowSquareOut size={16} />
-            Open Bull Board
+            Open queue board
           </a>
         </div>
       </div>
@@ -174,7 +174,7 @@ export default function NotificationDetailPage({ params }: Readonly<{ params: Pr
                 <tbody className="divide-y divide-border">
                   {[
                     ['Provider rejection', 'Check SendGrid sandbox credentials and recipient address'],
-                    ['Queue worker error', 'Open Bull Board and inspect the failed job payload / stack trace'],
+                    ['Queue worker error', 'Open queue board and inspect the failed job payload / stack trace'],
                     ['Duplicate delivery blocked', 'Verify `notification_logs` unique key before retrying'],
                     ['Missing ticket data', 'Confirm the ticketId exists in the backend before enqueueing again'],
                   ].map(([cause, check]) => (
@@ -203,7 +203,7 @@ export default function NotificationDetailPage({ params }: Readonly<{ params: Pr
                 </thead>
                 <tbody className="divide-y divide-border">
                   {[
-                    ['1', 'Open Bull Board `/admin/queues`'],
+                    ['1', 'Open queue board `/admin/queues`'],
                     ['2', 'Inspect the failed `notification` job payload and stack trace'],
                     ['3', 'Confirm `ticketId`, email, and dedupe key before retrying'],
                     ['4', 'Retry once from the queue board, not from a fake UI button'],

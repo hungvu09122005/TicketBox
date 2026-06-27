@@ -9,7 +9,7 @@ import { operationsService, type NotificationJobRecord } from '@/lib/services/op
 
 const queueDashboardHref = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-  return apiUrl.replace(/\/api\/v1\/?$/, '') + '/admin/queues';
+  return `${apiUrl.replace(/\/$/, '')}/admin/queues`;
 })();
 
 type JobFilter = 'all' | 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
@@ -147,7 +147,7 @@ export default function NotificationsPage() {
           </div>
           <a href={queueDashboardHref} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface md:self-start">
             <ArrowSquareOut size={16} />
-            Open Bull Board
+            Open queue board
           </a>
         </div>
       </div>

@@ -42,7 +42,7 @@ const initialReportState: FetchState<ReportResponse> = {
 
 const queueDashboardBaseUrl = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-  return apiUrl.replace(/\/api\/v1\/?$/, '') + '/admin/queues';
+  return `${apiUrl.replace(/\/$/, '')}/admin/queues`;
 })();
 
 function formatCurrency(value?: number) {
