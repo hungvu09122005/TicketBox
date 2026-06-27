@@ -133,7 +133,7 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
-        <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="mb-4 flex items-center gap-3">
           <Link
             href="/concerts"
             className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary transition-colors"
@@ -143,7 +143,7 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
           </Link>
           <Link
             href={`/concerts/${id}/ticketing`}
-            className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
+            className="ml-auto inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
           >
             <Ticket size={16} />
             Ticketing

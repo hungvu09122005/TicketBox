@@ -231,8 +231,8 @@ export default function WaitingRoomClient({ concertId }: Readonly<{ concertId: s
           </Link>
 
           <div className="mt-6 rounded-[32px] border border-white/10 bg-white/5 p-6 backdrop-blur-xl md:p-8">
-            <div className="flex items-start justify-between gap-4">
-              <div>
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_max-content] md:grid-rows-[auto_auto] md:items-start">
+              <div className="md:col-start-1 md:row-start-1">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Waiting room</p>
                 <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
                   Đang giữ chỗ trong hàng đợi
@@ -241,9 +241,9 @@ export default function WaitingRoomClient({ concertId }: Readonly<{ concertId: s
                   Trang này poll trạng thái thật từ backend mỗi {Math.round(POLL_INTERVAL_MS / 1000)} giây. Khi trạng thái chuyển sang active, hệ thống sẽ tự tạo order và chuyển tiếp sang payment.
                 </p>
               </div>
-              <div className="rounded-[24px] border border-white/10 bg-white/5 px-4 py-3 text-right">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Concert</p>
-                <p className="mt-1 max-w-40 break-words text-sm font-semibold text-white">{concertId}</p>
+              <div className="inline-flex w-fit flex-col rounded-[20px] border border-white/10 bg-white/5 px-3 py-2.5 text-left md:col-start-2 md:row-start-1 md:justify-self-end md:self-start">
+                <p className="text-[10px] uppercase tracking-[0.16em] text-white/55">Concert</p>
+                <p className="mt-1 whitespace-nowrap text-xs font-semibold text-white sm:text-sm">{concertId}</p>
               </div>
             </div>
           </div>

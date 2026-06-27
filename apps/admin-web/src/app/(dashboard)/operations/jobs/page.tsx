@@ -383,7 +383,7 @@ export default function JobsPage() {
     <div className="space-y-6">
       <div className="min-w-0 space-y-6">
         <div className="rounded-[32px] border border-border bg-surface p-6 shadow-sm">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="max-w-2xl space-y-3">
               <Link href="/operations" className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary">
                 <ArrowLeft size={16} />
@@ -396,7 +396,7 @@ export default function JobsPage() {
                 </p>
               </div>
             </div>
-            <a href={queueDashboardHref} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface">
+            <a href={queueDashboardHref} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface md:self-start">
               <ArrowSquareOut size={16} />
               Open queue board
             </a>
@@ -459,7 +459,7 @@ export default function JobsPage() {
             {createError ? <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{createError}</div> : null}
 
             <div className="rounded-2xl border border-border bg-background p-4">
-              <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
+              <div className="space-y-3">
                 <label className="block space-y-2">
                   <span className="text-sm font-medium text-primary">Manual bio fallback</span>
                   <textarea
@@ -474,7 +474,7 @@ export default function JobsPage() {
                   type="button"
                   onClick={() => void handleCreateManualBio()}
                   disabled={manualBioLoading || !selectedArtistId}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-medium text-primary disabled:opacity-60"
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-medium text-primary disabled:opacity-60"
                 >
                   {manualBioLoading ? <SpinnerGap size={16} className="animate-spin" /> : <CloudArrowUp size={16} />}
                   Create manual draft
@@ -497,7 +497,7 @@ export default function JobsPage() {
             </div>
           </div>
 
-          <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_1fr_auto_auto] lg:items-end">
+          <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,0.85fr)_minmax(0,0.85fr)] lg:items-end">
             <label className="block space-y-2">
               <span className="text-sm font-medium text-primary">Concert</span>
               <select
@@ -528,7 +528,7 @@ export default function JobsPage() {
               type="button"
               onClick={() => void handleCsvUpload()}
               disabled={csvUploadLoading || !canUploadCsv}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-surface disabled:opacity-60"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-surface disabled:opacity-60"
             >
               {csvUploadLoading ? <SpinnerGap size={16} className="animate-spin" /> : <CloudArrowUp size={16} />}
               Upload
@@ -537,7 +537,7 @@ export default function JobsPage() {
               type="button"
               onClick={() => void handleDownloadTemplate()}
               disabled={!canUploadCsv}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-background px-4 text-sm font-medium text-primary disabled:opacity-60"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-background px-4 text-sm font-medium text-primary disabled:opacity-60"
             >
               <DownloadSimple size={16} />
               Template
@@ -548,9 +548,9 @@ export default function JobsPage() {
             <table className="min-w-full text-left text-sm">
               <thead className="bg-surface/80 text-muted">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Column</th>
-                  <th className="px-4 py-3 font-medium">Required</th>
-                  <th className="px-4 py-3 font-medium">Purpose</th>
+                  <th className="px-4 py-3 text-center font-medium">Column</th>
+                  <th className="px-4 py-3 text-center font-medium">Required</th>
+                  <th className="px-4 py-3 text-center font-medium">Purpose</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -691,11 +691,11 @@ export default function JobsPage() {
             <table className="min-w-full whitespace-nowrap text-left text-sm">
               <thead className="bg-surface/80 text-muted">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Job</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Rows</th>
-                  <th className="px-4 py-3 font-medium">Created</th>
-                  <th className="px-4 py-3 font-medium">Action</th>
+                  <th className="px-4 py-3 text-center font-medium">Job</th>
+                  <th className="px-4 py-3 text-center font-medium">Status</th>
+                  <th className="px-4 py-3 text-center font-medium">Rows</th>
+                  <th className="px-4 py-3 text-center font-medium">Created</th>
+                  <th className="px-4 py-3 text-center font-medium">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -741,9 +741,9 @@ export default function JobsPage() {
                               {retrying === `csv:${String(job.id)}` ? <SpinnerGap size={14} className="animate-spin" /> : <ArrowClockwise size={14} />}
                               Retry
                             </button>
-                          ) : (
-                            <span className="text-xs text-muted">{canRetryCsv ? 'No action' : 'Retry locked'}</span>
-                          )}
+                          ) : !canRetryCsv ? (
+                            <span className="text-xs text-muted">Retry locked</span>
+                          ) : null}
                         </td>
                       </tr>
                     );
@@ -782,12 +782,12 @@ export default function JobsPage() {
             <table className="min-w-full whitespace-nowrap text-left text-sm">
               <thead className="bg-surface/80 text-muted">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Job</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Artist</th>
-                  <th className="px-4 py-3 font-medium">Draft</th>
-                  <th className="px-4 py-3 font-medium">Created</th>
-                  <th className="px-4 py-3 font-medium">Action</th>
+                  <th className="px-4 py-3 text-center font-medium">Job</th>
+                  <th className="px-4 py-3 text-center font-medium">Status</th>
+                  <th className="px-4 py-3 text-center font-medium">Artist</th>
+                  <th className="px-4 py-3 text-center font-medium">Draft</th>
+                  <th className="px-4 py-3 text-center font-medium">Created</th>
+                  <th className="px-4 py-3 text-center font-medium">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -828,11 +828,11 @@ export default function JobsPage() {
                         </td>
                         <td className="px-4 py-3 text-muted">{formatDateTime(job.createdAt)}</td>
                         <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-nowrap gap-2">
                             {job.id ? (
                               <Link
                                 href={`/operations/jobs/ai/${job.id}`}
-                                className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary"
+                                className="inline-flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary whitespace-nowrap"
                               >
                                 Review draft
                               </Link>
@@ -840,7 +840,7 @@ export default function JobsPage() {
                             {job.artistId ? (
                               <Link
                                 href={`/artists/${job.artistId}/edit`}
-                                className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary"
+                                className="inline-flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary whitespace-nowrap"
                               >
                                 Review & publish
                               </Link>
@@ -850,14 +850,14 @@ export default function JobsPage() {
                                 type="button"
                                 onClick={() => handleRetry('ai', String(job.id))}
                                 disabled={retrying === `ai:${String(job.id)}`}
-                                className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary disabled:opacity-60"
+                                className="inline-flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary whitespace-nowrap disabled:opacity-60"
                               >
                                 {retrying === `ai:${String(job.id)}` ? <SpinnerGap size={14} className="animate-spin" /> : <ArrowClockwise size={14} />}
                                 Retry
                               </button>
-                            ) : (
-                              <span className="text-xs text-muted">{canRetryAi ? 'No action' : 'Retry locked'}</span>
-                            )}
+                            ) : !canRetryAi ? (
+                              <span className="text-xs text-muted">Retry locked</span>
+                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -897,12 +897,12 @@ export default function JobsPage() {
             <table className="min-w-full whitespace-nowrap text-left text-sm">
               <thead className="bg-surface/80 text-muted">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Job</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Reason</th>
-                  <th className="px-4 py-3 font-medium">Attempts</th>
-                  <th className="px-4 py-3 font-medium">Created</th>
-                  <th className="px-4 py-3 font-medium">Action</th>
+                  <th className="px-4 py-3 text-center font-medium">Job</th>
+                  <th className="px-4 py-3 text-center font-medium">Status</th>
+                  <th className="px-4 py-3 text-center font-medium">Reason</th>
+                  <th className="px-4 py-3 text-center font-medium">Attempts</th>
+                  <th className="px-4 py-3 text-center font-medium">Created</th>
+                  <th className="px-4 py-3 text-center font-medium">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -944,9 +944,9 @@ export default function JobsPage() {
                               {retrying === `notification:${String(job.id)}` ? <SpinnerGap size={14} className="animate-spin" /> : <ArrowClockwise size={14} />}
                               Retry
                             </button>
-                          ) : (
-                            <span className="text-xs text-muted">{canRetryNotifications ? 'No action' : 'Retry locked'}</span>
-                          )}
+                          ) : !canRetryNotifications ? (
+                            <span className="text-xs text-muted">Retry locked</span>
+                          ) : null}
                         </td>
                       </tr>
                     );
