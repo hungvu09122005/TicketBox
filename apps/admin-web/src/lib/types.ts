@@ -19,7 +19,7 @@ export interface Concert {
   id: string;
   name: string;
   description: string;
-  artistId: string;
+  artistIds?: string[];
   startsAt: string;
   endsAt: string;
   saleStartsAt?: string | null;
@@ -32,7 +32,7 @@ export interface Concert {
   updatedAt: string;
   
   // Relations
-  artist?: Artist;
+  artists?: Artist[];
 }
 
 export interface TicketType {

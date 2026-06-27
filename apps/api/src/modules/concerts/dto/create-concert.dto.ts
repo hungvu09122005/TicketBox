@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MaxLength, IsUUID, IsDate } from 'class-validator';
+import { IsString, IsOptional, MaxLength, IsUUID, IsDate, IsArray, ArrayMinSize } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -8,9 +8,11 @@ export class CreateConcertDto {
   @MaxLength(300)
   name!: string;
 
-  @ApiProperty({ example: 'uuid', description: 'Artist ID' })
-  @IsUUID()
-  artistId!: string;
+  @ApiProperty({ example: ['uuid1', 'uuid2'], description: 'Artist IDs', type: [String] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  artistIds!: string[];
 
   @ApiProperty({ example: '2025-06-01T19:00:00Z', description: 'Concert start time' })
   @Type(() => Date)

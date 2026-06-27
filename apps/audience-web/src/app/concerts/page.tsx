@@ -76,7 +76,7 @@ function ConcertCard({ concert, index }: Readonly<{ concert: PublicConcert; inde
       <div className="space-y-4 p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-white">{concert.artist.name}</p>
+            <p className="text-sm font-medium text-white">{concert.artists?.map(a => a.name).join(', ') || 'Nghệ sĩ đang cập nhật'}</p>
             <p className="mt-1 line-clamp-2 text-sm leading-6 text-white/65">
               {concert.description || "Đang cập nhật mô tả chương trình."}
             </p>

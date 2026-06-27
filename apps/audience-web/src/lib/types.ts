@@ -23,7 +23,7 @@ export interface PublicConcert {
   venue?: string | null;
   status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
   bannerUrl?: string | null;
-  artist: PublicConcertArtist;
+  artists: PublicConcertArtist[];
 }
 
 export interface SeatZone {
