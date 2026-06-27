@@ -395,15 +395,7 @@ if (!importJob) {
       );
 
       const maxAttempts = job.opts?.attempts || 1;
-      const isLastAttempt = attemptNumber >= maxAttempts;
-
-      await this.repo.updateJobStats(jobId, {
-        totalRows: records.length || 0,
-        successRows,
-        errorRows,
-        status: isLastAttempt ? CsvImportJobStatus.FAILED : CsvImportJobStatus.PROCESSING,
-        failureReason: isLastAttempt ? message : `Attempt ${attemptNumber} failed: ${message}`,
-      });
+      const isLastAttempt = job.attemptsMade + 1 >= maxAttempts;
 
       await this.repo.updateJobStats(jobId, {
         totalRows,

@@ -361,6 +361,7 @@ export default function RbacPage() {
         name: nextName,
         email: nextEmail,
         password: nextPassword,
+        app: 'admin',
       });
 
       const createdUsersPage = await rbacService.getUsers({

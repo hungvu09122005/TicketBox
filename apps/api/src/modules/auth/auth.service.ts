@@ -1,4 +1,10 @@
-import { Injectable, UnauthorizedException, ConflictException, Inject, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  Inject,
+  Logger,
+} from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { JwtService } from '@nestjs/jwt';
@@ -8,6 +14,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ActivateAccountDto } from './dto/activate-account.dto';
+import { AuthActionPurpose } from './auth.types';
+import { Role } from '../../common/constants/roles.enum';
 
 /**
  * AuthService — application service for authentication.
@@ -37,9 +48,75 @@ export class AuthService {
       email: dto.email,
       name: dto.name,
       passwordHash,
+      isActive: false,
+      roles: [Role.AUDIENCE],
     });
 
-    return this.issueTokens(user.id, user.email, user.permissionVersion, user.roles.map((role: any) => role.name));
+    await this.usersService.sendActivationEmail(user, dto.app ?? 'audience');
+
+    return {
+      success: true,
+      message: 'Account created. Please check your email to activate it.',
+    };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.usersService.findByEmail(dto.email);
+
+    if (user) {
+      if (user.isActive) {
+        await this.usersService.sendPasswordResetEmail(user, dto.app ?? 'audience');
+      } else {
+        await this.usersService.sendActivationEmail(user, dto.app ?? 'audience');
+      }
+    }
+
+    return {
+      success: true,
+      message: 'If the account exists, we sent an email with the next step.',
+    };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const user = await this.consumeActionToken(dto.token, 'password-reset');
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired password reset token.');
+    }
+
+    const nextPasswordHash = await bcrypt.hash(dto.password, 12);
+    const currentUser = await this.usersService.findById(user.id);
+    if (!currentUser) {
+      throw new UnauthorizedException('Invalid or expired password reset token.');
+    }
+
+    await this.usersService.updatePassword(currentUser.id, nextPasswordHash);
+    await this.usersService.invalidatePermissionCache(currentUser.id);
+
+    return {
+      success: true,
+      message: 'Password updated successfully. Please sign in again.',
+    };
+  }
+
+  async activateAccount(dto: ActivateAccountDto) {
+    const user = await this.consumeActionToken(dto.token, 'activation');
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired activation token.');
+    }
+
+    const currentUser = await this.usersService.findById(user.id);
+    if (!currentUser) {
+      throw new UnauthorizedException('Invalid or expired activation token.');
+    }
+
+    if (!currentUser.isActive) {
+      await this.usersService.updateActiveStatus(currentUser.id, true, 'self-activation', false);
+    }
+
+    return {
+      success: true,
+      message: 'Account activated successfully. You can now sign in.',
+    };
   }
 
   async login(dto: LoginDto) {
@@ -70,8 +147,11 @@ export class AuthService {
         throw new UnauthorizedException('Account is inactive or not found.');
       }
 
+      if (user.permissionVersion !== (payload.permissionVersion ?? 0)) {
+        throw new UnauthorizedException('Session expired. Please sign in again.');
+      }
+
       // Revoke the old refresh token to prevent reuse (Token Rotation)
-      // Calculate remaining TTL
       const exp = payload.exp * 1000;
       const ttl = Math.max(0, exp - Date.now());
       if (ttl > 0) {
@@ -103,10 +183,21 @@ export class AuthService {
       }
       return { success: true, message: 'Token successfully revoked' };
     } catch (error) {
-      // If token is completely invalid, we don't throw, just return success
       this.logger.debug(`Ignored error during token revocation: ${(error as Error).message}`);
       return { success: true, message: 'Token successfully revoked' };
     }
+  }
+
+  private async consumeActionToken(token: string, purpose: AuthActionPurpose): Promise<{ id: string } | null> {
+    const cacheKey = `auth:${purpose}:${token}`;
+    const userId = await this.cacheManager.get<string>(cacheKey);
+
+    if (!userId) {
+      return null;
+    }
+
+    await this.cacheManager.del(cacheKey);
+    return { id: userId };
   }
 
   private issueTokens(userId: string, email: string, permissionVersion: number, roles: string[]) {

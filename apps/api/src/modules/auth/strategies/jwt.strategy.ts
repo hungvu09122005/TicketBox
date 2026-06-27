@@ -43,6 +43,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Account is inactive.');
     }
 
+    if (user.permissionVersion !== (payload.permissionVersion ?? 0)) {
+      throw new UnauthorizedException('Session expired. Please sign in again.');
+    }
+
     // Payload validated by Passport; attach to request.user
     return {
       sub: payload.sub,
