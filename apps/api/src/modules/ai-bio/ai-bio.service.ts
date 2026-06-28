@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Inject, NotFoundException, ConflictException } from '@nestjs/common';
+import { BadRequestException, Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { AiBioRepository } from './ai-bio.repository';
@@ -8,7 +8,6 @@ import { AI_BIO_JOB } from './processors/ai-bio.processor';
 import { ArtistsService } from '../artists/artists.service';
 
 const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024;
-
 
 @Injectable()
 export class AiBioService {
@@ -101,12 +100,7 @@ export class AiBioService {
       status: AiBioStatus.DRAFT,
     });
 
-    return {
-      success: true,
-      job_id: request.id,
-      status: request.status,
-      manual: true,
-    };
+    return this.repo.findById(request.id);
   }
   
 

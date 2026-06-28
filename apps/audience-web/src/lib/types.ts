@@ -85,6 +85,13 @@ export interface CreateOrderPayload {
   concertId: string;
   ticketTypeId: string;
   quantity: number;
+  queueToken?: string;
+}
+
+export interface QueuedCheckoutResponse {
+  status: 'QUEUED';
+  message?: string;
+  queueToken?: string;
 }
 
 export interface AudienceOrder {

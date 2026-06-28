@@ -1,5 +1,7 @@
 import { IsEmail, IsString, MinLength, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsIn, IsOptional } from 'class-validator';
+import { AuthClientApp } from '../auth.types';
 
 export class RegisterDto {
   @ApiProperty({ example: 'user@example.com' })
@@ -17,4 +19,14 @@ export class RegisterDto {
   @MinLength(8)
   @MaxLength(72)
   password!: string;
+
+  @ApiProperty({
+    example: 'audience',
+    required: false,
+    enum: ['audience', 'admin'],
+    description: 'Which frontend should receive the activation email',
+  })
+  @IsOptional()
+  @IsIn(['audience', 'admin'])
+  app?: AuthClientApp;
 }

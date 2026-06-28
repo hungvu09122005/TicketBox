@@ -27,7 +27,6 @@ import { concertService } from "@/lib/services/concert.service";
 import {
   CreateOrderPayload,
   OrderSummary,
-  PublicArtistDetail,
   PublicConcert,
   PublicTicketType,
   SeatMapResponse,
@@ -140,7 +139,6 @@ export default function ConcertDetailClient({ id }: Readonly<{ id: string }>) {
   );
   const svgContainerRef = useRef<HTMLDivElement | null>(null);
   const [concert, setConcert] = useState<PublicConcert | null>(null);
-  const [artist, setArtist] = useState<PublicArtistDetail | null>(null);
   const [seatMap, setSeatMap] = useState<SeatMapResponse | null>(null);
   const [ticketTypes, setTicketTypes] = useState<PublicTicketType[]>([]);
   const [orders, setOrders] = useState<OrderSummary[]>([]);
@@ -173,14 +171,12 @@ export default function ConcertDetailClient({ id }: Readonly<{ id: string }>) {
     setState("loading");
     setSubmitError([]);
     setSubmitSuccess(null);
-    setArtist(null);
     setBannerError(false);
 
     try {
       const concertData = await concertService.getConcert(id);
       if (concertData.status === "CANCELLED") {
         setConcert(concertData);
-        setArtist(null);
         setSeatMap(null);
         setTicketTypes([]);
         setOrders([]);
@@ -207,14 +203,6 @@ export default function ConcertDetailClient({ id }: Readonly<{ id: string }>) {
       ]);
 
       setConcert(concertData);
-      const firstArtist = concertData.artists?.[0];
-      setArtist(firstArtist ? {
-        id: firstArtist.id,
-        name: firstArtist.name,
-        avatarUrl: firstArtist.avatarUrl ?? null,
-        description: null,
-        shortBio: null,
-      } : null);
       setSeatMap(seatMapData);
       setTicketTypes(ticketTypeData);
       setOrders(orderData.filter((order) => order.concertId === concertData.id));
@@ -237,7 +225,6 @@ export default function ConcertDetailClient({ id }: Readonly<{ id: string }>) {
           : undefined;
 
       setConcert(null);
-      setArtist(null);
       setSeatMap(null);
       setTicketTypes([]);
       setOrders([]);
@@ -423,6 +410,16 @@ export default function ConcertDetailClient({ id }: Readonly<{ id: string }>) {
   const extractPaymentUrl = (result: Awaited<ReturnType<typeof concertService.initiatePayment>>) =>
     result.paymentUrl ?? result.redirectUrl ?? result.url ?? null;
 
+  const buildWaitingRoomHref = (queueToken: string) => {
+    const params = new URLSearchParams({
+      ticketTypeId: selectedTicketType?.id ?? '',
+      quantity: String(quantity),
+      queueToken,
+    });
+
+    return `/concerts/${concert?.id ?? id}/waiting-room?${params.toString()}`;
+  };
+
   const handleCreateOrder = async () => {
     if (!selectedTicketType || !concert || quantity < 1 || checkoutLockRef.current) {
       return;
@@ -444,21 +441,45 @@ export default function ConcertDetailClient({ id }: Readonly<{ id: string }>) {
 
     try {
       const response = await concertService.createOrder(payload, checkoutIdempotencyKey);
-      const paymentResult = await concertService.initiatePayment(response.id, checkoutIdempotencyKey);
-      const paymentUrl = extractPaymentUrl(paymentResult);
+      if ('id' in response) {
+        const paymentResult = await concertService.initiatePayment(response.id, checkoutIdempotencyKey);
+        const paymentUrl = extractPaymentUrl(paymentResult);
 
-      setSubmitSuccess(`Đã tạo đơn giữ vé ${response.id}. Đang chuyển sang cổng thanh toán thật.`);
-      await loadConcert();
+        setSubmitSuccess(`Đã tạo đơn giữ vé ${response.id}. Đang chuyển sang cổng thanh toán thật.`);
+        await loadConcert();
 
-      if (paymentUrl) {
-        window.location.assign(paymentUrl);
+        if (paymentUrl) {
+          window.location.assign(paymentUrl);
+          return;
+        }
+
+        setPaymentReviewHref(`/payments/return?orderId=${encodeURIComponent(response.id)}&status=pending`);
+        setSubmitSuccess(
+          `Đã tạo order ${response.id}. Backend chưa trả payment URL, bạn có thể kiểm tra lại trạng thái trên trang return.`,
+        );
         return;
       }
 
-      setPaymentReviewHref(`/payments/return?orderId=${encodeURIComponent(response.id)}&status=pending`);
-      setSubmitSuccess(
-        `Đã tạo order ${response.id}. Backend chưa trả payment URL, bạn có thể kiểm tra lại trạng thái trên trang return.`,
-      );
+      if (response.status === 'QUEUED') {
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem(
+            `ticketbox:waiting-room:${concert.id}`,
+            JSON.stringify({
+              concertId: concert.id,
+              ticketTypeId: selectedTicketType.id,
+              quantity,
+              queueToken: response.queueToken ?? '',
+              idempotencyKey: checkoutIdempotencyKey,
+            }),
+          );
+        }
+
+        setSubmitSuccess(
+          response.message ??
+            'Đơn của bạn đang ở hàng đợi. Bạn sẽ được chuyển sang waiting room để tự động tạo order khi đến lượt.',
+        );
+        router.push(buildWaitingRoomHref(response.queueToken ?? ''));
+      }
     } catch (error) {
       setSubmitError(extractApiMessages(error, "Không thể giữ vé hoặc khởi tạo thanh toán lúc này."));
     } finally {
@@ -589,7 +610,7 @@ export default function ConcertDetailClient({ id }: Readonly<{ id: string }>) {
           )}
 
           {state === "ready" && concert && (
-            <div className="grid gap-6 xl:grid-cols-[1.42fr_0.58fr]">
+          <div className="grid gap-6 xl:grid-cols-[1.42fr_0.58fr]">
               <div className="space-y-6">
                 <article className="overflow-hidden rounded-[32px] border border-white/10 bg-white/5 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
                   <div className="relative aspect-[16/9] bg-zinc-900">
@@ -652,57 +673,48 @@ export default function ConcertDetailClient({ id }: Readonly<{ id: string }>) {
                       <Info size={22} className="text-white/85" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-white">Bio nghệ sĩ</h3>
-                      <p className="text-sm text-white/60">Chỉ hiển thị nội dung công khai của nghệ sĩ.</p>
+                      <h3 className="text-xl font-semibold text-white">Nghệ sĩ tham gia</h3>
+                      <p className="text-sm text-white/60">Hiển thị toàn bộ nghệ sĩ công khai của concert này.</p>
                     </div>
                   </div>
 
-                  {artist ? (
-                    <div className="mt-5 grid gap-5 lg:grid-cols-[176px_1fr]">
-                      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/5">
-                        {artist.avatarUrl ? (
-                          <img
-                            src={artist.avatarUrl}
-                            alt={artist.name}
-                            className="h-full min-h-[220px] w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex min-h-[220px] items-center justify-center bg-[radial-gradient(circle_at_top,#f97316_0%,#0f172a_52%,#020617_100%)]">
-                            <MusicNotes size={36} weight="light" className="text-white/70" />
-                          </div>
-                        )}
-                      </div>
+                  <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {(concert.artists?.length ? concert.artists : []).map((artistItem) => (
+                      <Link
+                        key={artistItem.id}
+                        href={`/artists/${artistItem.id}`}
+                        className="group overflow-hidden rounded-[28px] border border-white/10 bg-white/5 transition-transform hover:-translate-y-0.5"
+                      >
+                        <div className="aspect-[4/3] bg-zinc-900">
+                          {artistItem.avatarUrl ? (
+                            <img
+                              src={artistItem.avatarUrl}
+                              alt={artistItem.name}
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#f97316_0%,#0f172a_52%,#020617_100%)]">
+                              <MusicNotes size={36} weight="light" className="text-white/70" />
+                            </div>
+                          )}
+                        </div>
 
-                      <div className="space-y-4">
-                        <div className="rounded-[24px] border border-dashed border-white/10 bg-white/5 p-5">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Nghệ sĩ</p>
-                          <h4 className="mt-2 text-2xl font-semibold text-white">{artist.name}</h4>
-                          <p className="mt-3 text-sm leading-7 text-white/70">
-                            {artist.shortBio?.trim() ||
-                              artist.description?.trim() ||
-                              "Nghệ sĩ này chưa có bio công khai."}
+                        <div className="space-y-3 p-4">
+                          <div>
+                            <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Nghệ sĩ</p>
+                            <h4 className="mt-2 text-lg font-semibold text-white">{artistItem.name}</h4>
+                          </div>
+                          <p className="text-sm leading-6 text-white/68">
+                            Nhấn để xem chi tiết nghệ sĩ, gồm short bio và ảnh đại diện.
                           </p>
                         </div>
+                      </Link>
+                    ))}
+                  </div>
 
-                        <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.18em] text-white/55">
-                          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                            {artist.shortBio?.trim() ? "Bio sẵn sàng" : "Chưa có bio"}
-                          </span>
-                          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                            {artist.avatarUrl ? "Ảnh sẵn sàng" : "Chưa có ảnh"}
-                          </span>
-                        </div>
-
-                        <div className="flex flex-wrap gap-3">
-                          <Link
-                            href={`/artists/${artist.id}`}
-                            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5"
-                          >
-                            Xem nghệ sĩ
-                            <ArrowRight size={16} weight="bold" />
-                          </Link>
-                        </div>
-                      </div>
+                  {!concert.artists?.length ? (
+                    <div className="mt-5 rounded-[24px] border border-dashed border-white/10 bg-white/5 p-5 text-sm leading-6 text-white/68">
+                      Concert này chưa có nghệ sĩ công khai.
                     </div>
                   ) : null}
                 </article>
@@ -875,7 +887,7 @@ export default function ConcertDetailClient({ id }: Readonly<{ id: string }>) {
                               setPaymentReviewHref(null);
                               setQuantity(clamped);
                             }}
-                            className="h-11 w-full rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-center text-base font-semibold text-white outline-none ring-0 [appearance:textfield]"
+                            className="h-11 w-full rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-center text-base font-semibold text-white outline-none ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           />
                           <button
                             type="button"

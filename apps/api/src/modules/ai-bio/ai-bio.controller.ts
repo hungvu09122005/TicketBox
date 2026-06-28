@@ -120,4 +120,3 @@ export class AiBioController {
     return this.aiBioService.publishBio(id);
   }
 }
-

@@ -66,6 +66,10 @@ export function Header() {
                 <QrCode className="w-5 h-5" />
                 <span>Vé của tôi</span>
               </Link>
+              <Link href="/profile" className={`hidden md:flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-zinc-600 hover:text-zinc-950' : 'text-zinc-300 hover:text-white'}`}>
+                <User className="w-5 h-5" />
+                <span>Hồ sơ</span>
+              </Link>
               <button
                 type="button"
                 onClick={() => {

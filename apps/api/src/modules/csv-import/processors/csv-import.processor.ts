@@ -1,6 +1,6 @@
 ﻿import { Processor, Process } from '@nestjs/bull';
 import { Job } from 'bull';
-import { Logger, Inject } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { parse } from 'csv-parse';
 import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../../common/ports/object-storage.port';
@@ -8,8 +8,7 @@ import { TicketsService } from '../../tickets/tickets.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { CsvImportRepository } from '../csv-import.repository';
 import { CsvImportJobStatus } from '../entities/csv-import-job.entity';
-import { CsvRowStatus } from '../entities/csv-import-row.entity';
-import { CsvImportRow } from '../entities/csv-import-row.entity';
+import { CsvImportRow, CsvRowStatus } from '../entities/csv-import-row.entity';
 import { VipGuest } from '../entities/vip-guest.entity';
 import { TicketType } from '../../ticket-types/entities/ticket-type.entity';
 import { Concert } from '../../concerts/entities/concert.entity';

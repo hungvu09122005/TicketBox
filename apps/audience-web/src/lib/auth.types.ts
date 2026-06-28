@@ -5,4 +5,5 @@ export interface AudienceProfile {
   roles: string[];
   permissionVersion: number;
   permissions: string[];
+  isActive: boolean;
 }

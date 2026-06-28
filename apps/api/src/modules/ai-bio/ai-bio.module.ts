@@ -20,7 +20,7 @@ import { ArtistsModule } from '../artists/artists.module';
  *   - AITextGenerationPort fulfilled by OpenAIAdapter (circuit breaker in processor)
  *   - PDF binary in Object Storage; key in ai_bio_requests.pdf_object_key
  *   - Never auto-publishes; Organizer must explicitly PATCH to publish
- */
+  */
 @Module({
   imports: [
     TypeOrmModule.forFeature([AiBioRequest]),

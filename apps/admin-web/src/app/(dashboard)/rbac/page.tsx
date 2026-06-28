@@ -41,12 +41,12 @@ function StatCard({
   hint: string;
 }>) {
   return (
-    <div className="min-w-0 rounded-[24px] border border-border bg-background px-4 py-4 shadow-sm">
+    <div className="grid h-full min-h-[124px] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] rounded-[24px] border border-border bg-background px-4 py-4 shadow-sm">
       <p className="break-words text-[11px] uppercase tracking-[0.18em] text-muted">{label}</p>
-      <p className="mt-2 break-words text-xl font-semibold tracking-tight text-primary sm:text-2xl">
-        {value}
-      </p>
-      <p className="mt-1 break-words text-xs leading-5 text-muted">{hint}</p>
+      <div className="flex items-center">
+        <p className="break-words text-xl font-semibold tracking-tight text-primary sm:text-2xl">{value}</p>
+      </div>
+      <p className="break-words text-xs leading-5 text-muted">{hint}</p>
     </div>
   );
 }
@@ -67,7 +67,7 @@ function Pill({
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${toneClasses[tone]}`}
+      className={`inline-flex items-center whitespace-nowrap rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${toneClasses[tone]}`}
     >
       {children}
     </span>
@@ -361,6 +361,7 @@ export default function RbacPage() {
         name: nextName,
         email: nextEmail,
         password: nextPassword,
+        app: 'admin',
       });
 
       const createdUsersPage = await rbacService.getUsers({
@@ -423,7 +424,7 @@ export default function RbacPage() {
             </p>
           </div>
 
-          <div className="grid min-w-0 gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 xl:max-w-[760px]">
+          <div className="grid min-w-0 gap-3 grid-cols-1 sm:grid-cols-2 xl:max-w-[760px]">
             <StatCard label="Current admin" value={admin?.name ?? '--'} hint={admin?.email ?? 'No active profile'} />
             <StatCard label="Visible users" value={usersPage?.total ?? 0} hint="Filtered result count" />
             <StatCard label="Roles" value={roles.length} hint="Editable role catalog" />
@@ -580,8 +581,8 @@ export default function RbacPage() {
         </div>
 
         <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_200px_180px]">
-          <label className="relative block">
-            <span className="mb-2 block text-sm font-medium text-primary">Search</span>
+            <label className="relative block">
+            <span className="mb-2 block text-center text-sm font-medium text-primary">Search</span>
             <MagnifyingGlass className="absolute left-3 top-[42px] -translate-y-1/2 text-muted" size={18} />
             <input
               type="text"
@@ -591,19 +592,19 @@ export default function RbacPage() {
                 setQuery(event.target.value);
               }}
               placeholder="Search by name or email..."
-              className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm text-primary outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-12 w-full rounded-lg border border-border bg-background py-0 pl-10 pr-10 text-center text-sm font-medium text-primary outline-none placeholder:text-center focus:border-primary focus:ring-1 focus:ring-primary"
             />
           </label>
 
           <div>
-            <span className="mb-2 block text-sm font-medium text-primary">Role filter</span>
+            <span className="mb-2 block text-center text-sm font-medium text-primary">Role filter</span>
             <select
               value={roleFilter}
               onChange={(event) => {
                 setPage(1);
                 setRoleFilter(event.target.value);
               }}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-primary outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-12 w-full rounded-lg border border-border bg-background px-3 py-0 text-center text-sm font-medium text-primary outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             >
               <option value="all">All roles</option>
               {availableRoles.map((roleName) => (
@@ -615,14 +616,14 @@ export default function RbacPage() {
           </div>
 
           <div>
-            <span className="mb-2 block text-sm font-medium text-primary">Page size</span>
+            <span className="mb-2 block text-center text-sm font-medium text-primary">Page size</span>
             <select
               value={limit}
               onChange={(event) => {
                 setPage(1);
                 setLimit(Number(event.target.value));
               }}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-primary outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-12 w-full rounded-lg border border-border bg-background px-3 py-0 text-center text-sm font-medium text-primary outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             >
               <option value={5}>5</option>
               <option value={10}>10</option>
@@ -717,7 +718,7 @@ export default function RbacPage() {
                 <p className="text-sm font-medium text-primary">Roles</p>
                 <span className="text-xs uppercase tracking-[0.18em] text-muted">Pick one or more</span>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 grid gap-2 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
                 {availableRoles.map((roleName) => {
                   const checked = newUserRoles.includes(roleName);
                   return (
@@ -731,7 +732,7 @@ export default function RbacPage() {
                             : [...current, roleName],
                         );
                       }}
-                      className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                      className={`inline-flex min-h-11 items-center justify-center rounded-full border px-3 py-1.5 text-sm font-medium leading-5 text-center transition-colors ${
                         checked
                           ? 'border-primary bg-primary text-surface'
                           : 'border-border bg-background text-primary hover:bg-primary/5'
@@ -750,17 +751,35 @@ export default function RbacPage() {
         </div>
 
         <div className="mt-5 overflow-hidden rounded-[24px] border border-border bg-background">
+          <div className="border-b border-border px-4 py-4">
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-primary">Search user</span>
+              <div className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5">
+                <MagnifyingGlass size={16} className="shrink-0 text-muted" />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(event) => {
+                    setPage(1);
+                    setQuery(event.target.value);
+                  }}
+                  placeholder="Search by name or email..."
+                  className="w-full bg-transparent text-sm text-primary outline-none placeholder:text-muted/60"
+                />
+              </div>
+            </label>
+          </div>
           <div className="w-full overflow-x-auto">
             <table className="min-w-[1120px] w-full text-left text-sm">
               <thead className="border-b border-border bg-primary/5">
                 <tr>
-                  <th className="px-4 py-3 font-medium text-muted">User</th>
-                  <th className="px-4 py-3 font-medium text-muted">Roles</th>
-                  <th className="px-4 py-3 font-medium text-muted">Status</th>
-                  <th className="px-4 py-3 font-medium text-muted">Permissions</th>
-                  <th className="px-4 py-3 font-medium text-muted">Version</th>
-                  <th className="px-4 py-3 font-medium text-muted">Updated</th>
-                  <th className="px-4 py-3 font-medium text-muted text-right">Actions</th>
+                  <th className="px-4 py-3 text-center font-medium text-muted">User</th>
+                  <th className="px-4 py-3 text-center font-medium text-muted">Roles</th>
+                  <th className="px-4 py-3 text-center font-medium text-muted">Status</th>
+                  <th className="px-4 py-3 text-center font-medium text-muted">Permissions</th>
+                  <th className="px-4 py-3 text-center font-medium text-muted">Version</th>
+                  <th className="px-4 py-3 text-center font-medium text-muted">Updated</th>
+                  <th className="px-4 py-3 text-center font-medium text-muted">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -788,13 +807,13 @@ export default function RbacPage() {
                         key={user.id}
                         className={`transition-colors hover:bg-primary/5 ${isSelected ? 'bg-primary/5' : ''}`}
                       >
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-4 align-middle">
                           <div className="min-w-0">
                             <p className="font-semibold text-primary">{user.name}</p>
                             <p className="mt-1 break-all text-xs text-muted">{user.email}</p>
                           </div>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-4 align-middle">
                           <div className="flex flex-wrap gap-2">
                             {user.roles.length > 0 ? (
                               user.roles.map((roleName) => <Pill key={roleName}>{roleLabel(roleName)}</Pill>)
@@ -803,25 +822,25 @@ export default function RbacPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-4 align-middle">
                           <Pill tone={user.isActive ? 'success' : 'warning'}>
                             {user.isActive ? 'Active' : 'Inactive'}
                           </Pill>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-4 align-middle">
                           <span className="font-medium text-primary">{user.permissions.length}</span>
                           <span className="ml-1 text-muted">codes</span>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-4 align-middle">
                           <span className="font-medium text-primary">{user.permissionVersion}</span>
                         </td>
-                        <td className="px-4 py-4 text-muted">{formatDateTime(user.updatedAt)}</td>
+                        <td className="px-4 py-4 align-middle text-muted">{formatDateTime(user.updatedAt)}</td>
                         <td className="px-4 py-4 align-middle whitespace-nowrap">
-                          <div className="flex flex-wrap justify-end gap-2">
+                          <div className="flex flex-nowrap justify-end gap-2">
                             <button
                               type="button"
                               onClick={() => setSelectedUserId(user.id)}
-                              className="inline-flex h-10 min-w-[108px] items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-primary hover:bg-primary/5"
+                              className="inline-flex h-10 min-w-[96px] items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium whitespace-nowrap text-primary hover:bg-primary/5"
                             >
                               Edit roles
                             </button>
@@ -829,7 +848,7 @@ export default function RbacPage() {
                               type="button"
                               onClick={() => handleToggleUserActive(user.id, !user.isActive)}
                               disabled={isBusy}
-                              className={`inline-flex h-10 min-w-[108px] items-center justify-center rounded-lg border px-3 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                              className={`inline-flex h-10 min-w-[108px] items-center justify-center rounded-lg border px-3 text-xs font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                                 user.isActive
                                   ? 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
                                   : 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
@@ -918,20 +937,20 @@ export default function RbacPage() {
 
             <div className="mt-5 rounded-[24px] border border-border bg-background p-4">
               <p className="text-sm font-medium text-primary">Assign roles</p>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 grid gap-2 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
                 {availableRoles.map((roleName) => {
                   const checked = draftUserRoles.includes(roleName);
                   return (
                     <button
                       key={roleName}
-                      type="button"
-                      onClick={() => handleToggleUserRole(roleName)}
-                      className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
-                        checked
-                          ? 'border-primary bg-primary text-surface'
-                          : 'border-border bg-surface text-primary hover:bg-primary/5'
-                      }`}
-                    >
+                  type="button"
+                  onClick={() => handleToggleUserRole(roleName)}
+                  className={`inline-flex min-h-10 w-full items-center justify-center rounded-full border px-4 py-2 text-sm font-medium leading-5 text-center transition-colors ${
+                    checked
+                      ? 'border-primary bg-primary text-surface'
+                      : 'border-border bg-surface text-primary hover:bg-primary/5'
+                  }`}
+                >
                       {roleLabel(roleName)}
                     </button>
                   );

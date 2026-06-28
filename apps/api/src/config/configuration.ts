@@ -38,6 +38,10 @@ export default registerAs('app', () => ({
     accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? '15m',
     refreshSecret: process.env.JWT_REFRESH_SECRET ?? '',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
+    passwordResetSecret: process.env.JWT_PASSWORD_RESET_SECRET ?? process.env.JWT_ACCESS_SECRET ?? '',
+    passwordResetExpiresIn: process.env.JWT_PASSWORD_RESET_EXPIRES_IN ?? '1h',
+    activationSecret: process.env.JWT_ACTIVATION_SECRET ?? process.env.JWT_ACCESS_SECRET ?? '',
+    activationExpiresIn: process.env.JWT_ACTIVATION_EXPIRES_IN ?? '24h',
   },
 
   qr: {

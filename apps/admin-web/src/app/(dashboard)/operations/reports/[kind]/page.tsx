@@ -61,7 +61,7 @@ function getReportRows(data: ReportResponse | ReportResponse[] | null): ReportRo
 
 const queueDashboardHref = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-  return apiUrl.replace(/\/api\/v1\/?$/, '') + '/admin/queues';
+  return `${apiUrl.replace(/\/$/, '')}/admin/queues`;
 })();
 
 export default function ReportDetailPage({ params }: Readonly<{ params: Promise<{ kind: string }> }>) {

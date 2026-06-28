@@ -27,6 +27,7 @@ function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -43,15 +44,15 @@ function RegisterForm() {
 
   const onSubmit = async (data: RegisterFormValues) => {
     setSubmitError(null);
+    setSuccessMessage(null);
     try {
-      await authService.register({
+      const response = await authService.register({
         name: data.fullName,
         email: data.email,
         password: data.password,
+        app: "audience",
       });
-
-      const nextPath = searchParams.get("next") || "/concerts";
-      router.replace(`/login?next=${encodeURIComponent(nextPath)}`);
+      setSuccessMessage(response.message);
     } catch (error: unknown) {
       const message =
         typeof error === "object" &&
@@ -108,82 +109,97 @@ function RegisterForm() {
               Tạo tài khoản mới
             </h1>
             <p className="text-zinc-500 mb-8">
-              Bắt đầu hành trình trải nghiệm các sự kiện đỉnh cao.
+              Bắt đầu hành trình trải nghiệm các sự kiện đỉnh cao. Sau khi đăng ký, bạn cần kích hoạt tài khoản qua email.
             </p>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-              {submitError && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {submitError}
+            {successMessage ? (
+              <div className="space-y-5">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm leading-relaxed text-emerald-900">
+                  {successMessage}
                 </div>
-              )}
-              <div className="space-y-2">
-                <label htmlFor="fullName" className="text-sm font-medium text-zinc-950">Họ và tên</label>
-                <input
-                  id="fullName"
-                  {...register("fullName")}
-                  type="text"
-                  placeholder="Nguyễn Văn A"
-                  className={`w-full h-12 px-4 rounded-xl bg-white border ${errors.fullName ? "border-red-500 focus:ring-red-500/20" : "border-zinc-200 focus:border-emerald-500 focus:ring-emerald-500/20"
-                    } text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-4 transition-all`}
-                />
-                {errors.fullName && <p className="text-sm text-red-500">{errors.fullName.message}</p>}
+                <Link
+                  href="/login"
+                  className="w-full h-12 mt-4 bg-zinc-950 hover:bg-zinc-800 text-white rounded-xl font-medium transition-all active:scale-[0.98] flex justify-center items-center gap-2"
+                >
+                  Đăng nhập ngay
+                  <ArrowRight weight="bold" className="w-4 h-4" />
+                </Link>
               </div>
-
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-zinc-950">Email</label>
-                <input
-                  id="email"
-                  {...register("email")}
-                  type="email"
-                  placeholder="name@example.com"
-                  className={`w-full h-12 px-4 rounded-xl bg-white border ${errors.email ? "border-red-500 focus:ring-red-500/20" : "border-zinc-200 focus:border-emerald-500 focus:ring-emerald-500/20"
-                    } text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-4 transition-all`}
-                />
-                {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium text-zinc-950">Mật khẩu</label>
-                <input
-                  id="password"
-                  {...register("password")}
-                  type="password"
-                  placeholder="••••••••"
-                  className={`w-full h-12 px-4 rounded-xl bg-white border ${errors.password ? "border-red-500 focus:ring-red-500/20" : "border-zinc-200 focus:border-emerald-500 focus:ring-emerald-500/20"
-                    } text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-4 transition-all`}
-                />
-                {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="confirmPassword" className="text-sm font-medium text-zinc-950">Xác nhận mật khẩu</label>
-                <input
-                  id="confirmPassword"
-                  {...register("confirmPassword")}
-                  type="password"
-                  placeholder="••••••••"
-                  className={`w-full h-12 px-4 rounded-xl bg-white border ${errors.confirmPassword ? "border-red-500 focus:ring-red-500/20" : "border-zinc-200 focus:border-emerald-500 focus:ring-emerald-500/20"
-                    } text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-4 transition-all`}
-                />
-                {errors.confirmPassword && <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>}
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full h-12 mt-4 bg-zinc-950 hover:bg-zinc-800 text-white rounded-xl font-medium transition-all active:scale-[0.98] flex justify-center items-center gap-2 disabled:opacity-70"
-              >
-                {isSubmitting ? (
-                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    Tạo tài khoản
-                    <ArrowRight weight="bold" className="w-4 h-4" />
-                  </>
+            ) : (
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+                {submitError && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {submitError}
+                  </div>
                 )}
-              </button>
-            </form>
+                <div className="space-y-2">
+                  <label htmlFor="fullName" className="text-sm font-medium text-zinc-950">Họ và tên</label>
+                  <input
+                    id="fullName"
+                    {...register("fullName")}
+                    type="text"
+                    placeholder="Nguyễn Văn A"
+                    className={`w-full h-12 px-4 rounded-xl bg-white border ${errors.fullName ? "border-red-500 focus:ring-red-500/20" : "border-zinc-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      } text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-4 transition-all`}
+                  />
+                  {errors.fullName && <p className="text-sm text-red-500">{errors.fullName.message}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm font-medium text-zinc-950">Email</label>
+                  <input
+                    id="email"
+                    {...register("email")}
+                    type="email"
+                    placeholder="name@example.com"
+                    className={`w-full h-12 px-4 rounded-xl bg-white border ${errors.email ? "border-red-500 focus:ring-red-500/20" : "border-zinc-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      } text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-4 transition-all`}
+                  />
+                  {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="password" className="text-sm font-medium text-zinc-950">Mật khẩu</label>
+                  <input
+                    id="password"
+                    {...register("password")}
+                    type="password"
+                    placeholder="••••••••"
+                    className={`w-full h-12 px-4 rounded-xl bg-white border ${errors.password ? "border-red-500 focus:ring-red-500/20" : "border-zinc-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      } text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-4 transition-all`}
+                  />
+                  {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="confirmPassword" className="text-sm font-medium text-zinc-950">Xác nhận mật khẩu</label>
+                  <input
+                    id="confirmPassword"
+                    {...register("confirmPassword")}
+                    type="password"
+                    placeholder="••••••••"
+                    className={`w-full h-12 px-4 rounded-xl bg-white border ${errors.confirmPassword ? "border-red-500 focus:ring-red-500/20" : "border-zinc-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      } text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-4 transition-all`}
+                  />
+                  {errors.confirmPassword && <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full h-12 mt-4 bg-zinc-950 hover:bg-zinc-800 text-white rounded-xl font-medium transition-all active:scale-[0.98] flex justify-center items-center gap-2 disabled:opacity-70"
+                >
+                  {isSubmitting ? (
+                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      Tạo tài khoản
+                      <ArrowRight weight="bold" className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
 
             <p className="mt-8 text-center text-sm text-zinc-500">
               Đã có tài khoản?{" "}

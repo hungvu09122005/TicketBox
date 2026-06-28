@@ -17,6 +17,8 @@ export const roleOptions: RoleOption[] = [
     permissions: [
       Permission.CONCERT_READ_PUBLIC,
       Permission.ORDER_CREATE,
+      Permission.USER_READ_OWN,
+      Permission.USER_UPDATE_OWN,
       Permission.ORDER_READ_OWN,
       Permission.TICKET_VIEW_OWN,
     ],
@@ -50,6 +52,8 @@ export const roleOptions: RoleOption[] = [
       Permission.AI_GENERATE_BIO,
       Permission.REPORT_VIEW,
       Permission.REPORT_EXPORT,
+      Permission.USER_READ_OWN,
+      Permission.USER_UPDATE_OWN,
     ],
   },
   {
@@ -58,6 +62,8 @@ export const roleOptions: RoleOption[] = [
     description: 'Quét QR và đồng bộ check-in.',
     permissions: [
       Permission.CONCERT_READ_PUBLIC,
+      Permission.USER_READ_OWN,
+      Permission.USER_UPDATE_OWN,
       Permission.TICKET_VALIDATE,
     ],
   },
@@ -105,6 +111,8 @@ export const roleOptions: RoleOption[] = [
       Permission.PERMISSION_READ,
       Permission.PERMISSION_CREATE,
       Permission.RBAC_MANAGE,
+      Permission.USER_READ_OWN,
+      Permission.USER_UPDATE_OWN,
     ],
   },
 ];

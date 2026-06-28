@@ -48,6 +48,8 @@ export enum Permission {
 
   // RBAC / User
 
+  USER_READ_OWN = 'user:read_own',
+  USER_UPDATE_OWN = 'user:update_own',
   ROLE_UPDATE_PERMISSIONS = 'role:update_permissions',
   PERMISSION_READ = 'permission:read',
   PERMISSION_CREATE = 'permission:create',

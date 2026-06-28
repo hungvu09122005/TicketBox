@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Eye, MusicNotes, Notebook, PencilSimple, SpinnerGap, UserCircle } from '@phosphor-icons/react';
+import { ArrowRight, Eye, MusicNotes, Notebook, PencilSimple, Plus, SpinnerGap, UserCircle } from '@phosphor-icons/react';
 import { artistService } from '@/lib/services/artist.service';
 import { Artist } from '@/lib/types';
 import { hasStoredAdminSession } from '@/lib/auth-store';
@@ -138,31 +138,25 @@ export default function ArtistsPage() {
   return (
     <div className="space-y-6">
       <div className="rounded-[32px] border border-border bg-surface p-6 shadow-sm">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Artist catalog</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Artists</h1>
             <p className="mt-3 text-sm leading-6 text-muted">
               Danh sách nghệ sĩ để bạn chọn nhanh, xem chi tiết và chỉnh hồ sơ khi cần.
             </p>
+            <p className="mt-3 text-sm font-medium text-primary">
+              {artists.length} artists in catalog
+            </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-border bg-background px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Artists</p>
-              <p className="mt-1 text-lg font-semibold text-primary">{artists.length}</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-background px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Selected</p>
-              <p className="mt-1 text-lg font-semibold text-primary">{selectedArtist?.name || '--'}</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-background px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Bio</p>
-              <p className="mt-1 text-lg font-semibold text-primary">
-                {selectedArtist?.shortBio?.trim() ? 'Có' : 'Chưa có'}
-              </p>
-            </div>
-          </div>
+          <Link
+            href="/artists/create"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-primary px-4 py-3 text-sm font-medium text-surface transition-transform hover:-translate-y-[1px] active:translate-y-0"
+          >
+            <Plus size={16} />
+            Create artist
+          </Link>
         </div>
       </div>
 

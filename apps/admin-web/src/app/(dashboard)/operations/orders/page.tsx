@@ -42,7 +42,7 @@ function statusClasses(status: OrderDetails['status']) {
 
 const queueDashboardHref = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-  return apiUrl.replace(/\/api\/v1\/?$/, '') + '/admin/queues';
+  return `${apiUrl.replace(/\/$/, '')}/admin/queues`;
 })();
 
 export default function OrdersOperationsPage() {
@@ -125,7 +125,7 @@ export default function OrdersOperationsPage() {
   return (
     <div className="space-y-6">
       <div className="rounded-[32px] border border-border bg-surface p-6 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="max-w-2xl space-y-3">
             <Link href="/operations" className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary">
               <ArrowLeft size={16} />
@@ -138,14 +138,12 @@ export default function OrdersOperationsPage() {
               </p>
             </div>
           </div>
-          <div className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-background px-4 text-sm font-medium text-muted whitespace-nowrap">
-            <ShieldCheck size={16} />
-            {canViewOrders ? 'Access granted' : 'Access restricted'}
+          <div className="flex items-start justify-end">
+            <a href={queueDashboardHref} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-surface">
+              <ArrowSquareOut size={16} />
+              Open queue board
+            </a>
           </div>
-          <a href={queueDashboardHref} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-surface">
-            <ArrowSquareOut size={16} />
-            Open queue board
-          </a>
         </div>
       </div>
 
@@ -274,11 +272,11 @@ export default function OrdersOperationsPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4">
         <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-primary">Payment contract</h2>
           <p className="mt-2 text-sm leading-6 text-muted">
-            The backend exposes create, callback, and callback-audit endpoints. A manual success editor is intentionally absent.
+            The backend exposes create, callback, and callback-audit endpoints. Manual success editing is not part of this page.
           </p>
           <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm text-muted">
             <p>POST /payments/:orderId/initiate</p>
@@ -291,7 +289,7 @@ export default function OrdersOperationsPage() {
         <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-primary">Current limitation</h2>
           <p className="mt-2 text-sm leading-6 text-muted">
-            `GET /orders` now returns live data, so the page reflects the current backend result set instead of pretending the list is empty.
+            `GET /orders` now returns live data, so this page mirrors the backend result set instead of pretending the list is empty.
           </p>
         </div>
       </div>

@@ -2,7 +2,7 @@
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CsvImportJob } from './entities/csv-import-job.entity';
-import { CsvImportRow } from './entities/csv-import-row.entity';
+import { CsvImportRow, CsvRowStatus } from './entities/csv-import-row.entity';
 import { VipGuest } from './entities/vip-guest.entity';
 import { CsvImportJobStatus } from './entities/csv-import-job.entity';
 
@@ -37,6 +37,13 @@ export class CsvImportRepository {
     await this.jobRepo.update(jobId, { status });
   }
 
+  async updateJobProgress(
+    jobId: string,
+    data: Partial<Pick<CsvImportJob, 'status' | 'totalRows' | 'successRows' | 'errorRows' | 'failureReason'>>,
+  ): Promise<void> {
+    await this.jobRepo.update(jobId, data);
+  }
+
   async updateJobStats(
     jobId: string,
     stats: { totalRows: number; successRows: number; errorRows: number; status: CsvImportJobStatus; failureReason?: string },
@@ -47,7 +54,7 @@ export class CsvImportRepository {
   async createRowOutcome(
     jobId: string,
     rowNumber: number,
-    status: any, // CsvRowStatus
+    status: CsvRowStatus,
     errorReason?: string,
   ): Promise<CsvImportRow> {
     const existing = await this.rowRepo.findOne({
@@ -87,5 +94,17 @@ export class CsvImportRepository {
       where: { jobId },
       order: { rowNumber: 'ASC' },
     });
+  }
+
+  async addRow(row: Partial<CsvImportRow>): Promise<CsvImportRow> {
+    return this.rowRepo.save(this.rowRepo.create(row));
+  }
+
+  async findVipGuest(concertId: string, dedupKey: string): Promise<VipGuest | null> {
+    return this.vipRepo.findOneBy({ concertId, dedupKey });
+  }
+
+  async saveVipGuest(data: Partial<VipGuest>): Promise<VipGuest> {
+    return this.vipRepo.save(this.vipRepo.create(data));
   }
 }

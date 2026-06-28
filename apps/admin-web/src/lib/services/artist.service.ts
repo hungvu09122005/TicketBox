@@ -7,6 +7,11 @@ export const artistService = {
     return response.data.data;
   },
 
+  createArtist: async (data: Partial<Artist>): Promise<Artist> => {
+    const response = await apiClient.post('/artists', data);
+    return response.data.data;
+  },
+
   getArtist: async (id: string): Promise<Artist> => {
     const response = await apiClient.get(`/artists/${id}`);
     return response.data.data;

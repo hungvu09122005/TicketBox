@@ -9,7 +9,7 @@ import { operationsService, type NotificationJobRecord } from '@/lib/services/op
 
 const queueDashboardHref = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-  return apiUrl.replace(/\/api\/v1\/?$/, '') + '/admin/queues';
+  return `${apiUrl.replace(/\/$/, '')}/admin/queues`;
 })();
 
 type JobFilter = 'all' | 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
@@ -132,7 +132,7 @@ export default function NotificationsPage() {
   return (
     <div className="space-y-6">
       <div className="rounded-[32px] border border-border bg-surface p-6 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="max-w-2xl space-y-3">
             <Link href="/operations" className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary">
               <ArrowLeft size={16} />
@@ -145,14 +145,14 @@ export default function NotificationsPage() {
               </p>
             </div>
           </div>
-          <a href={queueDashboardHref} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface">
+          <a href={queueDashboardHref} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface md:self-start">
             <ArrowSquareOut size={16} />
-            Open Bull Board
+            Open queue board
           </a>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6">
         <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-2xl border border-border bg-background p-3 text-primary">
@@ -209,29 +209,6 @@ export default function NotificationsPage() {
         </section>
 
         <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-primary">Retry path</h2>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            Failed jobs are retried from the backend API, not only from the queue board, so permission and audit are visible in the admin app.
-          </p>
-          <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm leading-6 text-muted">
-            <p>Queue: notification</p>
-            <p className="mt-1">Job name: notification.ticket_confirmation</p>
-            <p className="mt-1">Retry permission: RBAC_MANAGE</p>
-          </div>
-        </section>
-
-        <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-primary">Backend queue map</h2>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            The backend registers notification, csv, ai, maintenance, and order-expiry in Bull Board.
-          </p>
-          <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm leading-6 text-muted">
-            <p>/admin/queues</p>
-            <p className="mt-1">notification, csv, ai, maintenance, order-expiry</p>
-          </div>
-        </section>
-
-        <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-primary">Notification jobs</h2>
@@ -260,12 +237,12 @@ export default function NotificationsPage() {
             <table className="min-w-full whitespace-nowrap text-left text-sm">
               <thead className="bg-surface/80 text-muted">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Job</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Reason</th>
-                  <th className="px-4 py-3 font-medium">Attempts</th>
-                  <th className="px-4 py-3 font-medium">Created</th>
-                  <th className="px-4 py-3 font-medium">Action</th>
+                  <th className="px-4 py-3 text-left font-medium">Job</th>
+                  <th className="px-4 py-3 text-left font-medium">Status</th>
+                  <th className="px-4 py-3 text-left font-medium">Reason</th>
+                  <th className="px-4 py-3 text-left font-medium">Attempts</th>
+                  <th className="px-4 py-3 text-left font-medium">Created</th>
+                  <th className="px-4 py-3 text-left font-medium">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -304,15 +281,17 @@ export default function NotificationsPage() {
                       <td className="px-4 py-3 text-muted">{formatDateTime(job.timestamp)}</td>
                       <td className="px-4 py-3">
                         {job.status === 'FAILED' && canRetryNotifications ? (
-                          <button
-                            type="button"
-                            onClick={() => handleRetry(job.id)}
-                            disabled={retryingJobId === job.id}
-                            className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary disabled:opacity-60"
-                          >
-                            {retryingJobId === job.id ? <SpinnerGap size={14} className="animate-spin" /> : <ArrowClockwise size={14} />}
-                            Retry
-                          </button>
+                          <div className="flex justify-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRetry(job.id)}
+                              disabled={retryingJobId === job.id}
+                              className="inline-flex min-w-[110px] items-center justify-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary disabled:opacity-60"
+                            >
+                              {retryingJobId === job.id ? <SpinnerGap size={14} className="animate-spin" /> : <ArrowClockwise size={14} />}
+                              Retry
+                            </button>
+                          </div>
                         ) : (
                           <span className="text-xs text-muted">{canRetryNotifications ? 'No action' : 'Retry locked'}</span>
                         )}

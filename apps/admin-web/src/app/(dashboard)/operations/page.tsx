@@ -42,7 +42,7 @@ const initialReportState: FetchState<ReportResponse> = {
 
 const queueDashboardBaseUrl = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-  return apiUrl.replace(/\/api\/v1\/?$/, '') + '/admin/queues';
+  return `${apiUrl.replace(/\/$/, '')}/admin/queues`;
 })();
 
 function formatCurrency(value?: number) {
@@ -76,16 +76,18 @@ function StatCard({
   return (
     <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-[11px] uppercase tracking-[0.22em] text-muted">{label}</p>
           <p className="mt-2 break-words text-2xl font-semibold tracking-tight text-primary">
             {value}
           </p>
-          <p className="mt-2 text-sm leading-6 text-muted">{hint}</p>
         </div>
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-background text-primary">
           {icon}
         </div>
+      </div>
+      <div className="mt-4 border-t border-border/70 pt-4">
+        <p className="text-sm leading-6 text-muted">{hint}</p>
       </div>
     </div>
   );
@@ -109,7 +111,7 @@ function SectionCard({
           <h2 className="text-xl font-semibold tracking-tight text-primary">{title}</h2>
           <p className="mt-2 text-sm leading-6 text-muted">{description}</p>
         </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
+        {action ? <div className="shrink-0 self-start">{action}</div> : null}
       </div>
       <div className="pt-5">{children}</div>
     </section>
@@ -509,54 +511,35 @@ export default function OperationsPage() {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <StatCard
-              label="Orders"
-              value={canViewOrders ? 'Live lookup' : 'Restricted'}
-              hint="Search a specific order ID and inspect the current state."
-              icon={<Receipt size={20} />}
-            />
-            <StatCard
-              label="Reports"
-              value={canViewReports ? 'API backed' : 'Restricted'}
-              hint="Revenue, tickets sold, and check-in rate are pulled from backend endpoints."
-              icon={<TrendUp size={20} />}
-            />
-            <StatCard
-              label="Jobs"
-              value={canViewJobs ? 'Queue aware' : 'Restricted'}
-              hint="CSV, AI bio, and notification probes route to real APIs."
-              icon={<CloudArrowUp size={20} />}
-            />
-            <StatCard
-              label="Retry path"
-              value={canManageNotifications ? 'Bull Board' : 'Restricted'}
-              hint="Failed jobs are retried from the backend queue dashboard."
-              icon={<ArrowClockwise size={20} />}
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {[
-          ['Order / payment management', 'Lookup by order ID and inspect hold, status, and expiry data.', canViewOrders, '/operations/orders'],
-          ['Failed notification jobs', 'Send a real probe or jump to queue dashboard for retry.', canManageNotifications, '/operations/notifications'],
-          ['Sales / check-in dashboard', 'Live reporting cards backed by `/reports/*` endpoints.', canViewReports, '/operations/reports'],
-          ['Background job monitor', 'Track CSV status and create AI / notification queue activity.', canViewJobs, '/operations/jobs'],
-        ].map(([title, description, allowed, href]) => (
-          <div key={String(title)} className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <Link href={String(href)} className="text-base font-semibold text-primary hover:underline underline-offset-4">
-                  {title}
-                </Link>
-                <p className="mt-2 text-sm leading-6 text-muted">{description}</p>
-              </div>
-              <Pill tone={allowed ? 'success' : 'warning'}>{allowed ? 'Allowed' : 'Restricted'}</Pill>
+          <div className="space-y-3">
+            <div className="grid gap-3 xl:grid-cols-2">
+              <StatCard
+                label="Orders"
+                value={canViewOrders ? 'Live lookup' : 'Restricted'}
+                hint="Search an order ID and inspect the current state."
+                icon={<Receipt size={20} />}
+              />
+              <StatCard
+                label="Reports"
+                value={canViewReports ? 'API backed' : 'Restricted'}
+                hint="Revenue, tickets sold, and check-in rate come from APIs."
+                icon={<TrendUp size={20} />}
+              />
+              <StatCard
+                label="Jobs"
+                value={canViewJobs ? 'Queue aware' : 'Restricted'}
+                hint="CSV, AI bio, and notification probes hit real APIs."
+                icon={<CloudArrowUp size={20} />}
+              />
+              <StatCard
+                label="Retry path"
+                value={canManageNotifications ? 'Bull Board' : 'Restricted'}
+                hint="Failed jobs retry from Bull Board."
+                icon={<ArrowClockwise size={20} />}
+              />
             </div>
           </div>
-        ))}
+        </div>
       </section>
 
       <SectionCard
@@ -644,14 +627,13 @@ export default function OperationsPage() {
                 Clear
               </button>
             </div>
+          </div>
 
+          <div className="space-y-4">
             <div className="rounded-[24px] border border-dashed border-border bg-background p-4 text-sm leading-6 text-muted">
               The backend currently exposes one order detail endpoint and payment create/callback only.
               This screen keeps the admin view honest by surfacing the real contract instead of fake tables.
             </div>
-          </div>
-
-          <div className="space-y-4">
             {orderLookupState.isLoading ? (
               <div className="grid gap-4 sm:grid-cols-2">
                 <SkeletonBlock className="h-28" />
