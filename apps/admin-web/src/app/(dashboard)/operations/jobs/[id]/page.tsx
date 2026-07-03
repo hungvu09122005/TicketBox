@@ -63,7 +63,7 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
         setResolvedJobId(id);
       } catch (error) {
         if (!isActive) return;
-        setErrorMessage(error instanceof Error ? error.message : 'Không thể tải chi tiết CSV job.');
+        setErrorMessage(error instanceof Error ? error.message : 'Could not load the CSV job details.');
       } finally {
         if (isActive) {
           setIsLoading(false);
@@ -98,7 +98,7 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
       anchor.remove();
       URL.revokeObjectURL(url);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải error report.');
+      setErrorMessage(error instanceof Error ? error.message : 'Could not load the error report.');
     } finally {
       setIsDownloadingReport(false);
     }
@@ -116,7 +116,7 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
             <div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">CSV job detail</h1>
               <p className="mt-3 text-sm leading-6 text-muted">
-                This detail view reads the real CSV status endpoint so admins can inspect a specific job without guessing from a generic monitor screen.
+                View a CSV job in detail, including processing status and error file if available.
               </p>
             </div>
           </div>
@@ -144,7 +144,7 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
             </div>
             <div>
               <h2 className="text-lg font-semibold text-primary">Job summary</h2>
-              <p className="text-sm text-muted">Live data from `GET /imports/:jobId/status`.</p>
+              <p className="text-sm text-muted">Current information for the selected job.</p>
             </div>
           </div>
 
@@ -197,14 +197,14 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
 
         <section className="space-y-4">
           <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Queue context</h2>
+            <h2 className="text-lg font-semibold text-primary">Queue board</h2>
             <p className="mt-2 text-sm leading-6 text-muted">
-              The full retry and worker state remains in the backend Bull Board, which keeps this UI contract honest and avoids simulating worker internals.
+              Open the queue board to view worker state and retry when needed.
             </p>
           </div>
 
           <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Status contract</h2>
+            <h2 className="text-lg font-semibold text-primary">Status guide</h2>
             <p className="mt-2 text-sm leading-6 text-muted">
               These are the states the CSV monitor expects from the backend job record.
             </p>

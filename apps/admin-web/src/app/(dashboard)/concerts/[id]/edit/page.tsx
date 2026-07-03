@@ -11,6 +11,7 @@ import { useAuthStore } from '@/lib/auth-store';
 import { concertService } from '@/lib/services/concert.service';
 import { Artist } from '@/lib/types';
 import { extractApiMessages } from '@/lib/api-errors';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const concertSchema = z.object({
   name: z.string().min(1, 'Title is required'),
@@ -24,6 +25,16 @@ const concertSchema = z.object({
 });
 
 type ConcertFormValues = z.infer<typeof concertSchema>;
+
+function formatDateTimeLocalInput(value?: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+function normalizeDateTimeValue(value: string) {
+  return value ? new Date(value).toISOString() : undefined;
+}
 
 export default function EditConcertPage({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
   const router = useRouter();
@@ -63,27 +74,22 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
         setArtists(aData);
         
         if (concertData) {
-          const formatForInput = (isoString: string) => {
-            if (!isoString) return '';
-            const d = new Date(isoString);
-            return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-          };
-
           reset({
             name: concertData.name || '',
             description: concertData.description || '',
             artistIds: concertData.artists?.map((artist) => artist.id) || [],
             venue: concertData.venue || '',
-            startsAt: concertData.startsAt ? formatForInput(concertData.startsAt) : '',
-            endsAt: concertData.endsAt ? formatForInput(concertData.endsAt) : '',
-            saleStartsAt: concertData.saleStartsAt ? formatForInput(concertData.saleStartsAt) : '',
-            saleEndsAt: concertData.saleEndsAt ? formatForInput(concertData.saleEndsAt) : '',
+            startsAt: formatDateTimeLocalInput(concertData.startsAt),
+            endsAt: formatDateTimeLocalInput(concertData.endsAt),
+            saleStartsAt: formatDateTimeLocalInput(concertData.saleStartsAt),
+            saleEndsAt: formatDateTimeLocalInput(concertData.saleEndsAt),
           });
+          setBannerObjectKey(concertData.bannerObjectKey ?? null);
           setBannerPreviewUrl(concertData.bannerUrl ?? null);
         }
       } catch (err) {
         console.error('Failed to load data', err);
-        setServerErrors(['Không thể tải thông tin sự kiện. Vui lòng thử lại.']);
+        setServerErrors(['Could not load the event details. Please try again.']);
       } finally {
         setIsLoading(false);
       }
@@ -99,6 +105,8 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
     setValue('artistIds', next, { shouldValidate: true, shouldDirty: true });
   };
 
+  const { toast } = useToast();
+
   const handleBannerUpload = async (file?: File) => {
     if (!file) return;
     setIsUploadingBanner(true);
@@ -111,8 +119,11 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
       const objectKey = await concertService.uploadBannerAsset(file);
       setBannerFileName(file.name);
       setBannerObjectKey(objectKey);
+      toast.success('Banner image uploaded successfully.');
     } catch (err: unknown) {
-      setServerErrors(extractApiMessages(err, 'Không thể upload banner.'));
+      const msgs = extractApiMessages(err, 'Could not upload the banner.');
+      setServerErrors(msgs);
+      toast.error(msgs[0] || 'Could not upload the banner.');
     } finally {
       setIsUploadingBanner(false);
     }
@@ -124,11 +135,18 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
     try {
       await concertService.updateConcert(admin, id, {
         ...data,
+        startsAt: normalizeDateTimeValue(data.startsAt),
+        endsAt: normalizeDateTimeValue(data.endsAt),
+        saleStartsAt: normalizeDateTimeValue(data.saleStartsAt),
+        saleEndsAt: normalizeDateTimeValue(data.saleEndsAt),
         ...(bannerObjectKey ? { bannerObjectKey } : {}),
       });
+      toast.success('Concert details updated successfully.');
       router.push('/concerts');
     } catch (err: unknown) {
-      setServerErrors(extractApiMessages(err, 'An unexpected error occurred while saving.'));
+      const msgs = extractApiMessages(err, 'An unexpected error occurred while saving.');
+      setServerErrors(msgs);
+      toast.error(msgs[0] || 'Failed to save concert details.');
     } finally {
       setIsSubmitting(false);
     }
@@ -311,7 +329,7 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
                   <img src={bannerPreviewUrl} alt="Banner preview" className="h-56 w-full object-cover" />
                 ) : (
                   <div className="flex h-56 items-center justify-center px-4 text-center text-sm text-muted">
-                    Ảnh bìa hiện tại sẽ hiện ở đây sau khi tải lại.
+                    The current cover image will appear here after reloading.
                   </div>
                 )}
               </div>
@@ -319,12 +337,12 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
                 {isUploadingBanner ? (
                   <>
                     <SpinnerGap size={14} className="animate-spin" />
-                    <span>Đang tải ảnh bìa...</span>
+                    <span>Loading cover image...</span>
                   </>
                 ) : bannerObjectKey ? (
                   <>
                     <CheckCircle size={14} className="text-emerald-600" />
-                    <span>Đã chọn ảnh bìa: {bannerFileName}</span>
+                    <span>Selected cover image: {bannerFileName}</span>
                     <span className="rounded-full border border-border bg-background px-2 py-1 text-[11px] text-primary">
                       {bannerObjectKey}
                     </span>
@@ -332,7 +350,7 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
                 ) : (
                   <>
                     <UploadSimple size={14} />
-                    <span>Chọn ảnh bìa mới nếu sự kiện chưa có ảnh.</span>
+                    <span>Choose a new cover image if the event does not have one yet.</span>
                   </>
                 )}
               </div>

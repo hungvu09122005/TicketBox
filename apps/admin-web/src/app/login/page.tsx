@@ -13,8 +13,8 @@ import { setStoredAdminTokens } from "@/lib/auth-session";
 import { hasAdminAccess } from "@/lib/authz";
 
 const loginSchema = z.object({
-  email: z.string().email({ message: "Email không hợp lệ" }),
-  password: z.string().min(6, { message: "Mật khẩu phải có ít nhất 6 ký tự" }),
+  email: z.string().email({ message: "Invalid email address" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -48,7 +48,7 @@ function AdminLoginForm() {
 
       if (!hasAdminAccess(profile)) {
         logout();
-        setSubmitError("Tài khoản này không có quyền truy cập admin.");
+        setSubmitError("This account does not have admin access.");
         router.replace("/forbidden");
         return;
       }
@@ -64,7 +64,7 @@ function AdminLoginForm() {
         "response" in error &&
         typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === "string"
           ? (error as { response?: { data?: { message?: string } } }).response!.data!.message!
-          : "Đăng nhập thất bại. Vui lòng thử lại.";
+          : "Login failed. Please try again.";
       setSubmitError(message);
     }
   };
@@ -75,7 +75,7 @@ function AdminLoginForm() {
         <div className="relative bg-surface border border-border rounded-2xl p-8 shadow-sm">
           <div className="flex flex-col items-center text-center mb-8">
             <Logo className="mb-2" />
-            <p className="text-muted text-sm mt-1">Đăng nhập tài khoản Quản trị viên</p>
+            <p className="text-muted text-sm mt-1">Sign in with an administrator account</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -105,10 +105,10 @@ function AdminLoginForm() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label htmlFor="password" className="block text-sm font-medium text-primary">
-                  Mật khẩu
+                  Password
                 </label>
                 <Link href="/forgot-password" className="text-sm font-medium text-muted hover:text-primary transition-colors">
-                  Quên mật khẩu?
+                  Forgot password?
                 </Link>
               </div>
               <input
@@ -134,7 +134,7 @@ function AdminLoginForm() {
                 {isSubmitting ? (
                   <span className="w-4 h-4 border-2 border-surface/30 border-t-surface rounded-full animate-spin" />
                 ) : (
-                  "Đăng nhập"
+                  "Sign in"
                 )}
               </button>
             </div>

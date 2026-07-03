@@ -10,6 +10,7 @@ import { ArrowLeft, FloppyDisk, SpinnerGap, UploadSimple, UserCircle } from '@ph
 import { artistService } from '@/lib/services/artist.service';
 import { extractApiMessages } from '@/lib/api-errors';
 import { hasStoredAdminSession } from '@/lib/auth-store';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const artistSchema = z.object({
   name: z.string().min(1, 'Artist name is required'),
@@ -52,6 +53,8 @@ export default function CreateArtistPage() {
     };
   }, [avatarPreviewUrl]);
 
+  const { toast } = useToast();
+
   const handleAvatarUpload = async (file?: File | null) => {
     if (!file) return;
 
@@ -72,8 +75,11 @@ export default function CreateArtistPage() {
         shouldDirty: true,
         shouldValidate: true,
       });
+      toast.success('Avatar image uploaded successfully.');
     } catch (error) {
-      setServerErrors(extractApiMessages(error, 'Không thể upload avatar.'));
+      const msgs = extractApiMessages(error, 'Could not upload the avatar.');
+      setServerErrors(msgs);
+      toast.error(msgs[0] || 'Could not upload avatar.');
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -89,9 +95,12 @@ export default function CreateArtistPage() {
         shortBio: values.shortBio?.trim() ? values.shortBio : null,
         avatarObjectKey: values.avatarObjectKey?.trim() ? values.avatarObjectKey : null,
       });
+      toast.success(`Artist "${artist.name}" created successfully.`);
       router.push(`/artists/${artist.id}`);
     } catch (error) {
-      setServerErrors(extractApiMessages(error, 'Không thể tạo artist.'));
+      const msgs = extractApiMessages(error, 'Could not create the artist.');
+      setServerErrors(msgs);
+      toast.error(msgs[0] || 'Could not create artist.');
     } finally {
       setIsSubmitting(false);
     }
@@ -112,7 +121,7 @@ export default function CreateArtistPage() {
         <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Create artist</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">New Artist</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
-          Use the real admin API to create the artist record, upload an avatar, and prepare a public bio for later publishing.
+          Create a new artist, upload an avatar, and prepare the bio for publishing later.
         </p>
       </div>
 
@@ -161,7 +170,7 @@ export default function CreateArtistPage() {
               placeholder="artists/the-neon-waves/avatar.png"
             />
             <p className="mt-1.5 text-xs leading-5 text-muted">
-              Bạn có thể upload ảnh phía dưới để tự điền object key thật.
+              You can upload an image below to auto-fill the real object key.
             </p>
           </div>
 
@@ -182,14 +191,14 @@ export default function CreateArtistPage() {
               <img src={avatarPreviewUrl} alt="Avatar preview" className="h-56 w-full object-cover" />
             ) : (
               <div className="flex h-56 items-center justify-center px-4 text-center text-sm text-muted">
-                Chưa chọn ảnh. Upload ảnh để xem preview ngay tại đây.
+                No image selected. Upload an image to preview it here.
               </div>
             )}
           </div>
 
           <div className="rounded-[24px] border border-border bg-background p-4 text-sm text-muted">
             <p className="font-medium text-primary">Artist name</p>
-            <p className="mt-1 break-words">{nameValue || 'Chưa nhập tên artist'}</p>
+            <p className="mt-1 break-words">{nameValue || 'Artist name not entered yet'}</p>
           </div>
 
           <div className="rounded-[24px] border border-border bg-background p-4 text-sm text-muted">
@@ -211,12 +220,12 @@ export default function CreateArtistPage() {
               {isUploadingAvatar ? (
                 <>
                   <SpinnerGap size={14} className="animate-spin" />
-                  <span>Đang upload avatar...</span>
+                  <span>Uploading avatar...</span>
                 </>
               ) : (
                 <>
                   <UserCircle size={14} />
-                  <span>Upload qua API thật rồi lưu object key.</span>
+                  <span>Upload through the real API and save the object key.</span>
                 </>
               )}
             </div>

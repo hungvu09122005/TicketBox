@@ -2,12 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowSquareOut, MagnifyingGlass, ShieldCheck, SpinnerGap, Ticket, Funnel } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowSquareOut, MagnifyingGlass, SpinnerGap, Ticket, Funnel } from '@phosphor-icons/react';
 import { useAuthStore } from '@/lib/auth-store';
 import { concertService } from '@/lib/services/concert.service';
 import { operationsService, type OrderDetails } from '@/lib/services/operations.service';
 import type { Concert } from '@/lib/types';
-import { Permission } from '@/lib/permissions';
 
 function formatCurrency(value?: number) {
   if (typeof value !== 'number' || Number.isNaN(value)) return '--';
@@ -47,9 +46,6 @@ const queueDashboardHref = (() => {
 
 export default function OrdersOperationsPage() {
   const admin = useAuthStore((state) => state.admin);
-  const permissions = useAuthStore((state) => state.permissions);
-  const canViewOrders = permissions.includes(Permission.ORDER_READ_ALL) || permissions.includes(Permission.ORDER_READ_OWN);
-
   const [orders, setOrders] = useState<OrderDetails[]>([]);
   const [concerts, setConcerts] = useState<Concert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -77,7 +73,7 @@ export default function OrdersOperationsPage() {
         setConcerts(concertData);
       } catch (error) {
         if (!isActive) return;
-        setErrorMessage(error instanceof Error ? error.message : 'Không thể tải danh sách đơn hàng.');
+        setErrorMessage(error instanceof Error ? error.message : 'Could not load the order list.');
       } finally {
         if (isActive) {
           setIsLoading(false);
@@ -203,7 +199,7 @@ export default function OrdersOperationsPage() {
         <div className="border-b border-border px-6 py-4">
           <div className="flex items-center gap-2 text-sm text-muted">
             <Ticket size={16} />
-            Live order list from `GET /orders`
+            Order list
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -272,27 +268,6 @@ export default function OrdersOperationsPage() {
         </div>
       </div>
 
-      <div className="grid gap-4">
-        <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-primary">Payment contract</h2>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            The backend exposes create, callback, and callback-audit endpoints. Manual success editing is not part of this page.
-          </p>
-          <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm text-muted">
-            <p>POST /payments/:orderId/initiate</p>
-            <p className="mt-1">GET /payments/callback/vnpay</p>
-            <p className="mt-1">GET /payments/orders/:orderId/history</p>
-            <p className="mt-1">GET /payments/orders/:orderId/audit</p>
-          </div>
-        </div>
-
-        <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-primary">Current limitation</h2>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            `GET /orders` now returns live data, so this page mirrors the backend result set instead of pretending the list is empty.
-          </p>
-        </div>
-      </div>
     </div>
   );
 }

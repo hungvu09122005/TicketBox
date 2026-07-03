@@ -359,7 +359,7 @@ export default function ReportsPage() {
         setCheckin({ data: checkinData, isLoading: false, error: null });
       } catch (error) {
         if (!isActive) return;
-        const message = error instanceof Error ? error.message : 'Không thể tải báo cáo.';
+        const message = error instanceof Error ? error.message : 'Could not load the report.';
         setRevenue({ data: null, isLoading: false, error: message });
         setTickets({ data: null, isLoading: false, error: message });
         setCheckin({ data: null, isLoading: false, error: message });
@@ -393,10 +393,6 @@ export default function ReportsPage() {
             <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Reports</p>
             <div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Sales and check-in dashboard</h1>
-              <p className="mt-3 text-sm leading-6 text-muted">
-                Live backend series from `/reports/revenue/timeline`, `/reports/tickets-sold/timeline`, and `/reports/checkin-rate/timeline`.
-                Each concert renders as its own line with a real time axis.
-              </p>
             </div>
           </div>
           <a

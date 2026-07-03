@@ -239,17 +239,17 @@ export class ConcertsService {
   async update(id: string, organizerId: string, isAdmin: boolean, dto: UpdateConcertDto): Promise<Concert> {
     const concert = await this.checkOwnership(id, organizerId, isAdmin);
     const { artistIds, ...updateData } = dto;
+    const scalarUpdates = Object.fromEntries(
+      Object.entries(updateData).filter(([, value]) => value !== undefined),
+    );
 
-    // Update scalar fields
-    if (Object.keys(updateData).length > 0) {
-      await this.concertsRepository.update(id, updateData);
-    }
+    Object.assign(concert, scalarUpdates);
 
-    // Update artists relation if artistIds provided
-    if (artistIds && artistIds.length > 0) {
+    if (artistIds) {
       concert.artists = artistIds.map((aid) => ({ id: aid }) as any);
-      await this.concertsRepository.save(concert);
     }
+
+    await this.concertsRepository.save(concert);
 
     await this.invalidateCacheFor(id);
     return this.concertsRepository.findById(id) as Promise<Concert>;

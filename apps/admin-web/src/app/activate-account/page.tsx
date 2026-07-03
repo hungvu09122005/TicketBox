@@ -11,15 +11,11 @@ function AdminActivateAccountContent() {
   const searchParams = useSearchParams();
   const token = useMemo(() => searchParams.get("token") ?? "", [searchParams]);
   const [loading, setLoading] = useState(Boolean(token));
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(token ? null : "Missing activation token in the URL.");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) {
-      setErrorMessage("Thiếu token kích hoạt trong đường dẫn.");
-      setLoading(false);
-      return;
-    }
+    if (!token) return;
 
     let isMounted = true;
 
@@ -37,7 +33,7 @@ function AdminActivateAccountContent() {
           "response" in error &&
           typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === "string"
             ? (error as { response?: { data?: { message?: string } } }).response!.data!.message!
-            : "Không thể kích hoạt tài khoản. Vui lòng thử lại.";
+            : "Could not activate the account. Please try again.";
         setErrorMessage(message);
       } finally {
         if (isMounted) setLoading(false);
@@ -57,12 +53,12 @@ function AdminActivateAccountContent() {
         <div className="relative bg-surface border border-border rounded-2xl p-8 shadow-sm">
           <div className="flex flex-col items-center text-center mb-8">
             <Logo className="mb-2" />
-            <p className="text-muted text-sm mt-1">Kích hoạt tài khoản từ email</p>
+            <p className="text-muted text-sm mt-1">Activate your account from email</p>
           </div>
 
           <div className="space-y-4 text-center">
             <div className={`rounded-xl px-4 py-4 text-sm leading-6 ${errorMessage ? 'border border-red-200 bg-red-50 text-red-700' : 'border border-border bg-background text-primary'}`}>
-              {errorMessage ?? successMessage ?? (loading ? "Đang xác minh token..." : "Sẵn sàng kích hoạt tài khoản.")}
+              {errorMessage ?? successMessage ?? (loading ? "Verifying token..." : "Ready to activate the account.")}
             </div>
 
             <Link
@@ -70,7 +66,7 @@ function AdminActivateAccountContent() {
               className="w-full py-2.5 px-4 border border-border hover:bg-zinc-50 text-primary rounded-lg text-sm font-medium shadow-sm transition-all flex justify-center items-center gap-2"
             >
               <ArrowLeft className="w-4 h-4" />
-              Quay lại đăng nhập
+              Back to sign in
             </Link>
           </div>
         </div>

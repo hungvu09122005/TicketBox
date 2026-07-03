@@ -75,7 +75,7 @@ function QrPreview({ token }: Readonly<{ token: string }>) {
         ))}
       </div>
       <p className="mt-4 text-center text-xs uppercase tracking-[0.22em] text-white/55">
-        Rendered from signed qr_token
+        Mã QR vé điện tử
       </p>
     </div>
   );
@@ -155,13 +155,13 @@ export default function TicketsPage() {
           >
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium uppercase tracking-[0.22em] text-white/75 backdrop-blur-md">
               <QrCode size={14} />
-              My Tickets
+              Vé của tôi
             </div>
             <h1 className="mt-5 text-4xl font-semibold tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">
-              E-ticket QR thật từ `qr_token`.
+              Kho vé điện tử của bạn
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-white/72 sm:text-lg">
-              Trang này chỉ hiển thị vé thuộc user hiện tại qua `GET /tickets/me`. Mỗi QR preview được dựng từ token đã ký, và trạng thái ACTIVE/CHECKED_IN/CANCELLED được hiển thị rõ ràng.
+              Xem lại toàn bộ vé đã phát hành, trạng thái sử dụng và mã QR cho từng lần tham dự.
             </p>
           </motion.div>
 
@@ -191,7 +191,7 @@ export default function TicketsPage() {
               <Ticket size={32} className="mx-auto text-white/65" />
               <h2 className="mt-5 text-2xl font-semibold text-white">Chưa có vé nào</h2>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/68">
-                Sau khi thanh toán thành công và backend phát hành ticket, mỗi vé sẽ xuất hiện ở đây cùng QR token.
+                Sau khi thanh toán thành công, vé điện tử của bạn sẽ xuất hiện tại đây.
               </p>
               <Link
                 href="/concerts"
@@ -208,8 +208,8 @@ export default function TicketsPage() {
               <div className="rounded-[32px] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Summary</p>
-                    <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">Owned tickets only</h2>
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Tổng quan</p>
+                    <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">Vé hiện có</h2>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
@@ -257,9 +257,6 @@ export default function TicketsPage() {
                           <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                             <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">QR token</p>
                             <p className="mt-2 break-all font-mono text-xs leading-6 text-white/75">{ticket.qrToken}</p>
-                            <p className="mt-2 text-xs leading-5 text-white/55">
-                              The preview is rendered from the backend-signed token. The frontend does not fabricate a fake ticket identifier.
-                            </p>
                           </div>
                           <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                             <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Created</p>

@@ -1,9 +1,31 @@
-/* eslint-disable @next/next/no-img-element */"use client";
+/* eslint-disable @next/next/no-img-element */
+"use client";
 
+import { useEffect, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
+import { hasStoredSession } from "@/lib/auth-store";
 
 export default function Home() {
+  const router = useRouter();
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+  const shouldRedirectToConcerts = mounted && hasStoredSession();
+
+  useEffect(() => {
+    if (shouldRedirectToConcerts) {
+      router.replace("/concerts");
+    }
+  }, [router, shouldRedirectToConcerts]);
+
+  if (shouldRedirectToConcerts) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-white selection:bg-emerald-500/30">
       <Header />

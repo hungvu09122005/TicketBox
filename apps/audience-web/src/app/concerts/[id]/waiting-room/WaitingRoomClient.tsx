@@ -238,7 +238,7 @@ export default function WaitingRoomClient({ concertId }: Readonly<{ concertId: s
                   Đang giữ chỗ trong hàng đợi
                 </h1>
                 <p className="mt-4 max-w-2xl text-sm leading-6 text-white/68">
-                  Trang này poll trạng thái thật từ backend mỗi {Math.round(POLL_INTERVAL_MS / 1000)} giây. Khi trạng thái chuyển sang active, hệ thống sẽ tự tạo order và chuyển tiếp sang payment.
+                  Hệ thống sẽ tự động cập nhật vị trí của bạn sau mỗi {Math.round(POLL_INTERVAL_MS / 1000)} giây và chuyển sang bước thanh toán khi đến lượt.
                 </p>
               </div>
               <div className="inline-flex w-fit flex-col rounded-[20px] border border-white/10 bg-white/5 px-3 py-2.5 text-left md:col-start-2 md:row-start-1 md:justify-self-end md:self-start">
@@ -275,8 +275,8 @@ export default function WaitingRoomClient({ concertId }: Readonly<{ concertId: s
                   </div>
 
                   <div className="rounded-[24px] border border-white/10 bg-white/5 p-5 text-sm leading-6 text-white/68">
-                    <p>Hệ thống sẽ giữ `queueToken` của bạn và kiểm tra lại tự động.</p>
-                    <p className="mt-2">Không tạo order mới cho đến khi backend xác nhận lượt của bạn đã active.</p>
+                    <p>Hệ thống sẽ giữ chỗ của bạn trong hàng đợi và kiểm tra lại tự động.</p>
+                    <p className="mt-2">Khi đến lượt, bạn sẽ được chuyển tiếp sang bước đặt vé tiếp theo.</p>
                   </div>
                 </div>
               ) : null}
@@ -313,25 +313,24 @@ export default function WaitingRoomClient({ concertId }: Readonly<{ concertId: s
                   className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
                 >
                   <ArrowClockwise size={16} />
-                  Refresh now
+                  Làm mới ngay
                 </button>
                 <span className="text-xs uppercase tracking-[0.18em] text-white/45">
-                  Last checked {lastCheckedAt ? new Intl.DateTimeFormat('vi-VN', { timeStyle: 'medium' }).format(new Date(lastCheckedAt)) : '--'}
+                  Cập nhật lần cuối {lastCheckedAt ? new Intl.DateTimeFormat('vi-VN', { timeStyle: 'medium' }).format(new Date(lastCheckedAt)) : '--'}
                 </span>
               </div>
             </section>
 
             <aside className="space-y-4 rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Checkout draft</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Thông tin lượt đặt vé</p>
               <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 text-sm leading-6 text-white/72">
-                <p>Ticket type: {draft?.ticketTypeId ?? searchParams.get('ticketTypeId') ?? '--'}</p>
-                <p className="mt-1">Quantity: {draft?.quantity ?? searchParams.get('quantity') ?? '--'}</p>
-                <p className="mt-1 break-words">Queue token: {draft?.queueToken || searchParams.get('queueToken') || '--'}</p>
+                <p>Hạng vé: {draft?.ticketTypeId ?? searchParams.get('ticketTypeId') ?? '--'}</p>
+                <p className="mt-1">Số lượng: {draft?.quantity ?? searchParams.get('quantity') ?? '--'}</p>
               </div>
               <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 text-sm leading-6 text-white/72">
-                <p className="font-medium text-white">What happens next</p>
+                <p className="font-medium text-white">Tiếp theo</p>
                 <p className="mt-2">
-                  Khi backend trả `ACTIVE`, trang này sẽ tự gọi lại `POST /orders` với queueToken rồi mở payment.
+                  Khi đến lượt, hệ thống sẽ tự động tiếp tục sang bước thanh toán cho bạn.
                 </p>
               </div>
               {isCreatingOrder ? (

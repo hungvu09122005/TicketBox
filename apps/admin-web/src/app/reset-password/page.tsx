@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -11,10 +11,10 @@ import { Logo } from "@/components/Logo";
 import { authService } from "@/lib/services/auth.service";
 
 const resetPasswordSchema = z.object({
-  password: z.string().min(8, { message: "Mật khẩu phải có ít nhất 8 ký tự" }),
+  password: z.string().min(8, { message: "Password must be at least 8 characters" }),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "Mật khẩu xác nhận không khớp",
+  message: "Confirmation password does not match",
   path: ["confirmPassword"],
 });
 
@@ -23,14 +23,8 @@ type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 function AdminResetPasswordForm() {
   const searchParams = useSearchParams();
   const token = useMemo(() => searchParams.get("token") ?? "", [searchParams]);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(token ? null : "Missing reset token in the URL.");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!token) {
-      setSubmitError("Thiếu token đặt lại mật khẩu trong đường dẫn.");
-    }
-  }, [token]);
 
   const {
     register,
@@ -58,7 +52,7 @@ function AdminResetPasswordForm() {
         "response" in error &&
         typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === "string"
           ? (error as { response?: { data?: { message?: string } } }).response!.data!.message!
-          : "Không thể đặt lại mật khẩu. Vui lòng thử lại.";
+          : "Could not reset the password. Please try again.";
       setSubmitError(message);
     }
   };
@@ -69,7 +63,7 @@ function AdminResetPasswordForm() {
         <div className="relative bg-surface border border-border rounded-2xl p-8 shadow-sm">
           <div className="flex flex-col items-center text-center mb-8">
             <Logo className="mb-2" />
-            <p className="text-muted text-sm mt-1">Đặt lại mật khẩu Quản trị viên</p>
+            <p className="text-muted text-sm mt-1">Reset an administrator password</p>
           </div>
 
           {successMessage ? (
@@ -82,7 +76,7 @@ function AdminResetPasswordForm() {
                 className="w-full py-2.5 px-4 border border-border hover:bg-zinc-50 text-primary rounded-lg text-sm font-medium shadow-sm transition-all flex justify-center items-center gap-2"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Quay lại đăng nhập
+                Back to sign in
               </Link>
             </div>
           ) : (
@@ -95,7 +89,7 @@ function AdminResetPasswordForm() {
 
               <div className="space-y-2">
                 <label htmlFor="password" className="text-sm font-medium text-primary">
-                  Mật khẩu mới
+                  New password
                 </label>
                 <input
                   id="password"
@@ -111,7 +105,7 @@ function AdminResetPasswordForm() {
 
               <div className="space-y-2">
                 <label htmlFor="confirmPassword" className="text-sm font-medium text-primary">
-                  Xác nhận mật khẩu
+                  Confirm password
                 </label>
                 <input
                   id="confirmPassword"
@@ -130,7 +124,7 @@ function AdminResetPasswordForm() {
                 disabled={isSubmitting || !token}
                 className="w-full py-2.5 px-4 rounded-lg bg-primary text-surface text-sm font-medium shadow-sm transition-all hover:opacity-90 disabled:opacity-60"
               >
-                {isSubmitting ? "Đang lưu..." : "Lưu mật khẩu mới"}
+                {isSubmitting ? "Saving..." : "Save new password"}
               </button>
 
               <Link
@@ -138,7 +132,7 @@ function AdminResetPasswordForm() {
                 className="w-full py-2.5 px-4 border border-border hover:bg-zinc-50 text-primary rounded-lg text-sm font-medium shadow-sm transition-all flex justify-center items-center gap-2"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Quay lại đăng nhập
+                Back to sign in
               </Link>
             </form>
           )}

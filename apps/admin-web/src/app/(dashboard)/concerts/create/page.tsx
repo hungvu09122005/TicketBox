@@ -10,6 +10,7 @@ import { ArrowLeft, CheckCircle, SpinnerGap, UploadSimple } from '@phosphor-icon
 import { concertService } from '@/lib/services/concert.service';
 import { Artist } from '@/lib/types';
 import { extractApiMessages } from '@/lib/api-errors';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const concertSchema = z.object({
   name: z.string().min(1, 'Title is required'),
@@ -67,6 +68,8 @@ export default function CreateConcertPage() {
     loadMeta();
   }, []);
 
+  const { toast } = useToast();
+
   const handleBannerUpload = async (file?: File) => {
     if (!file) return;
     setIsUploadingBanner(true);
@@ -79,8 +82,11 @@ export default function CreateConcertPage() {
       const objectKey = await concertService.uploadBannerAsset(file);
       setBannerFileName(file.name);
       setBannerObjectKey(objectKey);
+      toast.success('Cover image uploaded successfully.');
     } catch (err: unknown) {
-      setServerErrors(extractApiMessages(err, 'Không thể upload banner.'));
+      const msgs = extractApiMessages(err, 'Could not upload the banner.');
+      setServerErrors(msgs);
+      toast.error(msgs[0] || 'Could not upload banner.');
     } finally {
       setIsUploadingBanner(false);
     }
@@ -94,9 +100,12 @@ export default function CreateConcertPage() {
         ...data,
         bannerObjectKey: bannerObjectKey ?? undefined,
       });
+      toast.success('Concert draft created successfully.');
       router.push('/concerts');
     } catch (err: unknown) {
-      setServerErrors(extractApiMessages(err, 'An unexpected error occurred while saving.'));
+      const msgs = extractApiMessages(err, 'An unexpected error occurred while saving.');
+      setServerErrors(msgs);
+      toast.error(msgs[0] || 'Could not save concert draft.');
     } finally {
       setIsSubmitting(false);
     }
@@ -264,7 +273,7 @@ export default function CreateConcertPage() {
                   <img src={bannerPreviewUrl} alt="Banner preview" className="h-56 w-full object-cover" />
                 ) : (
                   <div className="flex h-56 items-center justify-center px-4 text-center text-sm text-muted">
-                    Chưa chọn banner. Chọn file để xem preview ngay tại đây.
+                    No banner selected. Choose a file to preview it here.
                   </div>
                 )}
               </div>
@@ -272,12 +281,12 @@ export default function CreateConcertPage() {
                 {isUploadingBanner ? (
                   <>
                     <SpinnerGap size={14} className="animate-spin" />
-                    <span>Đang tải ảnh bìa...</span>
+                    <span>Loading cover image...</span>
                   </>
                 ) : bannerObjectKey ? (
                   <>
                     <CheckCircle size={14} className="text-emerald-600" />
-                    <span>Đã chọn ảnh bìa: {bannerFileName}</span>
+                    <span>Selected cover image: {bannerFileName}</span>
                     <span className="rounded-full border border-border bg-background px-2 py-1 text-[11px] text-primary">
                       {bannerObjectKey}
                     </span>
@@ -285,7 +294,7 @@ export default function CreateConcertPage() {
                 ) : (
                   <>
                     <UploadSimple size={14} />
-                    <span>Chọn ảnh bìa ngay để sự kiện sẵn sàng mở bán.</span>
+                    <span>Choose a cover image now so the event is ready for sale.</span>
                   </>
                 )}
               </div>
