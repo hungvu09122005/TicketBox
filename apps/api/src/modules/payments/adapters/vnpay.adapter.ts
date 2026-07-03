@@ -40,10 +40,10 @@ export class VnpayAdapter implements PaymentPort {
   }
 
   async createPaymentUrl(params: CreatePaymentParams): Promise<string> {
-    const tmnCode = this.configService.get<string>('VNPAY_TMN_CODE', '');
-    const hashSecret = this.configService.get<string>('VNPAY_HASH_SECRET', '');
-    const vnpUrl = this.configService.get<string>('VNPAY_SANDBOX_URL', '');
-    const returnUrl = this.configService.get<string>('VNPAY_RETURN_URL', '');
+    const tmnCode = this.configService.get<string>('VNPAY_TMN_CODE', '').trim();
+    const hashSecret = this.configService.get<string>('VNPAY_HASH_SECRET', '').trim();
+    const vnpUrl = this.configService.get<string>('VNPAY_SANDBOX_URL', '').trim();
+    const returnUrl = this.configService.get<string>('VNPAY_RETURN_URL', '').trim();
 
     if (!tmnCode || !hashSecret) {
       this.logger.warn('VNPAY credentials are missing. Payment URL generation might fail.');
@@ -51,7 +51,7 @@ export class VnpayAdapter implements PaymentPort {
 
     const createDate = new Date();
     // Amount must be multiplied by 100 for VNPAY
-    let vnp_Params: Record<string, string | number> = {
+    const vnp_Params: Record<string, string | number> = {
       vnp_Version: '2.1.0',
       vnp_Command: 'pay',
       vnp_TmnCode: tmnCode,
@@ -66,19 +66,36 @@ export class VnpayAdapter implements PaymentPort {
       vnp_CreateDate: this.getVnpayDate(createDate),
     };
 
-    vnp_Params = this.sortObject(vnp_Params);
+    const sortedParams = this.sortObject(vnp_Params);
     
-    const signData = qs.stringify(vnp_Params, { encode: false });
+    const signData = Object.entries(sortedParams)
+      .map(([key, val]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(val)).replace(/%20/g, '+')}`)
+      .join('&');
+
+    this.logger.log(`[DEBUG VNPAY] signData: ${signData}`);
+    this.logger.log(`[DEBUG VNPAY] hashSecret prefix: ${hashSecret ? hashSecret.substring(0, 4) + '...' : 'MISSING'}`);
+    this.logger.log(`[DEBUG VNPAY] hashSecret length: ${hashSecret.length}`);
+
     const hmac = crypto.createHmac('sha512', hashSecret);
     const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
-    vnp_Params['vnp_SecureHash'] = signed;
+    
+    this.logger.log(`[DEBUG VNPAY] signed hash: ${signed}`);
 
-    const finalUrl = vnpUrl + '?' + qs.stringify(vnp_Params, { encode: false });
+    const finalParams = {
+      ...sortedParams,
+      vnp_SecureHash: signed,
+    };
+
+    const finalUrl = vnpUrl + '?' + Object.entries(finalParams)
+      .map(([key, val]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(val)).replace(/%20/g, '+')}`)
+      .join('&');
+      
+    this.logger.log(`[DEBUG VNPAY] finalUrl: ${finalUrl}`);
     return finalUrl;
   }
 
   async verifyCallback(rawQuery: Record<string, string>): Promise<PaymentCallbackResult | null> {
-    const hashSecret = this.configService.get<string>('VNPAY_HASH_SECRET', '');
+    const hashSecret = this.configService.get<string>('VNPAY_HASH_SECRET', '').trim();
     
     let vnp_Params = { ...rawQuery };
     const secureHash = vnp_Params['vnp_SecureHash'];
@@ -86,8 +103,12 @@ export class VnpayAdapter implements PaymentPort {
     delete vnp_Params['vnp_SecureHash'];
     delete vnp_Params['vnp_SecureHashType'];
 
-    vnp_Params = this.sortObject(vnp_Params) as Record<string, string>;
-    const signData = qs.stringify(vnp_Params, { encode: false });
+    const sortedParams = this.sortObject(vnp_Params);
+    
+    const signData = Object.entries(sortedParams)
+      .map(([key, val]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(val)).replace(/%20/g, '+')}`)
+      .join('&');
+
     const hmac = crypto.createHmac('sha512', hashSecret);
     const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
 

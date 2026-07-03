@@ -6,7 +6,7 @@ import { Role } from './roles.enum';
 export const ROLE_PERMISSIONS_MAPPING: Record<Role, Permission[]> = {
   [Role.AUDIENCE]: [
     Permission.CONCERT_READ_PUBLIC,
-    //Permission.ORDER_CREATE,
+    Permission.ORDER_CREATE,
     Permission.USER_READ_OWN,
     Permission.USER_UPDATE_OWN,
     Permission.ORDER_READ_OWN,

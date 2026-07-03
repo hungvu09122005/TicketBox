@@ -175,6 +175,10 @@ export class UsersService {
     const frontendUrl = this.getFrontendUrl(app);
     const link = `${frontendUrl.replace(/\/$/, '')}/activate-account?token=${encodeURIComponent(token)}`;
 
+    if (this.configService.get<string>('app.nodeEnv') !== 'production') {
+      this.logger.log(`[DEV ONLY] Link kích hoạt tài khoản của ${user.email}: ${link}`);
+    }
+
     await this.sendEmailBestEffort({
       to: user.email,
       subject: 'Kích hoạt tài khoản TicketBox',
@@ -194,6 +198,10 @@ export class UsersService {
     const token = await this.createActionToken(user, 'password-reset');
     const frontendUrl = this.getFrontendUrl(app);
     const link = `${frontendUrl.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(token)}`;
+
+    if (this.configService.get<string>('app.nodeEnv') !== 'production') {
+      this.logger.log(`[DEV ONLY] Link đặt lại mật khẩu của ${user.email}: ${link}`);
+    }
 
     await this.sendEmailBestEffort({
       to: user.email,
