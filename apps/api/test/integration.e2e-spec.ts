@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -266,9 +267,8 @@ describe('TicketBox Integration Tests (Real Database)', () => {
     const redis = redisService.getClient();
     await redis.flushdb();
 
-    // Ensure RBAC is seeded on database
     await seedRbac(dataSource.manager);
-  });
+  }, 60000);
 
   // Helper to create users with roles
   async function createTestUser(email: string, roleName: Role): Promise<{ user: User; token: string }> {

@@ -59,15 +59,16 @@ export default registerAs('app', () => ({
   },
 
   ai: {
-    provider: process.env.AI_PROVIDER ?? 'openai',
-    openaiApiKey: process.env.OPENAI_API_KEY ?? '',
-    openaiModel: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
-    openaiTimeoutMs: parseInt(process.env.OPENAI_TIMEOUT_MS ?? '15000', 10),
-    openaiMaxTokens: parseInt(process.env.OPENAI_MAX_OUTPUT_TOKENS ?? '1000', 10),
-    openaiTemperature: parseFloat(process.env.OPENAI_TEMPERATURE ?? '0.7'),
-    quotaPerMinute: parseInt(process.env.OPENAI_QUOTA_PER_MINUTE ?? '10', 10),
+    provider: 'grok',
+    grokApiKey: process.env.GROK_API_KEY ?? '',
+    grokModel: process.env.GROK_MODEL ?? 'grok-beta',
+    grokBaseUrl: process.env.GROK_BASE_URL ?? 'https://api.x.ai/v1',
+    timeoutMs: parseInt(process.env.GROK_TIMEOUT_MS ?? process.env.OPENAI_TIMEOUT_MS ?? '15000', 10),
+    maxTokens: parseInt(process.env.GROK_MAX_OUTPUT_TOKENS ?? process.env.OPENAI_MAX_OUTPUT_TOKENS ?? '1000', 10),
+    temperature: parseFloat(process.env.GROK_TEMPERATURE ?? process.env.OPENAI_TEMPERATURE ?? '0.7'),
+    quotaPerMinute: parseInt(process.env.GROK_QUOTA_PER_MINUTE ?? process.env.OPENAI_QUOTA_PER_MINUTE ?? '10', 10),
     textMaxChars: parseInt(process.env.AI_TEXT_MAX_CHARS ?? '8000', 10),
-},
+  },
 
   email: {
     sendgridApiKey: process.env.SENDGRID_API_KEY ?? '',
