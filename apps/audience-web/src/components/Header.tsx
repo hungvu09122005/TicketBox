@@ -58,6 +58,10 @@ export function Header() {
             </>
           ) : (
             <>
+              <Link href="/concerts" className={`flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-zinc-600 hover:text-zinc-950' : 'text-zinc-300 hover:text-white'}`}>
+                <Ticket className="w-5 h-5" />
+                <span>Sự kiện</span>
+              </Link>
               <Link href="/orders" className={`hidden md:flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-zinc-600 hover:text-zinc-950' : 'text-zinc-300 hover:text-white'}`}>
                 <Receipt className="w-5 h-5" />
                 <span>Đơn hàng</span>

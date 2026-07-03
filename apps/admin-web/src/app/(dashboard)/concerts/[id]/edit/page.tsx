@@ -25,6 +25,16 @@ const concertSchema = z.object({
 
 type ConcertFormValues = z.infer<typeof concertSchema>;
 
+function formatDateTimeLocalInput(value?: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+function normalizeDateTimeValue(value: string) {
+  return value ? new Date(value).toISOString() : undefined;
+}
+
 export default function EditConcertPage({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
   const router = useRouter();
   const { id } = use(params);
@@ -63,22 +73,17 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
         setArtists(aData);
         
         if (concertData) {
-          const formatForInput = (isoString: string) => {
-            if (!isoString) return '';
-            const d = new Date(isoString);
-            return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-          };
-
           reset({
             name: concertData.name || '',
             description: concertData.description || '',
             artistIds: concertData.artists?.map((artist) => artist.id) || [],
             venue: concertData.venue || '',
-            startsAt: concertData.startsAt ? formatForInput(concertData.startsAt) : '',
-            endsAt: concertData.endsAt ? formatForInput(concertData.endsAt) : '',
-            saleStartsAt: concertData.saleStartsAt ? formatForInput(concertData.saleStartsAt) : '',
-            saleEndsAt: concertData.saleEndsAt ? formatForInput(concertData.saleEndsAt) : '',
+            startsAt: formatDateTimeLocalInput(concertData.startsAt),
+            endsAt: formatDateTimeLocalInput(concertData.endsAt),
+            saleStartsAt: formatDateTimeLocalInput(concertData.saleStartsAt),
+            saleEndsAt: formatDateTimeLocalInput(concertData.saleEndsAt),
           });
+          setBannerObjectKey(concertData.bannerObjectKey ?? null);
           setBannerPreviewUrl(concertData.bannerUrl ?? null);
         }
       } catch (err) {
@@ -124,6 +129,10 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
     try {
       await concertService.updateConcert(admin, id, {
         ...data,
+        startsAt: normalizeDateTimeValue(data.startsAt),
+        endsAt: normalizeDateTimeValue(data.endsAt),
+        saleStartsAt: normalizeDateTimeValue(data.saleStartsAt),
+        saleEndsAt: normalizeDateTimeValue(data.saleEndsAt),
         ...(bannerObjectKey ? { bannerObjectKey } : {}),
       });
       router.push('/concerts');

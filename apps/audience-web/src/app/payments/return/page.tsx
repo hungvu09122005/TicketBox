@@ -21,19 +21,19 @@ import type { AudienceOrder, PaymentReturnStatus } from '@/lib/types';
 const statusConfig: Record<PaymentReturnStatus, { title: string; description: string; icon: React.ReactNode; accent: string }> = {
   pending: {
     title: 'Thanh toán đang chờ xử lý',
-    description: 'Backend chưa xác nhận xong trạng thái giao dịch hoặc gateway đang callback.',
+    description: 'Giao dịch của bạn đang được xử lý. Vui lòng đợi thêm trong giây lát.',
     icon: <Clock size={24} />,
     accent: 'border-amber-400/20 bg-amber-400/10 text-amber-100',
   },
   success: {
     title: 'Thanh toán thành công',
-    description: 'Backend đã xác nhận order và có thể phát hành vé.',
+    description: 'Đơn hàng đã được xác nhận thành công và đang sẵn sàng phát hành vé.',
     icon: <CheckCircle size={24} />,
     accent: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-50',
   },
   failed: {
     title: 'Thanh toán thất bại',
-    description: 'Gateway hoặc backend trả trạng thái không thành công cho order này.',
+    description: 'Giao dịch chưa hoàn tất thành công cho đơn hàng này.',
     icon: <WarningCircle size={24} />,
     accent: 'border-rose-400/20 bg-rose-400/10 text-rose-50',
   },
@@ -133,9 +133,9 @@ function PaymentReturnPageContent() {
 
   const derivedConfig = statusConfig[derivedStatus];
   const statusPills: Record<PaymentReturnStatus, string> = {
-    pending: 'đang chờ callback',
-    success: 'backend đã ghi nhận PAID',
-    failed: 'backend ghi nhận thất bại',
+    pending: 'đang chờ xử lý',
+    success: 'đã thanh toán thành công',
+    failed: 'thanh toán chưa thành công',
     expired: 'đơn đã hết hạn giữ vé',
   };
 
@@ -222,8 +222,8 @@ function PaymentReturnPageContent() {
             <div className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Authoritative check</p>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">Re-check backend order status</h2>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Kiểm tra đơn hàng</p>
+                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">Cập nhật trạng thái thanh toán</h2>
                 </div>
                 <button
                   type="button"
@@ -232,18 +232,18 @@ function PaymentReturnPageContent() {
                   className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <ArrowClockwise size={16} />
-                  {isLoading ? 'Refreshing...' : 'Recheck'}
+                  {isLoading ? 'Đang cập nhật...' : 'Kiểm tra lại'}
                 </button>
               </div>
 
               <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-6 text-white/75">
                 {orderId ? (
                   <p>
-                    The frontend never simulates success or failure. It reads the query parameters from the return URL and, when possible, pulls the latest order state from the backend.
+                    Hệ thống sẽ đối chiếu thông tin thanh toán mới nhất để bạn biết đơn hàng đã hoàn tất, đang chờ hay cần thử lại.
                   </p>
                 ) : (
                   <p>
-                    No order ID is present in the return URL. The page can still show the payment status from the query string, but it cannot verify a specific order without the backend reference.
+                    Hiện chưa có mã đơn hàng trong đường dẫn, vì vậy trang chỉ có thể hiển thị trạng thái tạm thời từ kết quả trả về.
                   </p>
                 )}
               </div>
@@ -262,18 +262,18 @@ function PaymentReturnPageContent() {
 
               {!order && isLoading && orderId && (
                 <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-                  Loading order from backend...
+                  Đang tải thông tin đơn hàng...
                 </div>
               )}
             </div>
 
             <div className="space-y-6">
               <div className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">What happens next</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Tiếp theo</p>
                 <div className="mt-4 space-y-3 text-sm leading-6 text-white/70">
-                  <p>• If the status is pending, wait for the gateway or backend callback.</p>
-                  <p>• If the status is success, the order should be eligible for ticket issuance.</p>
-                  <p>• If the status is expired or failed, return to the concert page and create a new order.</p>
+                  <p>• Nếu trạng thái đang chờ, vui lòng đợi thêm trong giây lát.</p>
+                  <p>• Nếu thanh toán thành công, vé sẽ sớm được phát hành vào tài khoản của bạn.</p>
+                  <p>• Nếu giao dịch thất bại hoặc hết hạn, bạn có thể quay lại sự kiện để đặt lại.</p>
                 </div>
                 <div className="mt-5 flex flex-wrap gap-3">
                   <button
@@ -283,14 +283,14 @@ function PaymentReturnPageContent() {
                     className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <ArrowClockwise size={16} />
-                    {isLoading ? 'Refreshing...' : 'Check again'}
+                    {isLoading ? 'Đang cập nhật...' : 'Kiểm tra lại'}
                   </button>
                   {orderId ? (
                     <Link
                       href="/orders"
                       className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
                     >
-                      Open order detail
+                      Mở đơn hàng
                     </Link>
                   ) : null}
                   {orderId && derivedStatus === 'pending' ? (
@@ -300,7 +300,7 @@ function PaymentReturnPageContent() {
                       disabled={isOpeningPayment}
                       className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {isOpeningPayment ? 'Opening payment...' : 'Open sandbox payment'}
+                      {isOpeningPayment ? 'Đang mở thanh toán...' : 'Mở lại thanh toán'}
                     </button>
                   ) : null}
                 </div>
@@ -312,13 +312,13 @@ function PaymentReturnPageContent() {
               </div>
 
               <div className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Quick links</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Liên kết nhanh</p>
                 <div className="mt-4 flex flex-wrap gap-3">
                   <Link href="/concerts" className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5">
-                    Back to concerts
+                    Về danh sách sự kiện
                   </Link>
                   <Link href="/tickets" className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10">
-                    My tickets
+                    Vé của tôi
                   </Link>
                 </div>
               </div>
@@ -326,9 +326,9 @@ function PaymentReturnPageContent() {
           </div>
 
           <div className="mt-6 rounded-[32px] border border-white/10 bg-white/5 p-6 text-sm leading-6 text-white/70 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-            <p className="font-semibold text-white">Status used on this page</p>
+            <p className="font-semibold text-white">Trạng thái hiển thị trên trang</p>
             <p className="mt-2">
-              The return URL accepts <span className="font-medium text-white">pending</span>, <span className="font-medium text-white">success</span>, <span className="font-medium text-white">failed</span>, and <span className="font-medium text-white">expired</span>. The order snapshot from the backend takes precedence whenever the current user is allowed to read it.
+              Trang này có thể hiển thị các trạng thái <span className="font-medium text-white">pending</span>, <span className="font-medium text-white">success</span>, <span className="font-medium text-white">failed</span> và <span className="font-medium text-white">expired</span> để bạn tiện theo dõi kết quả thanh toán.
             </p>
           </div>
         </section>

@@ -945,13 +945,13 @@ export default function ConcertDetailClient({ id }: Readonly<{ id: string }>) {
 
                       {paymentReviewHref ? (
                         <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 text-sm leading-6 text-white/75">
-                          <p className="font-semibold text-white">Không nhận được payment URL từ backend.</p>
-                          <p className="mt-2">Bạn vẫn có thể kiểm tra trạng thái order thật trên trang return.</p>
+                          <p className="font-semibold text-white">Chưa thể mở trang thanh toán lúc này.</p>
+                          <p className="mt-2">Bạn vẫn có thể kiểm tra trạng thái đơn hàng trên trang kết quả thanh toán.</p>
                           <Link
                             href={paymentReviewHref}
                             className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5"
                           >
-                            Mở payment return
+                            Mở kết quả thanh toán
                           </Link>
                         </div>
                       ) : null}

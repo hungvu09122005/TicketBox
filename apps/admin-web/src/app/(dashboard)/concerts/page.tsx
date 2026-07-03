@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, MagnifyingGlass, Funnel, DotsThree, CheckCircle, XCircle, Ticket } from '@phosphor-icons/react';
+import { Plus, MagnifyingGlass, Funnel, XCircle } from '@phosphor-icons/react';
 import { useAuthStore } from '@/lib/auth-store';
 import { concertService } from '@/lib/services/concert.service';
 import { Concert } from '@/lib/types';
@@ -180,6 +180,7 @@ export default function ConcertsPage() {
                 <th className="px-6 py-4 font-medium text-muted">Title</th>
                 <th className="px-6 py-4 font-medium text-muted">Artist</th>
                 <th className="px-6 py-4 font-medium text-muted">Date</th>
+                <th className="px-6 py-4 font-medium text-muted">Ticketing</th>
                 <th className="px-6 py-4 font-medium text-muted">Status</th>
                 <th className="px-6 py-4 font-medium text-muted text-right">Actions</th>
               </tr>
@@ -187,7 +188,7 @@ export default function ConcertsPage() {
             <tbody className="divide-y divide-border">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-muted">
+                  <td colSpan={6} className="px-6 py-12 text-center text-muted">
                     <div className="animate-pulse flex flex-col gap-3 items-center">
                       <div className="h-4 w-32 bg-border rounded"></div>
                       <div className="h-3 w-24 bg-border rounded"></div>
@@ -196,14 +197,14 @@ export default function ConcertsPage() {
                 </tr>
               ) : loadError ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-16 text-center">
+                  <td colSpan={6} className="px-6 py-16 text-center">
                     <p className="text-primary font-medium">Không thể tải concerts</p>
                     <p className="text-muted text-sm mt-1">{loadError}</p>
                   </td>
                 </tr>
               ) : filteredConcerts.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-16 text-center">
+                  <td colSpan={6} className="px-6 py-16 text-center">
                     <p className="text-primary font-medium">No concerts found</p>
                     <p className="text-muted text-sm mt-1">Thử đổi từ khóa hoặc bộ lọc trạng thái.</p>
                   </td>
@@ -229,46 +230,46 @@ export default function ConcertsPage() {
                       {new Date(concert.startsAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4">
+                      <Link
+                        href={`/concerts/${concert.id}/ticketing`}
+                        onClick={(event) => event.stopPropagation()}
+                        className="inline-flex items-center rounded-full border border-border px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/5"
+                      >
+                        Manage
+                      </Link>
+                    </td>
+                    <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(concert.status)}`}>
                         {concert.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-2">
                         {concert.status === 'DRAFT' && (
                           <button 
-                            onClick={() => handleUpdateStatus(concert.id, 'PUBLISHED')}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleUpdateStatus(concert.id, 'PUBLISHED');
+                            }}
                             disabled={getPublishMissingFields(concert).length > 0}
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-md disabled:cursor-not-allowed disabled:opacity-40"
+                            className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-border disabled:bg-border/40 disabled:text-muted disabled:opacity-100"
                             title={getPublishMissingFields(concert).length > 0 ? `Missing: ${getPublishMissingFields(concert).join(', ')}` : 'Publish'}
                           >
-                            <CheckCircle size={18} />
+                            Publish
                           </button>
                         )}
                         {concert.status !== 'CANCELLED' && (
                           <button 
-                            onClick={() => handleUpdateStatus(concert.id, 'CANCELLED')}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-md"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleUpdateStatus(concert.id, 'CANCELLED');
+                            }}
+                            className="rounded-full border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
                             title="Cancel"
                           >
-                            <XCircle size={18} />
+                            Cancel
                           </button>
                         )}
-                        <Link 
-                          href={`/concerts/${concert.id}/edit`}
-                          onClick={(event) => event.stopPropagation()}
-                          className="p-2 text-muted hover:text-primary hover:bg-primary/5 rounded-md"
-                        >
-                          <DotsThree size={20} weight="bold" />
-                        </Link>
-                        <Link
-                          href={`/concerts/${concert.id}/ticketing`}
-                          onClick={(event) => event.stopPropagation()}
-                          className="p-2 text-muted hover:text-primary hover:bg-primary/5 rounded-md"
-                          title="Ticketing"
-                        >
-                          <Ticket size={20} />
-                        </Link>
                       </div>
                     </td>
                   </tr>
