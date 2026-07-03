@@ -208,7 +208,7 @@ export default function OperationsPage() {
       percent: 100,
       href: '/operations/orders',
       detail:
-        'Tra cứu đơn hàng, tạo thanh toán và theo dõi callback.',
+        'Look up orders, create payments, and track callbacks.',
       blocker: 'Ready',
     },
     {
@@ -217,7 +217,7 @@ export default function OperationsPage() {
       percent: 100,
       href: '/operations/notifications',
       detail:
-        'Kiểm tra gửi thông báo, theo dõi job lỗi và mở queue board khi cần.',
+        'Check notification delivery, monitor failed jobs, and open the queue board when needed.',
       blocker: 'Ready',
     },
     {
@@ -270,7 +270,7 @@ export default function OperationsPage() {
         if (!isActive) return;
 
         const message =
-          error instanceof Error ? error.message : 'Không thể tải dữ liệu báo cáo.';
+          error instanceof Error ? error.message : 'Could not load report data.';
         setReportState({
           revenue: { data: null, error: message, isLoading: false },
           tickets: { data: null, error: message, isLoading: false },
@@ -314,19 +314,19 @@ export default function OperationsPage() {
         title: 'Revenue',
         icon: <TrendUp size={20} />,
         state: reportState.revenue,
-        description: 'Doanh thu tổng hợp theo API báo cáo thật.',
+        description: 'Aggregated revenue from the real reporting API.',
       },
       {
         title: 'Tickets sold',
         icon: <Ticket size={20} />,
         state: reportState.tickets,
-        description: 'Số vé bán ra từ backend reporting.',
+        description: 'Tickets sold from backend reporting.',
       },
       {
         title: 'Check-in rate',
         icon: <CheckCircle size={20} />,
         state: reportState.checkin,
-        description: 'Tỷ lệ check-in phản ánh vận hành tại cổng.',
+        description: 'Check-in rate that reflects gate operations.',
       },
     ],
     [reportState],
@@ -337,7 +337,7 @@ export default function OperationsPage() {
     if (!trimmedOrderId) {
       setOrderLookupState({
         data: null,
-        error: 'Nhập order ID để tra cứu.',
+        error: 'Enter an order ID to look it up.',
         isLoading: false,
       });
       return;
@@ -352,9 +352,9 @@ export default function OperationsPage() {
         error: null,
         isLoading: false,
       });
-      setSummaryMessage(`Đã tải đơn hàng ${trimmedOrderId}.`);
+      setSummaryMessage(`Loaded order ${trimmedOrderId}.`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể tải đơn hàng.';
+      const message = error instanceof Error ? error.message : 'Could not load the order.';
       setOrderLookupState({
         data: null,
         error: message,
@@ -368,7 +368,7 @@ export default function OperationsPage() {
     if (!trimmedJobId) {
       setCsvLookupState({
         data: null,
-        error: 'Nhập CSV job ID để tra cứu.',
+        error: 'Enter a CSV job ID to look it up.',
         isLoading: false,
       });
       return;
@@ -383,9 +383,9 @@ export default function OperationsPage() {
         error: null,
         isLoading: false,
       });
-      setSummaryMessage(`Đã tải trạng thái CSV job ${trimmedJobId}.`);
+      setSummaryMessage(`Loaded CSV job status ${trimmedJobId}.`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể tải trạng thái job.';
+      const message = error instanceof Error ? error.message : 'Could not load the job status.';
       setCsvLookupState({
         data: null,
         error: message,
@@ -401,7 +401,7 @@ export default function OperationsPage() {
     if (!email || !ticketId) {
       setProbeState({
         data: null,
-        error: 'Nhập email và ticket ID để tạo notification probe.',
+        error: 'Enter an email and ticket ID to create a notification probe.',
         isLoading: false,
       });
       return;
@@ -416,9 +416,9 @@ export default function OperationsPage() {
         error: null,
         isLoading: false,
       });
-      setSummaryMessage('Đã đẩy notification probe vào queue thật.');
+      setSummaryMessage('Queued the notification probe in the real queue.');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể đẩy notification probe.';
+      const message = error instanceof Error ? error.message : 'Could not enqueue the notification probe.';
       setProbeState({
         data: null,
         error: message,
@@ -431,7 +431,7 @@ export default function OperationsPage() {
     if (!aiFile) {
       setAiState({
         data: null,
-        error: 'Chọn file PDF để tạo AI bio request.',
+        error: 'Choose a PDF file to create an AI bio request.',
         isLoading: false,
       });
       return;
@@ -439,7 +439,7 @@ export default function OperationsPage() {
     if (!selectedAiArtistId) {
       setAiState({
         data: null,
-        error: 'Chọn artist để gắn với AI bio request.',
+        error: 'Choose an artist to attach to the AI bio request.',
         isLoading: false,
       });
       return;
@@ -454,9 +454,9 @@ export default function OperationsPage() {
         error: null,
         isLoading: false,
       });
-      setSummaryMessage('Đã tạo AI bio request thật.');
+      setSummaryMessage('Created a real AI bio request.');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể tạo AI bio request.';
+      const message = error instanceof Error ? error.message : 'Could not create the AI bio request.';
       setAiState({
         data: null,
         error: message,
@@ -479,8 +479,8 @@ export default function OperationsPage() {
                 A single console for orders, payments, jobs, and reporting.
               </h1>
               <p className="max-w-2xl text-sm leading-7 text-muted md:text-base">
-                Màn hình này gom 4 request admin thành một bề mặt vận hành thật: tra cứu order,
-                nhìn report API, theo dõi job bị lỗi, và mở queue dashboard của backend khi cần retry.
+                This screen combines four admin requests into one real operations surface: order lookup,
+                report APIs, failed-job tracking, and the backend queue dashboard when retry is needed.
               </p>
             </div>
 
@@ -587,7 +587,7 @@ export default function OperationsPage() {
 
       <SectionCard
         title="Order and payment management"
-        description="Tra cứu đơn hàng theo ID để xem trạng thái, thời hạn và thông tin thanh toán."
+        description="Look up an order by ID to view status, expiration time, and payment details."
       >
         <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
           <div className="space-y-4">
@@ -666,7 +666,7 @@ export default function OperationsPage() {
               </div>
             ) : (
               <div className="rounded-[24px] border border-dashed border-border bg-background p-5 text-sm leading-6 text-muted">
-                Chưa có đơn hàng nào được tải. Nhập Order ID để xem chi tiết.
+                No orders have been loaded yet. Enter an Order ID to view details.
               </div>
             )}
           </div>
@@ -675,7 +675,7 @@ export default function OperationsPage() {
 
       <SectionCard
         title="Sales and check-in dashboard"
-        description="Xem nhanh doanh thu, vé bán và tỷ lệ check-in."
+        description="Quickly view revenue, tickets sold, and check-in rate."
         action={
           <a
             href={dashboardHref}
@@ -810,7 +810,7 @@ export default function OperationsPage() {
                 <p className="text-sm leading-6 text-primary">{probeState.data.message}</p>
               ) : (
                 <p className="text-sm leading-6 text-muted">
-                  Retry cho job lỗi được thực hiện trong Bull Board. Tại đây bạn chỉ gửi probe và mở queue board khi cần.
+                  Failed-job retries are handled in Bull Board. Here you only send probes and open the queue board when needed.
                 </p>
               )}
             </div>
@@ -819,7 +819,7 @@ export default function OperationsPage() {
 
       <SectionCard
         title="Background job monitor"
-        description="Tra cứu CSV job, tạo AI bio job và mở queue board khi cần."
+        description="Look up CSV jobs, create AI bio jobs, and open the queue board when needed."
         action={
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-muted">
             <CloudArrowUp size={14} />
@@ -891,7 +891,7 @@ export default function OperationsPage() {
                 </div>
               ) : (
                 <p className="text-sm leading-6 text-muted">
-                  Nhập CSV job ID để xem trạng thái xử lý.
+                  Enter a CSV job ID to view its processing status.
                 </p>
               )}
             </div>
@@ -899,7 +899,7 @@ export default function OperationsPage() {
             <div className="grid gap-3 rounded-[24px] border border-dashed border-border bg-surface p-4">
               <div>
                 <p className="text-sm font-medium text-primary">AI bio request</p>
-                <p className="text-xs text-muted">Tải PDF để tạo yêu cầu AI bio cho nghệ sĩ.</p>
+                <p className="text-xs text-muted">Upload a PDF to create an AI bio request for an artist.</p>
               </div>
               <label className="block space-y-2">
                 <span className="text-sm font-medium text-primary">Artist</span>
@@ -952,7 +952,7 @@ export default function OperationsPage() {
                   </div>
                 ) : (
                   <p className="text-sm leading-6 text-muted">
-                    Tải PDF để tạo AI bio job mới.
+                    Upload a PDF to create a new AI bio job.
                   </p>
                 )}
               </div>

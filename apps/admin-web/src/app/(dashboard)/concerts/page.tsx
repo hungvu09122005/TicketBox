@@ -54,7 +54,7 @@ export default function ConcertsPage() {
       } catch (err) {
         console.error('Failed to load concerts', err);
         if (isActive) {
-          setLoadError('Không thể tải danh sách concert. Vui lòng thử lại.');
+          setLoadError('Could not load the concert list. Please try again.');
         }
       } finally {
         if (isActive) {
@@ -198,7 +198,7 @@ export default function ConcertsPage() {
               ) : loadError ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-16 text-center">
-                    <p className="text-primary font-medium">Không thể tải concerts</p>
+                    <p className="text-primary font-medium">Could not load concerts</p>
                     <p className="text-muted text-sm mt-1">{loadError}</p>
                   </td>
                 </tr>
@@ -206,7 +206,7 @@ export default function ConcertsPage() {
                 <tr>
                   <td colSpan={6} className="px-6 py-16 text-center">
                     <p className="text-primary font-medium">No concerts found</p>
-                    <p className="text-muted text-sm mt-1">Thử đổi từ khóa hoặc bộ lọc trạng thái.</p>
+                    <p className="text-muted text-sm mt-1">Try changing the search term or status filter.</p>
                   </td>
                 </tr>
               ) : (

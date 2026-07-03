@@ -160,7 +160,7 @@ export default function NotificationsPage() {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-primary">Notification probe</h2>
-              <p className="text-sm text-muted">Gửi thử email xác nhận cho ticket.</p>
+              <p className="text-sm text-muted">Send a test confirmation email for a ticket.</p>
             </div>
           </div>
 

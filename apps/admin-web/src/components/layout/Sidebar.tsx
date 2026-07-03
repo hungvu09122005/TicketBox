@@ -129,7 +129,7 @@ export function Sidebar({ onClose }: Readonly<{ onClose?: () => void }>) {
         </nav>
         {navigation.filter((item) => canAccess(item.permissions)).length === 0 && (
           <div className="mt-6 rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted">
-            Bạn hiện chưa có quyền truy cập menu nào.
+            You currently do not have access to any menu items.
           </div>
         )}
       </div>

@@ -63,7 +63,7 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
         setResolvedJobId(id);
       } catch (error) {
         if (!isActive) return;
-        setErrorMessage(error instanceof Error ? error.message : 'Không thể tải chi tiết CSV job.');
+        setErrorMessage(error instanceof Error ? error.message : 'Could not load the CSV job details.');
       } finally {
         if (isActive) {
           setIsLoading(false);
@@ -98,7 +98,7 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
       anchor.remove();
       URL.revokeObjectURL(url);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Không thể tải error report.');
+      setErrorMessage(error instanceof Error ? error.message : 'Could not load the error report.');
     } finally {
       setIsDownloadingReport(false);
     }
@@ -116,7 +116,7 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
             <div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">CSV job detail</h1>
               <p className="mt-3 text-sm leading-6 text-muted">
-                Xem chi tiết một CSV job, trạng thái xử lý và file lỗi nếu có.
+                View a CSV job in detail, including processing status and error file if available.
               </p>
             </div>
           </div>
@@ -144,7 +144,7 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
             </div>
             <div>
               <h2 className="text-lg font-semibold text-primary">Job summary</h2>
-              <p className="text-sm text-muted">Thông tin hiện tại của job đã chọn.</p>
+              <p className="text-sm text-muted">Current information for the selected job.</p>
             </div>
           </div>
 
@@ -199,7 +199,7 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
           <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-primary">Queue board</h2>
             <p className="mt-2 text-sm leading-6 text-muted">
-              Mở queue board để xem worker state và retry khi cần.
+              Open the queue board to view worker state and retry when needed.
             </p>
           </div>
 

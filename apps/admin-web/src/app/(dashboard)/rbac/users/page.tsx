@@ -179,7 +179,7 @@ export default function RbacUsersPageView() {
       } catch (error) {
         console.error('Failed to load RBAC users', error);
         if (isMounted) {
-          setErrorMessage('Không thể tải danh sách user.');
+          setErrorMessage('Could not load the user list.');
         }
       } finally {
         if (isMounted) setIsLoadingUsers(false);
@@ -195,7 +195,7 @@ export default function RbacUsersPageView() {
   const handleSaveUserRoles = async () => {
     if (!selectedUser) return;
 
-    if (!confirmSensitiveAction(`Cập nhật role cho ${selectedUser.email}?`)) {
+    if (!confirmSensitiveAction(`Update roles for ${selectedUser.email}?`)) {
       return;
     }
 
@@ -203,11 +203,11 @@ export default function RbacUsersPageView() {
       setIsSavingUserRoles(true);
       setNoticeMessage(null);
       await userService.updateRoles(selectedUser.id, { roles: draftUserRoles });
-      setNoticeMessage(`Đã cập nhật role cho ${selectedUser.email}.`);
+      setNoticeMessage(`Updated roles for ${selectedUser.email}.`);
       refreshAll();
     } catch (error) {
       console.error('Failed to update user roles', error);
-      setErrorMessage('Không thể cập nhật role của user.');
+      setErrorMessage('Could not update the user roles.');
     } finally {
       setIsSavingUserRoles(false);
     }
@@ -220,7 +220,7 @@ export default function RbacUsersPageView() {
   };
 
   const handleToggleUserActive = async (userId: string, isActive: boolean) => {
-    if (!confirmSensitiveAction(`Bạn có chắc muốn ${isActive ? 'kích hoạt' : 'vô hiệu hóa'} tài khoản này?`)) {
+    if (!confirmSensitiveAction(`Are you sure you want to ${isActive ? 'activate' : 'deactivate'} this account?`)) {
       return;
     }
 
@@ -228,11 +228,11 @@ export default function RbacUsersPageView() {
       setIsSavingUserActive((current) => ({ ...current, [userId]: true }));
       setNoticeMessage(null);
       await userService.updateActiveStatus(userId, { isActive });
-      setNoticeMessage(`Đã ${isActive ? 'kích hoạt' : 'vô hiệu hóa'} tài khoản.`);
+      setNoticeMessage(`Account ${isActive ? 'activated' : 'deactivated'}.`);
       refreshAll();
     } catch (error) {
       console.error('Failed to update user active status', error);
-      setErrorMessage('Không thể cập nhật trạng thái tài khoản.');
+      setErrorMessage('Could not update the account status.');
     } finally {
       setIsSavingUserActive((current) => ({ ...current, [userId]: false }));
     }
@@ -244,11 +244,11 @@ export default function RbacUsersPageView() {
     const nextPassword = newUserPassword.trim();
 
     if (!nextName || !nextEmail || !nextPassword) {
-      setErrorMessage('Vui lòng nhập đầy đủ tên, email và mật khẩu.');
+      setErrorMessage('Please enter a name, email, and password.');
       return;
     }
 
-    if (!confirmSensitiveAction(`Tạo user ${nextEmail} với ${newUserRoles.length} role đã chọn?`)) {
+    if (!confirmSensitiveAction(`Create user ${nextEmail} with ${newUserRoles.length} selected role(s)?`)) {
       return;
     }
 
@@ -283,13 +283,13 @@ export default function RbacUsersPageView() {
       setIsCreateUserModalOpen(false);
       setNoticeMessage(
         createdUser
-          ? `Đã tạo user ${nextEmail}${newUserRoles.length > 0 ? ' và gán role thành công.' : '.'}`
-          : `Đã tạo user ${nextEmail}.`,
+          ? `Created user ${nextEmail}${newUserRoles.length > 0 ? ' and assigned roles successfully.' : '.'}`
+          : `Created user ${nextEmail}.`,
       );
       refreshAll();
     } catch (error) {
       console.error('Failed to create user', error);
-      setErrorMessage('Không thể tạo user mới. Kiểm tra lại email hoặc mật khẩu.');
+      setErrorMessage('Could not create the user. Check the email or password.');
     } finally {
       setIsCreatingUser(false);
     }
@@ -316,7 +316,7 @@ export default function RbacUsersPageView() {
             <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Access control</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Users</h1>
             <p className="mt-3 text-sm leading-6 text-muted">
-              Tạo user, gán role, bật tắt tài khoản và xem permission hiện tại của từng người dùng.
+            Create users, assign roles, toggle account status, and inspect each user&apos;s current permissions.
             </p>
           </div>
 
@@ -333,7 +333,7 @@ export default function RbacUsersPageView() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-primary">User management</h2>
-            <p className="mt-1 text-sm text-muted">Danh sách user, filter theo role và chỉnh quyền truy cập thông qua role.</p>
+            <p className="mt-1 text-sm text-muted">User list, role filtering, and access control management through roles.</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -483,7 +483,7 @@ export default function RbacUsersPageView() {
                               onClick={() => openUserDetailModal(user.id, 'view')}
                               className="inline-flex h-10 min-w-[96px] items-center justify-center rounded-lg border border-cyan-200 bg-cyan-50 px-3 text-xs font-medium whitespace-nowrap text-cyan-800 transition-colors hover:border-cyan-300 hover:bg-cyan-100"
                             >
-                              View detail
+                              View details
                             </button>
                             <button
                               type="button"
@@ -564,7 +564,7 @@ export default function RbacUsersPageView() {
                 <p className="text-xs uppercase tracking-[0.2em] text-muted">Add user</p>
                 <h2 className="mt-2 text-2xl font-semibold text-primary">Create new user</h2>
                 <p className="mt-2 text-sm leading-6 text-muted">
-                  Nhập thông tin tài khoản và chọn role trước khi tạo user.
+                  Enter account information and select roles before creating the user.
                 </p>
               </div>
               <button
@@ -602,7 +602,7 @@ export default function RbacUsersPageView() {
                     autoComplete="off"
                     value={newUserName}
                     onChange={(event) => setNewUserName(event.target.value)}
-                    placeholder="Ví dụ: Nguyen Van A"
+                    placeholder="Example: Nguyen Van A"
                     className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] outline-none placeholder:text-muted/60 focus:border-primary focus:ring-1 focus:ring-primary"
                   />
                 </label>
@@ -614,7 +614,7 @@ export default function RbacUsersPageView() {
                     autoComplete="off"
                     value={newUserEmail}
                     onChange={(event) => setNewUserEmail(event.target.value)}
-                    placeholder="Ví dụ: user@example.com"
+                    placeholder="Example: user@example.com"
                     className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] outline-none placeholder:text-muted/60 focus:border-primary focus:ring-1 focus:ring-primary"
                   />
                 </label>
@@ -626,7 +626,7 @@ export default function RbacUsersPageView() {
                     autoComplete="new-password"
                     value={newUserPassword}
                     onChange={(event) => setNewUserPassword(event.target.value)}
-                    placeholder="Ví dụ: password tối thiểu 8 ký tự"
+                    placeholder="Example: password with at least 8 characters"
                     className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] outline-none placeholder:text-muted/60 focus:border-primary focus:ring-1 focus:ring-primary"
                   />
                 </label>
@@ -663,7 +663,7 @@ export default function RbacUsersPageView() {
                   })}
                 </div>
                 <p className="mt-3 text-sm leading-6 text-muted">
-                  Chọn ít nhất một role. `AUDIENCE` đang là lựa chọn mặc định.
+                  Select at least one role. `AUDIENCE` is selected by default.
                 </p>
               </div>
             </form>
@@ -698,9 +698,9 @@ export default function RbacUsersPageView() {
           <div className="w-full max-w-6xl rounded-[28px] border border-border bg-surface p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-muted">
-                  {userModalMode === 'edit' ? 'Edit user' : 'User detail'}
-                </p>
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted">
+                  {userModalMode === 'edit' ? 'Edit user' : 'User details'}
+                  </p>
                 <h2 className="mt-2 text-2xl font-semibold text-primary">{selectedUser.name}</h2>
                 <p className="mt-2 text-sm leading-6 text-muted">{selectedUser.email}</p>
               </div>
@@ -752,6 +752,18 @@ export default function RbacUsersPageView() {
                   ) : (
                     <span className="text-sm text-muted">No role assigned.</span>
                   )}
+                </div>
+                <div className="mt-5 rounded-[20px] border border-border bg-surface p-4">
+                  <p className="text-sm font-medium text-primary">Current permissions</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedUser.permissions.length > 0 ? (
+                      selectedUser.permissions.map((permissionName) => (
+                        <Pill key={permissionName}>{permissionName}</Pill>
+                      ))
+                    ) : (
+                      <span className="text-sm text-muted">No permissions assigned.</span>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

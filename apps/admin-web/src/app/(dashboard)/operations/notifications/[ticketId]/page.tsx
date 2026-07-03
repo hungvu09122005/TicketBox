@@ -70,7 +70,7 @@ export default function NotificationDetailPage({ params }: Readonly<{ params: Pr
             <div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Notification ticket detail</h1>
               <p className="mt-3 text-sm leading-6 text-muted">
-                Kiểm tra gửi thông báo cho một ticket cụ thể.
+                Check notification delivery for a specific ticket.
               </p>
             </div>
           </div>

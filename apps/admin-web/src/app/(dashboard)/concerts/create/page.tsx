@@ -80,7 +80,7 @@ export default function CreateConcertPage() {
       setBannerFileName(file.name);
       setBannerObjectKey(objectKey);
     } catch (err: unknown) {
-      setServerErrors(extractApiMessages(err, 'Không thể upload banner.'));
+      setServerErrors(extractApiMessages(err, 'Could not upload the banner.'));
     } finally {
       setIsUploadingBanner(false);
     }
@@ -264,7 +264,7 @@ export default function CreateConcertPage() {
                   <img src={bannerPreviewUrl} alt="Banner preview" className="h-56 w-full object-cover" />
                 ) : (
                   <div className="flex h-56 items-center justify-center px-4 text-center text-sm text-muted">
-                    Chưa chọn banner. Chọn file để xem preview ngay tại đây.
+                    No banner selected. Choose a file to preview it here.
                   </div>
                 )}
               </div>
@@ -272,12 +272,12 @@ export default function CreateConcertPage() {
                 {isUploadingBanner ? (
                   <>
                     <SpinnerGap size={14} className="animate-spin" />
-                    <span>Đang tải ảnh bìa...</span>
+                    <span>Loading cover image...</span>
                   </>
                 ) : bannerObjectKey ? (
                   <>
                     <CheckCircle size={14} className="text-emerald-600" />
-                    <span>Đã chọn ảnh bìa: {bannerFileName}</span>
+                    <span>Selected cover image: {bannerFileName}</span>
                     <span className="rounded-full border border-border bg-background px-2 py-1 text-[11px] text-primary">
                       {bannerObjectKey}
                     </span>
@@ -285,7 +285,7 @@ export default function CreateConcertPage() {
                 ) : (
                   <>
                     <UploadSimple size={14} />
-                    <span>Chọn ảnh bìa ngay để sự kiện sẵn sàng mở bán.</span>
+                    <span>Choose a cover image now so the event is ready for sale.</span>
                   </>
                 )}
               </div>

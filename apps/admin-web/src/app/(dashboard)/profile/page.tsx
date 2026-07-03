@@ -12,18 +12,18 @@ import { authService } from '@/lib/services/auth.service';
 
 const profileSchema = z
   .object({
-    name: z.string().trim().min(2, 'Tên phải có ít nhất 2 ký tự').max(100, 'Tên tối đa 100 ký tự'),
-    currentPassword: z.string().min(8, 'Mật khẩu hiện tại phải có ít nhất 8 ký tự'),
-    newPassword: z.string().min(8, 'Mật khẩu mới phải có ít nhất 8 ký tự'),
-    confirmPassword: z.string().min(8, 'Mật khẩu xác nhận phải có ít nhất 8 ký tự'),
+    name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100, 'Name must be at most 100 characters'),
+    currentPassword: z.string().min(8, 'Current password must be at least 8 characters'),
+    newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+    confirmPassword: z.string().min(8, 'Confirmation password must be at least 8 characters'),
   })
   .refine((values) => values.currentPassword !== values.newPassword, {
-    message: 'Mật khẩu mới phải khác mật khẩu hiện tại.',
+    message: 'The new password must be different from the current password.',
     path: ['newPassword'],
   });
 
 const profileSchemaWithConfirm = profileSchema.refine((values) => values.newPassword === values.confirmPassword, {
-  message: 'Mật khẩu xác nhận không khớp.',
+  message: 'Confirmation password does not match.',
   path: ['confirmPassword'],
 });
 
@@ -74,7 +74,7 @@ export default function ProfilePage() {
       } catch (error) {
         console.error('Failed to load admin profile', error);
         if (isMounted) {
-          setErrorMessage('Không thể tải hồ sơ của bạn.');
+          setErrorMessage('Could not load your profile.');
         }
       } finally {
         if (isMounted) setIsLoading(false);
@@ -105,14 +105,14 @@ export default function ProfilePage() {
         newPassword: '',
         confirmPassword: '',
       });
-      setMessage('Đã cập nhật tên và mật khẩu.');
+      setMessage('Name and password updated.');
       logout();
       window.setTimeout(() => {
         router.replace('/login');
       }, 900);
     } catch (error) {
       console.error('Failed to update admin profile', error);
-      setErrorMessage('Không thể cập nhật hồ sơ.');
+      setErrorMessage('Could not update the profile.');
     } finally {
       setIsSaving(false);
     }
@@ -122,16 +122,16 @@ export default function ProfilePage() {
     <section className="space-y-6">
       <div className="rounded-[28px] border border-border bg-surface p-6 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted">My profile</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Hồ sơ của tôi</h1>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">My profile</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-muted">
-          Bạn chỉ có thể cập nhật tên và mật khẩu của chính mình.
+          You can only update your own name and password.
         </p>
       </div>
 
       {isLoading ? (
         <div className="rounded-[28px] border border-border bg-surface p-8 text-center shadow-sm">
           <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
-          <p className="mt-4 text-sm text-muted">Đang tải hồ sơ...</p>
+          <p className="mt-4 text-sm text-muted">Loading profile...</p>
         </div>
       ) : (
         <form onSubmit={handleSubmit(onSubmit)} className="rounded-[28px] border border-border bg-background p-6 shadow-sm">
@@ -198,7 +198,7 @@ export default function ProfilePage() {
               className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-medium text-surface transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isSaving ? <ArrowClockwise size={16} className="animate-spin" /> : null}
-              {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+              {isSaving ? 'Saving...' : 'Save changes'}
             </button>
           </div>
         </form>

@@ -136,7 +136,7 @@ export default function RbacPage() {
       } catch (error) {
         console.error('Failed to load RBAC catalog', error);
         if (isMounted) {
-          setErrorMessage('Không thể tải danh sách role và permission.');
+          setErrorMessage('Could not load the role and permission list.');
         }
       } finally {
         if (isMounted) setIsLoadingCatalog(false);
@@ -156,7 +156,7 @@ export default function RbacPage() {
 
     if (
       !confirmSensitiveAction(
-        `${role.permissions.includes(permissionName) ? 'Gỡ' : 'Gán'} permission ${permissionName} cho role ${roleLabel(roleName)}?`,
+        `${role.permissions.includes(permissionName) ? 'Remove' : 'Assign'} permission ${permissionName} for role ${roleLabel(roleName)}?`,
       )
     ) {
       return;
@@ -174,11 +174,11 @@ export default function RbacPage() {
       });
 
       setRoles((current) => current.map((item) => (item.id === updatedRole.id ? updatedRole : item)));
-      setNoticeMessage(`Đã cập nhật permission cho ${roleLabel(roleName)}.`);
+      setNoticeMessage(`Updated permissions for ${roleLabel(roleName)}.`);
       refreshAll();
     } catch (error) {
       console.error('Failed to update role permissions', error);
-      setErrorMessage('Không thể cập nhật permission của role.');
+      setErrorMessage('Could not update role permissions.');
     } finally {
       setIsSavingRolePermissions((current) => ({ ...current, [roleName]: false }));
     }
@@ -188,7 +188,7 @@ export default function RbacPage() {
     const nextName = newPermissionName.trim();
     if (!nextName) return;
 
-    if (!confirmSensitiveAction(`Tạo permission mới "${nextName}"?`)) {
+    if (!confirmSensitiveAction(`Create new permission "${nextName}"?`)) {
       return;
     }
 
@@ -197,11 +197,11 @@ export default function RbacPage() {
       setNoticeMessage(null);
       await rbacService.createPermission({ name: nextName });
       setNewPermissionName('');
-      setNoticeMessage(`Đã tạo permission ${nextName}.`);
+      setNoticeMessage(`Created permission ${nextName}.`);
       refreshAll();
     } catch (error) {
       console.error('Failed to create permission', error);
-      setErrorMessage('Không thể tạo permission mới. Kiểm tra lại format module:action.');
+      setErrorMessage('Could not create the new permission. Check the module:action format.');
     } finally {
       setIsCreatingPermission(false);
     }
@@ -228,7 +228,7 @@ export default function RbacPage() {
             <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Access control</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Roles & permissions</h1>
             <p className="mt-3 text-sm leading-6 text-muted">
-              Quản lý role và permission của hệ thống. Phần user đã được tách sang trang riêng.
+              Manage system roles and permissions. Users are split into a separate page.
             </p>
           </div>
 
@@ -245,7 +245,7 @@ export default function RbacPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-primary">Permission matrix</h2>
-            <p className="mt-1 text-sm text-muted">Tích vào ô để gán permission cho từng role.</p>
+            <p className="mt-1 text-sm text-muted">Check a box to assign a permission to each role.</p>
           </div>
 
           <button
@@ -283,7 +283,7 @@ export default function RbacPage() {
               </button>
             </div>
             <p className="mt-2 text-xs leading-5 text-muted">
-              Format: <code className="rounded bg-background px-1 py-0.5">module:action</code>, ví dụ{' '}
+              Format: <code className="rounded bg-background px-1 py-0.5">module:action</code>, for example{' '}
               <code className="rounded bg-background px-1 py-0.5">concert:archive</code>.
             </p>
           </label>
@@ -371,7 +371,7 @@ export default function RbacPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-primary">Permission catalog</h2>
-            <p className="mt-1 text-sm text-muted">Danh sách permission hiện có trong hệ thống.</p>
+            <p className="mt-1 text-sm text-muted">The list of permissions currently available in the system.</p>
           </div>
           <Pill tone="accent">{permissions.length} codes</Pill>
         </div>

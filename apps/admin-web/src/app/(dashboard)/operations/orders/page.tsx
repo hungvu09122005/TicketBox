@@ -73,7 +73,7 @@ export default function OrdersOperationsPage() {
         setConcerts(concertData);
       } catch (error) {
         if (!isActive) return;
-        setErrorMessage(error instanceof Error ? error.message : 'Không thể tải danh sách đơn hàng.');
+        setErrorMessage(error instanceof Error ? error.message : 'Could not load the order list.');
       } finally {
         if (isActive) {
           setIsLoading(false);

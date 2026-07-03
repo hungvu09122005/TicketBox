@@ -359,7 +359,7 @@ export default function ReportsPage() {
         setCheckin({ data: checkinData, isLoading: false, error: null });
       } catch (error) {
         if (!isActive) return;
-        const message = error instanceof Error ? error.message : 'Không thể tải báo cáo.';
+        const message = error instanceof Error ? error.message : 'Could not load the report.';
         setRevenue({ data: null, isLoading: false, error: message });
         setTickets({ data: null, isLoading: false, error: message });
         setCheckin({ data: null, isLoading: false, error: message });

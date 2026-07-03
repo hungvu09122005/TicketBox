@@ -72,7 +72,7 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
         setResolvedOrderId(id);
       } catch (error) {
         if (!isActive) return;
-        setErrorMessage(error instanceof Error ? error.message : 'Không thể tải chi tiết đơn hàng.');
+        setErrorMessage(error instanceof Error ? error.message : 'Could not load the order details.');
       } finally {
         if (isActive) {
           setIsLoading(false);
@@ -149,7 +149,7 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
             <div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Order detail</h1>
               <p className="mt-3 text-sm leading-6 text-muted">
-                Xem chi tiết đơn hàng, trạng thái thanh toán và lịch sử callback.
+                View order details, payment status, and callback history.
               </p>
             </div>
           </div>
@@ -168,7 +168,7 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
             </div>
             <div>
               <h2 className="text-lg font-semibold text-primary">Order summary</h2>
-              <p className="text-sm text-muted">Thông tin hiện tại của đơn hàng.</p>
+              <p className="text-sm text-muted">Current order information.</p>
             </div>
           </div>
 
@@ -227,7 +227,7 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
           <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-primary">Payment context</h2>
             <p className="mt-2 text-sm leading-6 text-muted">
-              Thực hiện initiate payment khi order còn chờ thanh toán, rồi kiểm tra callback audit ở phía dưới.
+              Initiate payment when the order is still pending payment, then check the callback audit below.
             </p>
             {order?.status === 'PENDING_PAYMENT' ? (
               <button
@@ -263,7 +263,7 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
             <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
               <h2 className="text-lg font-semibold text-primary">Callback audit</h2>
               <p className="mt-2 text-sm leading-6 text-muted">
-                Theo dõi lịch sử callback và đối soát thanh toán của đơn hàng.
+                Track callback history and payment reconciliation for the order.
               </p>
               <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
                 <div className="overflow-x-auto">

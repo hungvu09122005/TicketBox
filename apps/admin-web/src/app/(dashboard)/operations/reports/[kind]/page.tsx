@@ -15,19 +15,19 @@ const kindConfig: Record<ReportKind, { label: string; endpoint: string; title: s
     label: 'Revenue report',
     endpoint: 'GET /reports/revenue',
     title: 'Revenue report',
-    description: 'Xem số liệu doanh thu theo báo cáo đã chọn.',
+    description: 'View revenue figures for the selected report.',
   },
   'tickets-sold': {
     label: 'Tickets sold report',
     endpoint: 'GET /reports/tickets-sold',
     title: 'Tickets sold report',
-    description: 'Xem số lượng vé bán theo báo cáo đã chọn.',
+    description: 'View ticket sales for the selected report.',
   },
   'checkin-rate': {
     label: 'Check-in rate report',
     endpoint: 'GET /reports/checkin-rate',
     title: 'Check-in rate report',
-    description: 'Xem hiệu suất check-in theo báo cáo đã chọn.',
+    description: 'View check-in performance for the selected report.',
   },
 };
 
@@ -101,7 +101,7 @@ export default function ReportDetailPage({ params }: Readonly<{ params: Promise<
         setState({ data: response, isLoading: false, error: null });
       } catch (error) {
         if (!isActive) return;
-        setState({ data: null, isLoading: false, error: error instanceof Error ? error.message : 'Không thể tải báo cáo.' });
+        setState({ data: null, isLoading: false, error: error instanceof Error ? error.message : 'Could not load the report.' });
       }
     };
 
@@ -141,7 +141,7 @@ export default function ReportDetailPage({ params }: Readonly<{ params: Promise<
             <div>
               <p className="text-[11px] uppercase tracking-[0.22em] text-muted">{config?.label ?? 'Report detail'}</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">{config?.title ?? 'Report detail'}</h1>
-              <p className="mt-3 text-sm leading-6 text-muted">{config?.description ?? 'Chi tiết báo cáo.'}</p>
+              <p className="mt-3 text-sm leading-6 text-muted">{config?.description ?? 'Report details.'}</p>
             </div>
           </div>
           <a href={queueDashboardHref} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface">

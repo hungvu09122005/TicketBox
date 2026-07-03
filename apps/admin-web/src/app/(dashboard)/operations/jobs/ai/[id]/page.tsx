@@ -32,7 +32,7 @@ export default function AiBioReviewPage({ params }: Readonly<{ params: Promise<{
         setDraftContent(data.draftContent ?? '');
       } catch (error) {
         if (!isActive) return;
-        setErrorMessage(error instanceof Error ? error.message : 'Không thể tải AI bio request.');
+        setErrorMessage(error instanceof Error ? error.message : 'Could not load the AI bio request.');
       } finally {
         if (isActive) {
           setIsLoading(false);
@@ -61,9 +61,9 @@ export default function AiBioReviewPage({ params }: Readonly<{ params: Promise<{
       const next = await operationsService.updateAiBioDraft(id, draftContent);
       setJob(next);
       setDraftContent(next.draftContent ?? draftContent);
-      setStatusMessage('Đã lưu draft AI bio.');
+      setStatusMessage('Saved the AI bio draft.');
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Không thể lưu draft.');
+      setErrorMessage(error instanceof Error ? error.message : 'Could not save the draft.');
     } finally {
       setIsSaving(false);
     }
@@ -78,9 +78,9 @@ export default function AiBioReviewPage({ params }: Readonly<{ params: Promise<{
       const next = await operationsService.publishAiBioDraft(id);
       setJob(next);
       setDraftContent(next.draftContent ?? draftContent);
-      setStatusMessage('Đã publish bio vào artist thật.');
+      setStatusMessage('Published the bio to the real artist.');
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Không thể publish draft.');
+      setErrorMessage(error instanceof Error ? error.message : 'Could not publish the draft.');
     } finally {
       setIsPublishing(false);
     }
@@ -97,7 +97,7 @@ export default function AiBioReviewPage({ params }: Readonly<{ params: Promise<{
         <p className="text-[11px] uppercase tracking-[0.22em] text-muted">AI bio review</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Review draft</h1>
         <p className="mt-3 text-sm leading-6 text-muted">
-          Xem, chỉnh sửa và publish nội dung AI bio cho nghệ sĩ.
+          View, edit, and publish AI bio content for the artist.
         </p>
       </div>
 

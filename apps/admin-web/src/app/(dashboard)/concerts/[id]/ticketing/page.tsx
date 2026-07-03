@@ -155,7 +155,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
       setSeatMapPreviewError(false);
     } catch (error) {
       console.error('Failed to load ticketing page', error);
-      setPageError('Không thể tải dữ liệu ticketing. Vui lòng kiểm tra backend và thử lại.');
+      setPageError('Could not load ticketing data. Please check the backend and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -238,7 +238,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
       closeTicketTypeModal();
       await loadData();
     } catch (error) {
-      setServerErrors(extractApiMessages(error, 'Không thể lưu ticket type.'));
+      setServerErrors(extractApiMessages(error, 'Could not save the ticket type.'));
     } finally {
       setIsSaving(false);
     }
@@ -271,12 +271,12 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
 
   const handleUploadSeatMap = async () => {
     if (!concert || !svgFile) {
-      setServerErrors(['Vui lòng chọn file SVG trước khi upload.']);
+      setServerErrors(['Please choose an SVG file before uploading.']);
       return;
     }
 
     if (svgZoneIds.length === 0) {
-      setServerErrors(['Không tìm thấy zone id nào trong SVG.']);
+      setServerErrors(['No zone IDs were found in the SVG.']);
       return;
     }
 
@@ -289,7 +289,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
     }, {});
 
     if (Object.keys(mapping).length !== svgZoneIds.length) {
-      setServerErrors(['Mỗi zone trong SVG phải được map với một ticket type.']);
+      setServerErrors(['Each zone in the SVG must be mapped to a ticket type.']);
       return;
     }
 
@@ -304,7 +304,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
       setSeatMapPreviewError(false);
       await loadData();
     } catch (error) {
-      setServerErrors(extractApiMessages(error, 'Không thể upload seat map.'));
+      setServerErrors(extractApiMessages(error, 'Could not upload the seat map.'));
     } finally {
       setIsUploading(false);
     }
@@ -332,7 +332,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
               {concert?.name || 'Loading concert...'}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-              Quản lý ticket type, giới hạn mua, sale window và seat map SVG thật.
+              Manage ticket types, purchase limits, sale windows, and the real SVG seat map.
             </p>
           </div>
 
@@ -380,12 +380,12 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
         <div className="space-y-6">
           <Panel
             title="Ticket types"
-            description="Giữ nguyên logic ticket type như trước. Chỉ đổi form tạo và sửa sang pop-up."
+            description="Keep the ticket type logic unchanged. Only move the create and edit forms into pop-ups."
           >
             <div className="space-y-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted">
-                  Tạo ticket type trước, sau đó phần seat map SVG bên dưới sẽ map zone theo đúng ticket type thật từ backend.
+                  Create ticket types first, then the SVG seat map below will map zones to the correct real ticket types from the backend.
                 </div>
                 <button
                   type="button"
@@ -399,7 +399,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
 
               {ticketTypes.length === 0 ? (
                 <div className="rounded-3xl border border-dashed border-border bg-background p-8 text-sm text-muted">
-                  Chưa có ticket type nào. Hãy tạo ít nhất một ticket type trước khi upload seat map.
+                  No ticket types yet. Create at least one ticket type before uploading a seat map.
                 </div>
               ) : (
                 <div className="w-full overflow-x-auto">
@@ -452,7 +452,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
 
           <Panel
             title="Seat map upload"
-            description="Upload SVG thật, parse zone ID từ file, map từng zone vào ticket type rồi gửi lên backend."
+            description="Upload a real SVG, parse zone IDs from the file, map each zone to a ticket type, then send it to the backend."
           >
             <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
               <div className="space-y-4">
@@ -487,7 +487,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
                     />
                   ) : (
                     <div className="mt-3 rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted">
-                      {seatMapPreviewError ? 'Không thể tải seat map hiện tại.' : 'Chưa có seat map được upload.'}
+                      {seatMapPreviewError ? 'Could not load the current seat map.' : 'No seat map has been uploaded yet.'}
                     </div>
                   )}
                 </div>
@@ -498,7 +498,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Parsed zone ids</p>
-                      <p className="mt-1 text-sm text-primary">Mapping sẽ theo đúng ID lấy từ SVG thật.</p>
+                      <p className="mt-1 text-sm text-primary">Mapping will follow the exact IDs read from the real SVG.</p>
                     </div>
                     <button
                       type="button"
@@ -521,7 +521,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
                       </span>
                     )) : (
                       <span className="text-sm text-muted">
-                        Chưa chọn file SVG hoặc SVG chưa có zone id.
+                        No SVG file selected or the SVG does not contain zone IDs.
                       </span>
                     )}
                   </div>
@@ -554,7 +554,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
                     </div>
                   )) : (
                     <div className="rounded-[24px] border border-dashed border-border bg-background p-6 text-sm text-muted">
-                      Chọn file SVG để hệ thống tự đọc zone ids và sinh form mapping zone.
+                      Choose an SVG file so the system can read the zone IDs and generate the zone mapping form.
                     </div>
                   )}
                 </div>
@@ -576,7 +576,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
                   {editingTicketType ? editingTicketType.name : 'New ticket type'}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-muted">
-                  Logic giữ nguyên như form cũ. Bạn chỉ nhập trong pop-up thay vì nhập trực tiếp trên trang.
+                  The logic stays the same as the old form. You just enter it in a pop-up instead of directly on the page.
                 </p>
               </div>
               <button
