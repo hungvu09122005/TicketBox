@@ -6,8 +6,20 @@ import { TicketsService } from '../tickets/tickets.service';
 import { Ticket, TicketStatus } from '@modules/tickets/entities/ticket.entity';
 import { CheckinLog, CheckinMode, CheckinStatus } from './entities/checkin-log.entity';
 import { CheckinDevice, DeviceStatus } from './entities/checkin-device.entity';
-import { CheckinDto, RegisterDeviceDto, SyncDatasetQueryDto } from './dto/checkin.dto';
+import {
+  CheckinDto,
+  ConfirmVipGuestDto,
+  RegisterDeviceDto,
+  SyncDatasetQueryDto,
+  VipGuestLookupQueryDto,
+} from './dto/checkin.dto';
 import { InjectDataSource } from '@nestjs/typeorm';
+import { VipGuest } from '../csv-import/entities/vip-guest.entity';
+import { User } from '../users/entities/user.entity';
+import { Role as RoleEntity } from '../users/entities/role.entity';
+import { Role } from '../../common/constants/roles.enum';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class CheckinService {
@@ -243,11 +255,194 @@ export class CheckinService {
     }
 
     const tickets = await this.ticketsService.findValidTicketsForSync(concertId, ticketTypeId);
+    const vipGuests = await this.dataSource.query(
+      `
+        SELECT
+          vg.id,
+          vg.concert_id AS "concertId",
+          vg.ticket_type_id AS "ticketTypeId",
+          vg.ticket_id AS "ticketId",
+          vg.email,
+          vg.phone,
+          vg.name,
+          t.status AS "ticketStatus",
+          t.manual_code AS "manualCode"
+        FROM vip_guests vg
+        LEFT JOIN tickets t ON t.id::text = vg.ticket_id
+        WHERE vg.concert_id = $1
+          AND ($2::text IS NULL OR vg.ticket_type_id = $2::text)
+        ORDER BY vg.name ASC
+      `,
+      [concertId, ticketTypeId ?? null],
+    );
 
     return {
       version: new Date().toISOString(),
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       tickets,
+      vipGuests,
     };
+  }
+
+  async searchVipGuests(query: VipGuestLookupQueryDto) {
+    if (query.deviceId) {
+      await this.assertActiveDevice(query.deviceId, query.concertId);
+    }
+
+    const keyword = query.q?.trim();
+    const likeKeyword = keyword ? `%${keyword}%` : null;
+
+    const items = await this.dataSource.query(
+      `
+        SELECT
+          vg.id,
+          vg.concert_id AS "concertId",
+          vg.ticket_type_id AS "ticketTypeId",
+          vg.ticket_id AS "ticketId",
+          vg.email,
+          vg.phone,
+          vg.name,
+          t.status AS "ticketStatus",
+          t.manual_code AS "manualCode"
+        FROM vip_guests vg
+        LEFT JOIN tickets t ON t.id::text = vg.ticket_id
+        WHERE vg.concert_id = $1
+          AND (
+            $2::text IS NULL
+            OR vg.name ILIKE $2
+            OR vg.email ILIKE $2
+            OR COALESCE(vg.phone, '') ILIKE $2
+          )
+        ORDER BY vg.name ASC
+        LIMIT 20
+      `,
+      [query.concertId, likeKeyword],
+    );
+
+    return {
+      count: items.length,
+      items,
+    };
+  }
+
+  async confirmVipGuest(dto: ConfirmVipGuestDto, user: any) {
+    const device = await this.assertActiveDevice(dto.device_id);
+
+    return await this.checkinRepository.manager.transaction(async (manager) => {
+      const guest = await manager.findOne(VipGuest, {
+        where: { id: dto.guestId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!guest) {
+        throw new NotFoundException('Khach VIP khong ton tai');
+      }
+
+      if (guest.concertId !== device.concertId) {
+        throw new ConflictException('Khach VIP khong thuoc su kien cua thiet bi nay.');
+      }
+
+      let ticket = guest.ticketId
+        ? await manager.findOne(Ticket, {
+            where: { id: guest.ticketId },
+            lock: { mode: 'pessimistic_write' },
+          })
+        : null;
+
+      if (!ticket) {
+        const audienceUser = await this.ensureAudienceUserForGuest(manager, guest);
+        ticket = await this.ticketsService.issueVipTicket(
+          {
+            userId: audienceUser.id,
+            concertId: guest.concertId,
+            ticketTypeId: guest.ticketTypeId,
+          },
+          manager,
+        );
+
+        guest.ticketId = ticket.id;
+        await manager.save(VipGuest, guest);
+      }
+
+      if (ticket.status === TicketStatus.USED) {
+        throw new ConflictException('Khach VIP nay da duoc xac nhan vao cong.');
+      }
+
+      if (ticket.status !== TicketStatus.ACTIVE) {
+        throw new ConflictException('Ve VIP hien khong o trang thai hop le.');
+      }
+
+      if (device.zoneId) {
+        const zone = await manager.query(
+          `SELECT ticket_type_id FROM seat_zones WHERE id = $1 LIMIT 1`,
+          [device.zoneId],
+        );
+        if (zone && zone.length > 0 && zone[0].ticket_type_id !== ticket.ticketTypeId) {
+          throw new ConflictException('Khach VIP khong hop le cho khu vuc / cong nay.');
+        }
+      }
+
+      await manager.update(Ticket, ticket.id, { status: TicketStatus.USED });
+
+      const log = manager.create(CheckinLog, {
+        ticketId: ticket.id,
+        staffId: user.sub,
+        clientEventId: dto.client_event_id,
+        deviceId: dto.device_id,
+        status: CheckinStatus.ACCEPTED,
+        mode: CheckinMode.ONLINE,
+        scannedAt: dto.scanned_at ? new Date(dto.scanned_at) : new Date(),
+      });
+      await manager.save(CheckinLog, log);
+
+      return {
+        guestId: guest.id,
+        ticketId: ticket.id,
+        status: CheckinStatus.ACCEPTED,
+      };
+    });
+  }
+
+  private async assertActiveDevice(deviceId: string, concertId?: string) {
+    const device = await this.deviceRepository.findOne({ where: { id: deviceId } });
+    if (!device || device.status !== DeviceStatus.ACTIVE) {
+      throw new UnauthorizedException('Thiet bi kiem soat khong hop le hoac da bi thu hoi');
+    }
+
+    if (concertId && device.concertId !== concertId) {
+      throw new ConflictException('Thiet bi khong thuoc su kien duoc yeu cau.');
+    }
+
+    return device;
+  }
+
+  private async ensureAudienceUserForGuest(manager: any, guest: VipGuest): Promise<User> {
+    let audienceUser = await manager.findOne(User, { where: { email: guest.email } });
+    if (audienceUser) {
+      return audienceUser;
+    }
+
+    const audienceRole = await manager.findOne(RoleEntity, {
+      where: { name: Role.AUDIENCE },
+    });
+
+    if (!audienceRole) {
+      throw new NotFoundException('AUDIENCE role not found in database');
+    }
+
+    const passwordHash = await bcrypt.hash(
+      crypto.randomBytes(16).toString('hex'),
+      12,
+    );
+
+    audienceUser = manager.create(User, {
+      email: guest.email,
+      name: guest.name,
+      passwordHash,
+      isActive: true,
+      roles: [audienceRole],
+    });
+
+    return await manager.save(User, audienceUser);
   }
 }

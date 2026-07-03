@@ -31,6 +31,25 @@ export interface OrderDetails {
   }>;
 }
 
+export interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface OrderListResponse {
+  data: OrderDetails[];
+  meta: PaginationMeta;
+}
+
+export interface OrderListQuery {
+  page?: number;
+  limit?: number;
+  status?: OrderDetails['status'];
+  concertId?: string;
+}
+
 export interface ReportResponse {
   message?: string;
   [key: string]: unknown;
@@ -194,9 +213,21 @@ function normalizeAiBioResult(payload: AiBioRequestResult): AiBioRequestResult {
 }
 
 export const operationsService = {
-  getOrders: async (): Promise<OrderDetails[]> => {
-    const response = await apiClient.get('/orders');
-    return extractListData<OrderDetails>(response.data.data ?? response.data);
+  getOrders: async (query?: OrderListQuery): Promise<OrderListResponse> => {
+    const response = await apiClient.get('/orders', {
+      params: query,
+    });
+    const payload = response.data.data ?? response.data;
+
+    return {
+      data: extractListData<OrderDetails>(payload),
+      meta: (payload?.meta ?? {
+        total: 0,
+        page: query?.page ?? 1,
+        limit: query?.limit ?? 10,
+        totalPages: 1,
+      }) as PaginationMeta,
+    };
   },
 
   getRevenueReport: async (): Promise<ReportResponse> => {

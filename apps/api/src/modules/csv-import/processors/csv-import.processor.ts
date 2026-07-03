@@ -92,6 +92,12 @@ function normalizeRecord(record: NormalizedCsvRecord): NormalizedCsvRecord {
   };
 }
 
+function normalizeTicketTypeKey(value: string): string {
+  return compactWhitespace(value)
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+}
+
 function validateRecord(record: NormalizedCsvRecord): string | null {
   if (!record.email) return 'Missing email';
   if (!record.name) return 'Missing name';
@@ -205,7 +211,7 @@ if (!importJob) {
         const ticketTypeId = record.ticketTypeId!;
         const phone = record.phone || '';
 
-        const dedupKey = email;
+        const dedupKey = email || phone;
 
         if (processedEmails.has(dedupKey)) {
           errorRows += 1;
@@ -236,9 +242,20 @@ if (!importJob) {
 
         try {
   const notificationPayload = await this.manager.transaction(async (m) => {
-    const ticketType = await m.findOne(TicketType, {
+    let ticketType = await m.findOne(TicketType, {
       where: { id: ticketTypeId, concertId },
     });
+
+    if (!ticketType) {
+      const ticketTypes = await m.find(TicketType, {
+        where: { concertId },
+      });
+      const expectedTicketTypeKey = normalizeTicketTypeKey(ticketTypeId);
+      ticketType =
+        ticketTypes.find(
+          (candidate) => normalizeTicketTypeKey(candidate.name) === expectedTicketTypeKey,
+        ) ?? null;
+    }
 
     if (!ticketType) {
       throw new Error(`Ticket type ${ticketTypeId} not found for this concert`);
@@ -278,19 +295,14 @@ if (!importJob) {
       ],
     });
 
-    if (existingGuest && existingGuest.csvImportJobId !== jobId) {
-      const skipErr = new Error('Duplicate email or phone in database');
-      (skipErr as any).isSkip = true;
-      throw skipErr;
-    }
-
     let vipGuest = existingGuest;
     let ticketId = existingGuest?.ticketId;
+    let shouldSendWelcome = !existingGuest || !existingGuest.ticketId;
 
     if (!vipGuest) {
       vipGuest = m.create(VipGuest, {
         concertId,
-        ticketTypeId,
+        ticketTypeId: ticketType.id,
         csvImportJobId: jobId,
         email,
         name,
@@ -299,6 +311,13 @@ if (!importJob) {
       });
 
       await m.save(VipGuest, vipGuest);
+    } else {
+      vipGuest.ticketTypeId = ticketType.id;
+      vipGuest.csvImportJobId = jobId;
+      vipGuest.name = name;
+      vipGuest.phone = phone || undefined;
+      vipGuest.dedupKey = dedupKey;
+      await m.save(VipGuest, vipGuest);
     }
 
     if (!ticketId) {
@@ -306,7 +325,7 @@ if (!importJob) {
         {
           userId: user.id,
           concertId,
-          ticketTypeId,
+          ticketTypeId: ticketType.id,
         },
         m,
       );
@@ -345,10 +364,13 @@ if (!importJob) {
       ticketId,
       userId: user.id,
       concertName: concert.name,
+      shouldSendWelcome,
     };
   });
 
-  await this.notificationsService.queueVipWelcome(notificationPayload);
+  if (notificationPayload.shouldSendWelcome) {
+    await this.notificationsService.queueVipWelcome(notificationPayload);
+  }
 
   successRows += 1;
 } catch (rowError: any) {

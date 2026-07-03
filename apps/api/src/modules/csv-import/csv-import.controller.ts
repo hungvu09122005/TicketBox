@@ -34,6 +34,22 @@ export class CsvImportController {
     return this.csvImportService.createJob(file, concertId, user.sub);
   }
 
+  @Post('csv/storage-sync')
+  @RequirePermissions(Permission.VIP_IMPORT)
+  async enqueueStoredCsv(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body('concertId') concertId: string,
+    @Body('objectKey') objectKey: string,
+  ) {
+    if (!concertId) {
+      throw new BadRequestException('concertId is required');
+    }
+    if (!objectKey) {
+      throw new BadRequestException('objectKey is required');
+    }
+    return this.csvImportService.createJobFromObjectKey(concertId, user.sub, objectKey);
+  }
+
   @Get('template')
   @RequirePermissions(Permission.VIP_IMPORT)
   async getTemplate() {
@@ -41,8 +57,8 @@ export class CsvImportController {
       filename: 'vip-import-template.csv',
       delimiter: ',',
       encoding: 'utf-8',
-      requiredColumns: ['email', 'name', 'ticketTypeId'],
-      optionalColumns: ['phone'],
+      requiredColumns: ['email', 'full_name', 'ticket_type'],
+      optionalColumns: ['phone', 'sponsor', 'gate', 'note'],
       columns: [
         {
           name: 'email',
@@ -50,7 +66,7 @@ export class CsvImportController {
           description: 'Guest email, used for deduplication',
         },
         {
-          name: 'name',
+          name: 'full_name',
           required: true,
           description: 'Guest name to store in VIP guest list',
         },
@@ -60,26 +76,27 @@ export class CsvImportController {
           description: 'Optional phone number',
         },
         {
-          name: 'ticketTypeId',
+          name: 'ticket_type',
           required: true,
-          description: 'Ticket type assigned to each row',
+          description: 'Ticket type label from sponsor CSV, mapped inside the selected concert',
         },
       ],
       exampleRows: [
         {
           email: 'guest1@example.com',
-          name: 'Guest 1',
+          full_name: 'Guest 1',
           phone: '0900000001',
-          ticketTypeId: 'uuid-ticket-type-1',
+          ticket_type: 'VIP',
         },
         {
           email: 'guest2@example.com',
-          name: 'Guest 2',
+          full_name: 'Guest 2',
           phone: '0900000002',
-          ticketTypeId: 'uuid-ticket-type-1',
+          ticket_type: 'VIP',
         },
       ],
       notes: [
+        'Accepted aliases: name/full_name and ticketTypeId/ticket_type.',
         'Upload one CSV file per concert.',
         'Backend validates each row and supports partial success.',
         'Rows with duplicate email or invalid ticketTypeId are written into the error report.',

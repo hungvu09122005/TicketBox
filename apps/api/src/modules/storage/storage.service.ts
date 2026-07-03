@@ -1,7 +1,11 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as Minio from 'minio';
-import { ObjectStoragePort, UploadParams } from '../../common/ports/object-storage.port';
+import {
+  ObjectStoragePort,
+  StoredObjectInfo,
+  UploadParams,
+} from '../../common/ports/object-storage.port';
 import { Readable } from 'stream';
 
 
@@ -77,12 +81,39 @@ export class StorageService implements OnModuleInit, ObjectStoragePort {
     }
   }
 
-    async downloadStream(objectKey: string): Promise<Readable> {
+  async downloadStream(objectKey: string): Promise<Readable> {
     try {
       const stream = await this.minioClient.getObject(this.defaultBucket, objectKey);
       return stream as Readable;
     } catch (error: any) {
       this.logger.error(`Failed to stream object ${objectKey}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async listObjects(prefix: string): Promise<StoredObjectInfo[]> {
+    try {
+      const stream = this.minioClient.listObjectsV2(this.defaultBucket, prefix, true);
+
+      return await new Promise((resolve, reject) => {
+        const objects: StoredObjectInfo[] = [];
+
+        stream.on('data', (item) => {
+          if (!item?.name) {
+            return;
+          }
+
+          objects.push({
+            objectKey: item.name,
+            lastModified: item.lastModified,
+            size: item.size,
+          });
+        });
+        stream.on('error', (err) => reject(err));
+        stream.on('end', () => resolve(objects));
+      });
+    } catch (error: any) {
+      this.logger.error(`Failed to list objects for prefix ${prefix}: ${error.message}`);
       throw error;
     }
   }

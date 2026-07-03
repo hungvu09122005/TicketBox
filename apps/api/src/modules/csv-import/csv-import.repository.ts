@@ -26,6 +26,16 @@ export class CsvImportRepository {
     return this.jobRepo.findOneBy({ id: jobId });
   }
 
+  async findByConcertAndObjectKey(
+    concertId: string,
+    objectKey: string,
+  ): Promise<CsvImportJob | null> {
+    return this.jobRepo.findOne({
+      where: { concertId, objectKey },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   async findAll(status?: CsvImportJobStatus): Promise<CsvImportJob[]> {
     return this.jobRepo.find({
       where: status ? { status } : {},

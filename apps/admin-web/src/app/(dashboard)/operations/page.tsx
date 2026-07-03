@@ -1,11 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   ArrowClockwise,
   ArrowSquareOut,
-  BellRinging,
   CheckCircle,
   CloudArrowUp,
   FileMagnifyingGlass,
@@ -13,8 +12,6 @@ import {
   Play,
   ShieldCheck,
   SpinnerGap,
-  Ticket,
-  TrendUp,
 } from '@phosphor-icons/react';
 import { Permission } from '@/lib/permissions';
 import { useAuthStore } from '@/lib/auth-store';
@@ -24,7 +21,6 @@ import {
   type AiBioRequestResult,
   type CsvImportJobStatus,
   type OrderDetails,
-  type ReportResponse,
 } from '@/lib/services/operations.service';
 import type { Artist } from '@/lib/types';
 import { useToast } from '@/components/ui/ToastProvider';
@@ -33,12 +29,6 @@ type FetchState<T> = {
   data: T | null;
   error: string | null;
   isLoading: boolean;
-};
-
-const initialReportState: FetchState<ReportResponse> = {
-  data: null,
-  error: null,
-  isLoading: true,
 };
 
 const queueDashboardBaseUrl = (() => {
@@ -162,16 +152,8 @@ function SkeletonBlock({ className }: Readonly<{ className: string }>) {
 
 export default function OperationsPage() {
   const permissions = useAuthStore((state) => state.permissions);
-  const canViewReports = permissions.includes(Permission.REPORT_VIEW);
   const canViewJobs = permissions.includes(Permission.VIP_IMPORT) || permissions.includes(Permission.AI_GENERATE_BIO);
   const canViewOrders = permissions.includes(Permission.ORDER_READ_OWN) || permissions.includes(Permission.ORDER_READ_ALL);
-  const canManageNotifications = permissions.includes(Permission.RBAC_MANAGE) || permissions.includes(Permission.REPORT_VIEW);
-
-  const [reportState, setReportState] = useState({
-    revenue: initialReportState,
-    tickets: initialReportState,
-    checkin: initialReportState,
-  });
   const [orderId, setOrderId] = useState('');
   const [orderLookupState, setOrderLookupState] = useState<FetchState<OrderDetails>>({
     data: null,
@@ -180,13 +162,6 @@ export default function OperationsPage() {
   });
   const [csvJobId, setCsvJobId] = useState('');
   const [csvLookupState, setCsvLookupState] = useState<FetchState<CsvImportJobStatus>>({
-    data: null,
-    error: null,
-    isLoading: false,
-  });
-  const [probeEmail, setProbeEmail] = useState('');
-  const [probeTicketId, setProbeTicketId] = useState('');
-  const [probeState, setProbeState] = useState<FetchState<{ message?: string }>>({
     data: null,
     error: null,
     isLoading: false,
@@ -203,90 +178,6 @@ export default function OperationsPage() {
   const { toast } = useToast();
 
   const dashboardHref = queueDashboardBaseUrl;
-  const requestCoverage = [
-    {
-      id: 'request13',
-      title: 'Order and payment management',
-      percent: 100,
-      href: '/operations/orders',
-      detail:
-        'Look up orders, create payments, and track callbacks.',
-      blocker: 'Ready',
-    },
-    {
-      id: 'request14',
-      title: 'Failed notification jobs and retry',
-      percent: 100,
-      href: '/operations/notifications',
-      detail:
-        'Check notification delivery, monitor failed jobs, and open the queue board when needed.',
-      blocker: 'Ready',
-    },
-    {
-      id: 'request15',
-      title: 'Sales and check-in dashboard',
-      percent: 100,
-      href: '/operations/reports',
-      detail:
-        'Revenue, tickets sold, and check-in metrics now render from the backend report APIs.',
-      blocker: 'Ready',
-    },
-    {
-      id: 'request16',
-      title: 'Background job monitor',
-      percent: 100,
-      href: '/operations/jobs',
-      detail:
-        'CSV, AI bio, and notification jobs can be monitored and retried from the backend APIs, with artist selection enforced for AI bio.',
-      blocker: 'Ready',
-    },
-  ];
-
-  useEffect(() => {
-    let isActive = true;
-
-    const loadReports = async () => {
-      setReportState({
-        revenue: initialReportState,
-        tickets: initialReportState,
-        checkin: initialReportState,
-      });
-
-      const reportRequests = [
-        operationsService.getRevenueReport(),
-        operationsService.getTicketsSoldReport(),
-        operationsService.getCheckinRateReport(),
-      ] as const;
-
-      try {
-        const [revenue, tickets, checkin] = await Promise.all(reportRequests);
-
-        if (!isActive) return;
-
-        setReportState({
-          revenue: { data: revenue, error: null, isLoading: false },
-          tickets: { data: tickets, error: null, isLoading: false },
-          checkin: { data: checkin, error: null, isLoading: false },
-        });
-      } catch (error) {
-        if (!isActive) return;
-
-        const message =
-          error instanceof Error ? error.message : 'Could not load report data.';
-        setReportState({
-          revenue: { data: null, error: message, isLoading: false },
-          tickets: { data: null, error: message, isLoading: false },
-          checkin: { data: null, error: message, isLoading: false },
-        });
-      }
-    };
-
-    void loadReports();
-
-    return () => {
-      isActive = false;
-    };
-  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -309,30 +200,6 @@ export default function OperationsPage() {
       isActive = false;
     };
   }, []);
-
-  const reportCards = useMemo(
-    () => [
-      {
-        title: 'Revenue',
-        icon: <TrendUp size={20} />,
-        state: reportState.revenue,
-        description: 'Aggregated revenue from the real reporting API.',
-      },
-      {
-        title: 'Tickets sold',
-        icon: <Ticket size={20} />,
-        state: reportState.tickets,
-        description: 'Tickets sold from backend reporting.',
-      },
-      {
-        title: 'Check-in rate',
-        icon: <CheckCircle size={20} />,
-        state: reportState.checkin,
-        description: 'Check-in rate that reflects gate operations.',
-      },
-    ],
-    [reportState],
-  );
 
   const handleOrderLookup = async () => {
     const trimmedOrderId = orderId.trim();
@@ -393,44 +260,6 @@ export default function OperationsPage() {
         error: message,
         isLoading: false,
       });
-    }
-  };
-
-  const handleNotificationProbe = async () => {
-    const email = probeEmail.trim();
-    const ticketId = probeTicketId.trim();
-
-    if (!email || !ticketId) {
-      const errMsg = 'Enter an email and ticket ID to create a notification probe.';
-      setProbeState({
-        data: null,
-        error: errMsg,
-        isLoading: false,
-      });
-      toast.error(errMsg);
-      return;
-    }
-
-    setProbeState((current) => ({ ...current, isLoading: true, error: null }));
-
-    try {
-      const data = await operationsService.sendNotificationProbe({ email, ticketId });
-      setProbeState({
-        data,
-        error: null,
-        isLoading: false,
-      });
-      const msg = 'Queued the notification probe in the real queue.';
-      setSummaryMessage(msg);
-      toast.success(msg);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not enqueue the notification probe.';
-      setProbeState({
-        data: null,
-        error: message,
-        isLoading: false,
-      });
-      toast.error(message);
     }
   };
 
@@ -535,69 +364,26 @@ export default function OperationsPage() {
               />
               <StatCard
                 label="Reports"
-                value={canViewReports ? 'API backed' : 'Restricted'}
-                hint="Revenue, tickets sold, and check-in rate come from APIs."
-                icon={<TrendUp size={20} />}
+                value={permissions.includes(Permission.REPORT_VIEW) ? 'Available' : 'Restricted'}
+                hint="Detailed report pages remain available from the operations menu."
+                icon={<CheckCircle size={20} />}
               />
               <StatCard
                 label="Jobs"
                 value={canViewJobs ? 'Queue aware' : 'Restricted'}
-                hint="CSV, AI bio, and notification probes hit real APIs."
+                hint="CSV, AI bio, and notification probes run from the job monitor."
                 icon={<CloudArrowUp size={20} />}
               />
               <StatCard
                 label="Retry path"
-                value={canManageNotifications ? 'Bull Board' : 'Restricted'}
-                hint="Failed jobs retry from Bull Board."
+                value="Bull Board"
+                hint="Live queue board is available directly in Operations."
                 icon={<ArrowClockwise size={20} />}
               />
             </div>
           </div>
         </div>
       </section>
-
-      <SectionCard
-        title="Request coverage"
-        description="A direct readout of how much of each request is satisfied in the current worktree and which flows still rely on the queue board."
-      >
-        <div className="overflow-hidden rounded-[28px] border border-border bg-background">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-surface/80 text-muted">
-              <tr>
-                <th className="px-4 py-3 font-medium">Request</th>
-                <th className="px-4 py-3 font-medium">Completion</th>
-                <th className="px-4 py-3 font-medium">Current state</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Open</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-          {requestCoverage.map((item) => (
-              <tr key={item.id} className="align-top">
-                <td className="px-4 py-4">
-                  <p className="font-medium text-primary">{item.title}</p>
-                </td>
-                <td className="px-4 py-4">
-                  <div className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-emerald-800">
-                    {item.percent}%
-                  </div>
-                </td>
-                <td className="px-4 py-4 text-muted">{item.detail}</td>
-                <td className="px-4 py-4 text-muted">{item.blocker}</td>
-                <td className="px-4 py-4">
-                  <Link
-                    href={item.href}
-                    className="inline-flex items-center justify-center rounded-full border border-border bg-surface px-3 py-2 text-xs font-medium text-primary transition-transform hover:-translate-y-[1px] active:translate-y-0"
-                  >
-                    Open
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
 
       <SectionCard
         title="Order and payment management"
@@ -687,290 +473,28 @@ export default function OperationsPage() {
         </div>
       </SectionCard>
 
-      <SectionCard
-        title="Sales and check-in dashboard"
-        description="Quickly view revenue, tickets sold, and check-in rate."
-        action={
-          <a
-            href={dashboardHref}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary transition-transform hover:-translate-y-[1px] active:translate-y-0"
-          >
-            <ArrowSquareOut size={14} />
-            Open queue board
-          </a>
-        }
-      >
-        {!canViewReports ? (
-          <div className="rounded-[24px] border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            Your role does not include report access.
-          </div>
-        ) : (
-          <div className="grid gap-4 xl:grid-cols-3">
-            {reportCards.map((card) => {
-              const state = card.state;
-
-              return (
-                <div key={card.title} className="rounded-[28px] border border-border bg-background p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-surface text-primary">
-                        {card.icon}
-                      </div>
-                      <div>
-                        <h3 className="text-base font-semibold text-primary">{card.title}</h3>
-                        <p className="mt-1 text-sm leading-6 text-muted">{card.description}</p>
-                      </div>
-                    </div>
-                    <Pill tone={state.isLoading ? 'warning' : state.error ? 'danger' : 'success'}>
-                      {state.isLoading ? 'Loading' : state.error ? 'Error' : 'Ready'}
-                    </Pill>
-                  </div>
-
-                  <div className="mt-5 rounded-[24px] border border-dashed border-border bg-surface p-4">
-                    {state.isLoading ? (
-                      <div className="space-y-3">
-                        <SkeletonBlock className="h-4 w-2/3" />
-                        <SkeletonBlock className="h-10 w-full" />
-                        <SkeletonBlock className="h-4 w-1/2" />
-                      </div>
-                    ) : state.error ? (
-                      <p className="text-sm leading-6 text-red-800">{state.error}</p>
-                    ) : state.data?.message ? (
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-primary">Backend response</p>
-                        <p className="text-sm leading-6 text-muted">{state.data.message}</p>
-                      </div>
-                    ) : (
-                    <p className="text-sm leading-6 text-muted">
-                        Live metrics render here when the API returns numeric fields or row objects.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </SectionCard>
-
-      <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-      <SectionCard
-        title="Failed notification jobs"
-        description="The page uses the live notification probe endpoint and the backend queue board for retry and failure inspection."
-        action={
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-muted">
-            <BellRinging size={14} />
-              Retry on Bull Board
-            </div>
+      <div className="space-y-6">
+        <SectionCard
+          title="Live queue board"
+          description="Embedded Bull Board view for live queue inspection without leaving the operations console."
+          action={
+            <a
+              href={dashboardHref}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary transition-transform hover:-translate-y-[1px] active:translate-y-0"
+            >
+              <ArrowSquareOut size={14} />
+              Open full screen
+            </a>
           }
         >
-          <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block space-y-2">
-                <span className="text-sm font-medium text-primary">Notification email</span>
-                <input
-                  value={probeEmail}
-                  onChange={(event) => setProbeEmail(event.target.value)}
-                  placeholder="ops@ticketbox.vn"
-                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-primary outline-none transition focus:border-primary"
-                />
-              </label>
-              <label className="block space-y-2">
-                <span className="text-sm font-medium text-primary">Ticket ID</span>
-                <input
-                  value={probeTicketId}
-                  onChange={(event) => setProbeTicketId(event.target.value)}
-                  placeholder="ticket_123"
-                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-primary outline-none transition focus:border-primary"
-                />
-              </label>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={handleNotificationProbe}
-                className="inline-flex min-h-11 flex-1 min-w-[200px] items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface transition-transform hover:-translate-y-[1px] active:translate-y-0"
-              >
-                {probeState.isLoading ? <SpinnerGap size={16} className="animate-spin" /> : <BellRinging size={16} />}
-                Send probe
-              </button>
-              <a
-                href={dashboardHref}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-h-11 flex-1 min-w-[200px] items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm font-medium text-primary transition-transform hover:-translate-y-[1px] active:translate-y-0"
-              >
-                <ArrowSquareOut size={16} />
-                Open queue dashboard
-              </a>
-              {probeTicketId.trim() ? (
-                <Link
-                  href={`/operations/notifications/${encodeURIComponent(probeTicketId.trim())}`}
-                  className="inline-flex min-h-11 flex-1 min-w-[200px] items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm font-medium text-primary transition-transform hover:-translate-y-[1px] active:translate-y-0"
-                >
-                  Open ticket detail
-                </Link>
-              ) : null}
-            </div>
-
-            <div className="rounded-[24px] border border-border bg-background p-4">
-              {probeState.isLoading ? (
-                <p className="text-sm text-muted">Submitting notification probe...</p>
-              ) : probeState.error ? (
-                <p className="text-sm leading-6 text-red-800">{probeState.error}</p>
-              ) : probeState.data?.message ? (
-                <p className="text-sm leading-6 text-primary">{probeState.data.message}</p>
-              ) : (
-                <p className="text-sm leading-6 text-muted">
-                  Failed-job retries are handled in Bull Board. Here you only send probes and open the queue board when needed.
-                </p>
-              )}
-            </div>
-          </div>
-        </SectionCard>
-
-      <SectionCard
-        title="Background job monitor"
-        description="Look up CSV jobs, create AI bio jobs, and open the queue board when needed."
-        action={
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-muted">
-            <CloudArrowUp size={14} />
-              CSV / AI / notification
-            </div>
-          }
-        >
-          <div id="job-monitor" className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block space-y-2">
-                <span className="text-sm font-medium text-primary">CSV job ID</span>
-                <input
-                  value={csvJobId}
-                  onChange={(event) => setCsvJobId(event.target.value)}
-                  placeholder="csv-job-id"
-                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-primary outline-none transition focus:border-primary"
-                />
-              </label>
-              <div className="space-y-2">
-                <span className="block text-sm font-medium text-primary">Status legend</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <span className="inline-flex w-full items-center justify-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-amber-800">Pending</span>
-                  <span className="inline-flex w-full items-center justify-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-amber-800">Processing</span>
-                  <span className="inline-flex w-full items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-emerald-800">Success</span>
-                  <span className="inline-flex w-full items-center justify-center rounded-full border border-red-200 bg-red-50 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-red-800">Failed</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={handleCsvLookup}
-                className="inline-flex min-h-11 flex-1 min-w-[200px] items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface transition-transform hover:-translate-y-[1px] active:translate-y-0"
-              >
-                {csvLookupState.isLoading ? <SpinnerGap size={16} className="animate-spin" /> : <FileMagnifyingGlass size={16} />}
-                Lookup CSV job
-              </button>
-              <a
-                href={dashboardHref}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-h-11 flex-1 min-w-[200px] items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm font-medium text-primary transition-transform hover:-translate-y-[1px] active:translate-y-0"
-              >
-                <ArrowSquareOut size={16} />
-                Retry in queue board
-              </a>
-            </div>
-
-            <div className="rounded-[24px] border border-border bg-background p-4">
-              {csvLookupState.isLoading ? (
-                <p className="text-sm text-muted">Loading CSV job status...</p>
-              ) : csvLookupState.error ? (
-                <p className="text-sm leading-6 text-red-800">{csvLookupState.error}</p>
-              ) : csvLookupState.data ? (
-                <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    <Pill tone={csvLookupState.data.status === 'FAILED' ? 'danger' : csvLookupState.data.status === 'COMPLETED' ? 'success' : 'warning'}>
-                      {csvLookupState.data.status ?? 'UNKNOWN'}
-                    </Pill>
-                    {typeof csvLookupState.data.totalRows === 'number' ? <Pill tone="neutral">Rows: {csvLookupState.data.totalRows}</Pill> : null}
-                  </div>
-                  <div className="grid gap-3 text-sm text-primary sm:grid-cols-2">
-                    <p>Success rows: {csvLookupState.data.successRows ?? '--'}</p>
-                    <p>Error rows: {csvLookupState.data.errorRows ?? '--'}</p>
-                    <p>Concert ID: {csvLookupState.data.concertId?.slice(0, 8) ?? '--'}</p>
-                    <p>Created: {formatDateTime(csvLookupState.data.createdAt)}</p>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm leading-6 text-muted">
-                  Enter a CSV job ID to view its processing status.
-                </p>
-              )}
-            </div>
-
-            <div className="grid gap-3 rounded-[24px] border border-dashed border-border bg-surface p-4">
-              <div>
-                <p className="text-sm font-medium text-primary">AI bio request</p>
-                <p className="text-xs text-muted">Upload a PDF to create an AI bio request for an artist.</p>
-              </div>
-              <label className="block space-y-2">
-                <span className="text-sm font-medium text-primary">Artist</span>
-                <select
-                  value={selectedAiArtistId}
-                  onChange={(event) => setSelectedAiArtistId(event.target.value)}
-                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-primary outline-none transition focus:border-primary"
-                >
-                  <option value="">Select artist</option>
-                  {aiArtists.map((artist) => (
-                    <option key={artist.id} value={artist.id}>
-                      {artist.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm font-medium text-primary transition-transform hover:-translate-y-[1px] active:translate-y-0">
-                  <CloudArrowUp size={16} />
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    onChange={(event) => setAiFile(event.target.files?.[0] ?? null)}
-                    className="hidden"
-                  />
-                  <span className="truncate">{aiFile ? aiFile.name : 'Choose PDF'}</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={handleAiUpload}
-                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface transition-transform hover:-translate-y-[1px] active:translate-y-0"
-                >
-                  {aiState.isLoading ? <SpinnerGap size={16} className="animate-spin" /> : <CloudArrowUp size={16} />}
-                  Create AI job
-                </button>
-              </div>
-              <div className="rounded-[20px] border border-border bg-background p-4">
-                {aiState.isLoading ? (
-                  <p className="text-sm text-muted">Uploading PDF and creating AI request...</p>
-                ) : aiState.error ? (
-                  <p className="text-sm leading-6 text-red-800">{aiState.error}</p>
-                ) : aiState.data?.status ? (
-                  <div className="space-y-2 text-sm">
-                    <Pill tone={aiState.data.status === 'FAILED' ? 'danger' : aiState.data.status === 'SUCCESS' || aiState.data.status === 'DRAFT' || aiState.data.status === 'PUBLISHED' ? 'success' : 'warning'}>
-                      {aiState.data.status}
-                    </Pill>
-                    <p className="text-primary">Request ID: {aiState.data.id ?? '--'}</p>
-                    <p className="text-muted">Requested by: {aiState.data.requestedBy ?? '--'}</p>
-                    <p className="text-muted">PDF key: {aiState.data.pdfObjectKey ?? '--'}</p>
-                  </div>
-                ) : (
-                  <p className="text-sm leading-6 text-muted">
-                    Upload a PDF to create a new AI bio job.
-                  </p>
-                )}
-              </div>
-            </div>
+          <div className="overflow-hidden rounded-[24px] border border-border bg-background">
+            <iframe
+              title="Bull Board queue dashboard"
+              src={dashboardHref}
+              className="h-[640px] w-full"
+            />
           </div>
         </SectionCard>
       </div>

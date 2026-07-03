@@ -27,6 +27,38 @@ const ALLOWED_CSV_MIME_TYPES = new Set([
 
 const REQUIRED_CSV_HEADERS = ['email', 'name'];
 
+function normalizeCsvHeader(header: string): string {
+  const key = header
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+
+  const mapping: Record<string, string> = {
+    email: 'email',
+    mail: 'email',
+    fullname: 'name',
+    name: 'name',
+    hoten: 'name',
+    holdername: 'name',
+    customername: 'name',
+    phone: 'phone',
+    phonenumber: 'phone',
+    mobile: 'phone',
+    tickettypeid: 'ticketTypeId',
+    tickettype: 'ticketTypeId',
+    tickettypename: 'ticketTypeId',
+    tickettypelabel: 'ticketTypeId',
+    sponsor: 'sponsor',
+    gate: 'gate',
+    note: 'note',
+    dedupkey: 'dedupKey',
+    guestexternalid: 'guestExternalId',
+  };
+
+  return mapping[key] ?? key;
+}
+
 @Injectable()
 export class CsvImportService {
   constructor(
@@ -46,6 +78,25 @@ export class CsvImportService {
       contentType: file.mimetype,
       size: file.size,
     });
+
+    return this.createJobFromObjectKey(concertId, userId, objectKey);
+  }
+
+  async createJobFromObjectKey(
+    concertId: string,
+    userId: string,
+    objectKey: string,
+  ) {
+    const existingJob = await this.repo.findByConcertAndObjectKey(concertId, objectKey);
+    if (existingJob) {
+      return {
+        job_id: existingJob.id,
+        status: existingJob.status,
+        object_key: existingJob.objectKey,
+        concert_id: existingJob.concertId,
+        created_at: existingJob.createdAt,
+      };
+    }
 
     const job = await this.repo.createJob(concertId, userId, objectKey);
 
@@ -187,14 +238,13 @@ export class CsvImportService {
     }
 
     const actualHeaders = firstLine
-      .replace(/^\uFEFF/, '')
       .split(',')
-      .map((header) => header.trim());
+      .map((header) => normalizeCsvHeader(header));
 
     const missingHeaders = REQUIRED_CSV_HEADERS.filter(
       (header) => !actualHeaders.includes(header),
     );
-    if (!actualHeaders.includes('ticketTypeId') && !actualHeaders.includes('ticket_type_id')) {
+    if (!actualHeaders.includes('ticketTypeId')) {
       missingHeaders.push('ticketTypeId');
     }
 

@@ -104,6 +104,13 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
     }
   };
 
+  const failureReason =
+    typeof job?.failureReason === 'string'
+      ? job.failureReason
+      : job?.failureReason
+        ? JSON.stringify(job.failureReason)
+        : null;
+
   return (
     <div className="space-y-6">
       <div className="rounded-[32px] border border-border bg-surface p-6 shadow-sm">
@@ -136,8 +143,7 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+      <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-2xl border border-border bg-background p-3 text-primary">
               <FileMagnifyingGlass size={20} />
@@ -190,115 +196,16 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
                   <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Object key</p>
                   <p className="mt-2 break-words text-sm text-primary">{job.objectKey ?? '--'}</p>
                 </div>
+                {failureReason ? (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4 sm:col-span-2">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-red-700">Failure reason</p>
+                    <p className="mt-2 break-words text-sm text-red-800">{failureReason}</p>
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
-        </section>
-
-        <section className="space-y-4">
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Queue board</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Open the queue board to view worker state and retry when needed.
-            </p>
-          </div>
-
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Status guide</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              These are the states the CSV monitor expects from the backend job record.
-            </p>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-surface/80 text-muted">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Meaning</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {[
-                    ['PENDING', 'Queued and not yet processed'],
-                    ['PROCESSING', 'Worker is reading the CSV'],
-                    ['COMPLETED', 'Displayed as SUCCESS in the UI'],
-                    ['PARTIALLY_COMPLETED', 'Some rows failed validation'],
-                    ['FAILED', 'Worker or import pipeline failed'],
-                  ].map(([status, meaning]) => (
-                    <tr key={status}>
-                      <td className="px-4 py-3 font-medium text-primary">{status}</td>
-                      <td className="px-4 py-3 text-muted">{meaning}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Paths available</h2>
-            <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm leading-6 text-muted">
-              <p>GET /imports/:jobId/status</p>
-              <p className="mt-1">POST /imports/csv</p>
-              <p className="mt-1">Bull Board /admin/queues</p>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">CSV template guide</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              The upload form chooses the concert separately. Use these row columns in the CSV file so the backend can validate each guest row.
-            </p>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-surface/80 text-muted">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Column</th>
-                    <th className="px-4 py-3 font-medium">Purpose</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {[
-                    ['email', 'Guest email, used for deduplication'],
-                    ['name', 'Guest name to store in VIP guest list'],
-                    ['phone', 'Optional phone number'],
-                    ['ticketTypeId', 'Ticket type assigned to that row'],
-                  ].map(([column, purpose]) => (
-                    <tr key={column}>
-                      <td className="px-4 py-3 font-medium text-primary">{column}</td>
-                      <td className="px-4 py-3 text-muted">{purpose}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Manual actions</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              CSV retry is only available in the queue dashboard. The frontend page focuses on inspection and navigation, not on inventing a missing API.
-            </p>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
-              <table className="min-w-full text-left text-sm">
-                <tbody className="divide-y divide-border">
-                  <tr>
-                    <th className="w-44 px-4 py-3 font-medium text-primary">Retry</th>
-                    <td className="px-4 py-3 text-muted">Use Bull Board on the backend</td>
-                  </tr>
-                  <tr>
-                    <th className="w-44 px-4 py-3 font-medium text-primary">Inspect failure</th>
-                    <td className="px-4 py-3 text-muted">Review `errorRows` and queue logs</td>
-                  </tr>
-                  <tr>
-                    <th className="w-44 px-4 py-3 font-medium text-primary">Permission gate</th>
-                    <td className="px-4 py-3 text-muted">Visible only to job-monitor roles</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-      </div>
+      </section>
     </div>
   );
 }
