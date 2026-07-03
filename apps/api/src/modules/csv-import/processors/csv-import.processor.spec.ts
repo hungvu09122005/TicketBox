@@ -7,6 +7,7 @@ import { NotificationsService } from '../../notifications/notifications.service'
 import { EntityManager } from 'typeorm';
 import { Job } from 'bull';
 import { CsvImportJobStatus } from '../entities/csv-import-job.entity';
+import { Readable } from 'stream';
 
 describe('CsvImportProcessor', () => {
   let processor: CsvImportProcessor;
@@ -26,6 +27,7 @@ describe('CsvImportProcessor', () => {
 
     storage = {
       download: jest.fn(),
+      downloadStream: jest.fn(),
     };
 
     ticketsService = {
@@ -63,7 +65,7 @@ describe('CsvImportProcessor', () => {
     const csvContent = 'email,name,ticketTypeId,phone\nvip@example.com,Vip Guest,vip-type-id,0900000001\n';
 
     repo.findById.mockResolvedValue({ id: jobId, concertId } as any);
-    storage.download.mockResolvedValue(Buffer.from(csvContent));
+    storage.downloadStream.mockResolvedValue(Readable.from(csvContent));
     manager.findOne.mockImplementation((entity: any, options: any) => {
       if (entity === 'Concert' || (entity && entity.name === 'Concert')) {
         return Promise.resolve({ id: concertId, name: 'Test Concert' });
