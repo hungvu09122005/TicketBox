@@ -26,6 +26,7 @@ describe('CsvImportProcessor', () => {
     } as any;
 
     storage = {
+      download: jest.fn(),
       downloadStream: jest.fn(),
     };
 
