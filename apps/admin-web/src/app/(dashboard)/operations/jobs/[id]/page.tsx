@@ -116,7 +116,7 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
             <div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">CSV job detail</h1>
               <p className="mt-3 text-sm leading-6 text-muted">
-                This detail view reads the real CSV status endpoint so admins can inspect a specific job without guessing from a generic monitor screen.
+                Xem chi tiết một CSV job, trạng thái xử lý và file lỗi nếu có.
               </p>
             </div>
           </div>
@@ -144,7 +144,7 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
             </div>
             <div>
               <h2 className="text-lg font-semibold text-primary">Job summary</h2>
-              <p className="text-sm text-muted">Live data from `GET /imports/:jobId/status`.</p>
+              <p className="text-sm text-muted">Thông tin hiện tại của job đã chọn.</p>
             </div>
           </div>
 
@@ -197,14 +197,14 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
 
         <section className="space-y-4">
           <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Queue context</h2>
+            <h2 className="text-lg font-semibold text-primary">Queue board</h2>
             <p className="mt-2 text-sm leading-6 text-muted">
-              The full retry and worker state remains in the backend Bull Board, which keeps this UI contract honest and avoids simulating worker internals.
+              Mở queue board để xem worker state và retry khi cần.
             </p>
           </div>
 
           <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Status contract</h2>
+            <h2 className="text-lg font-semibold text-primary">Status guide</h2>
             <p className="mt-2 text-sm leading-6 text-muted">
               These are the states the CSV monitor expects from the backend job record.
             </p>

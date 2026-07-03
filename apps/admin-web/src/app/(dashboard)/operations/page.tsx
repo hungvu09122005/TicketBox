@@ -208,7 +208,7 @@ export default function OperationsPage() {
       percent: 100,
       href: '/operations/orders',
       detail:
-        'Live order lookup, payment initiation, callback handling, and callback audit are wired to the backend.',
+        'Tra cứu đơn hàng, tạo thanh toán và theo dõi callback.',
       blocker: 'Ready',
     },
     {
@@ -217,7 +217,7 @@ export default function OperationsPage() {
       percent: 100,
       href: '/operations/notifications',
       detail:
-        'Notification probe, idempotent job queueing, failed-job list, and retry actions are wired to the backend APIs.',
+        'Kiểm tra gửi thông báo, theo dõi job lỗi và mở queue board khi cần.',
       blocker: 'Ready',
     },
     {
@@ -587,13 +587,7 @@ export default function OperationsPage() {
 
       <SectionCard
         title="Order and payment management"
-        description="Front-end reads a real order by ID, then shows status, expiry, and the exact backend contract behind the record."
-        action={
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-muted">
-            <Ticket size={14} />
-            GET /orders/:id
-          </div>
-        }
+        description="Tra cứu đơn hàng theo ID để xem trạng thái, thời hạn và thông tin thanh toán."
       >
         <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
           <div className="space-y-4">
@@ -630,10 +624,6 @@ export default function OperationsPage() {
           </div>
 
           <div className="space-y-4">
-            <div className="rounded-[24px] border border-dashed border-border bg-background p-4 text-sm leading-6 text-muted">
-              The backend currently exposes one order detail endpoint and payment create/callback only.
-              This screen keeps the admin view honest by surfacing the real contract instead of fake tables.
-            </div>
             {orderLookupState.isLoading ? (
               <div className="grid gap-4 sm:grid-cols-2">
                 <SkeletonBlock className="h-28" />
@@ -676,7 +666,7 @@ export default function OperationsPage() {
               </div>
             ) : (
               <div className="rounded-[24px] border border-dashed border-border bg-background p-5 text-sm leading-6 text-muted">
-                No order loaded yet. Use a real order ID from the backend and the record will appear here.
+                Chưa có đơn hàng nào được tải. Nhập Order ID để xem chi tiết.
               </div>
             )}
           </div>
@@ -685,7 +675,7 @@ export default function OperationsPage() {
 
       <SectionCard
         title="Sales and check-in dashboard"
-        description="The reporting section pulls from `/reports/revenue`, `/reports/tickets-sold`, and `/reports/checkin-rate` and now renders live backend aggregates without UI changes."
+        description="Xem nhanh doanh thu, vé bán và tỷ lệ check-in."
         action={
           <a
             href={dashboardHref}
@@ -820,8 +810,7 @@ export default function OperationsPage() {
                 <p className="text-sm leading-6 text-primary">{probeState.data.message}</p>
               ) : (
                 <p className="text-sm leading-6 text-muted">
-                  Retry for failed jobs happens inside Bull Board on the backend. This page keeps the
-                  probe action wired to the real queue path and avoids fake retry buttons.
+                  Retry cho job lỗi được thực hiện trong Bull Board. Tại đây bạn chỉ gửi probe và mở queue board khi cần.
                 </p>
               )}
             </div>
@@ -830,7 +819,7 @@ export default function OperationsPage() {
 
       <SectionCard
         title="Background job monitor"
-        description="CSV import lookup and AI bio request forms are wired to the backend, and failed jobs remain observable from the queue board."
+        description="Tra cứu CSV job, tạo AI bio job và mở queue board khi cần."
         action={
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-muted">
             <CloudArrowUp size={14} />
@@ -902,7 +891,7 @@ export default function OperationsPage() {
                 </div>
               ) : (
                 <p className="text-sm leading-6 text-muted">
-                  Enter a real CSV job ID to read the job from backend storage.
+                  Nhập CSV job ID để xem trạng thái xử lý.
                 </p>
               )}
             </div>
@@ -910,7 +899,7 @@ export default function OperationsPage() {
             <div className="grid gap-3 rounded-[24px] border border-dashed border-border bg-surface p-4">
               <div>
                 <p className="text-sm font-medium text-primary">AI bio request</p>
-                <p className="text-xs text-muted">This uses the real multipart endpoint at `/api/artist-bio`.</p>
+                <p className="text-xs text-muted">Tải PDF để tạo yêu cầu AI bio cho nghệ sĩ.</p>
               </div>
               <label className="block space-y-2">
                 <span className="text-sm font-medium text-primary">Artist</span>
@@ -963,7 +952,7 @@ export default function OperationsPage() {
                   </div>
                 ) : (
                   <p className="text-sm leading-6 text-muted">
-                    Upload a real PDF to create a new AI bio request and enqueue the background job.
+                    Tải PDF để tạo AI bio job mới.
                   </p>
                 )}
               </div>

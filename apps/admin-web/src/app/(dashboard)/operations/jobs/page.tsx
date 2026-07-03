@@ -422,7 +422,7 @@ export default function JobsPage() {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-primary">Create AI job</h2>
-              <p className="text-sm text-muted">Creates a real multipart request to `/api/artist-bio`.</p>
+              <p className="text-sm text-muted">Tạo yêu cầu AI bio từ file PDF của nghệ sĩ.</p>
             </div>
           </div>
 
@@ -499,7 +499,7 @@ export default function JobsPage() {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-primary">Upload CSV import</h2>
-              <p className="text-sm text-muted">Creates a real CSV import job through `/imports/csv`.</p>
+              <p className="text-sm text-muted">Tạo CSV import job cho concert đã chọn.</p>
             </div>
           </div>
 

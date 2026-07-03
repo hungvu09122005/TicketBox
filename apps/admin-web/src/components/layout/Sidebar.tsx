@@ -29,6 +29,11 @@ const operationsShortcuts = [
   { name: 'Job monitor', href: '/operations/jobs' },
 ];
 
+const accessControlShortcuts = [
+  { name: 'Roles & permissions', href: '/rbac' },
+  { name: 'Users', href: '/rbac/users' },
+];
+
 export function Sidebar({ onClose }: Readonly<{ onClose?: () => void }>) {
   const pathname = usePathname();
   const router = useRouter();
@@ -54,6 +59,7 @@ export function Sidebar({ onClose }: Readonly<{ onClose?: () => void }>) {
             const isActive = pathname.startsWith(item.href);
             const Icon = item.icon;
             const isOperations = item.href === '/operations';
+            const isAccessControl = item.href === '/rbac';
             return (
               <div key={item.name} className="space-y-1">
                 <Link
@@ -75,6 +81,29 @@ export function Sidebar({ onClose }: Readonly<{ onClose?: () => void }>) {
                 {isOperations && pathname.startsWith('/operations') && canAccess([Permission.REPORT_VIEW]) ? (
                   <div className="ml-9 space-y-1 border-l border-border pl-3">
                     {operationsShortcuts.map((shortcut) => {
+                      const isShortcutActive = pathname === shortcut.href;
+                      return (
+                        <Link
+                          key={shortcut.href}
+                          href={shortcut.href}
+                          onClick={onClose}
+                          className={`flex items-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                            isShortcutActive
+                              ? 'bg-primary text-surface'
+                              : 'text-muted hover:bg-primary/5 hover:text-primary'
+                          }`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+                          {shortcut.name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                {isAccessControl && pathname.startsWith('/rbac') && canAccess([Permission.RBAC_MANAGE]) ? (
+                  <div className="ml-9 space-y-1 border-l border-border pl-3">
+                    {accessControlShortcuts.map((shortcut) => {
                       const isShortcutActive = pathname === shortcut.href;
                       return (
                         <Link

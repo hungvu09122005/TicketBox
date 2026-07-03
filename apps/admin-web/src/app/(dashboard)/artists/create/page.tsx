@@ -112,7 +112,7 @@ export default function CreateArtistPage() {
         <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Create artist</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">New Artist</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
-          Use the real admin API to create the artist record, upload an avatar, and prepare a public bio for later publishing.
+          Tạo artist mới, tải avatar và chuẩn bị bio để publish sau.
         </p>
       </div>
 

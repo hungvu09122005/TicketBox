@@ -97,7 +97,7 @@ export default function AiBioReviewPage({ params }: Readonly<{ params: Promise<{
         <p className="text-[11px] uppercase tracking-[0.22em] text-muted">AI bio review</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Review draft</h1>
         <p className="mt-3 text-sm leading-6 text-muted">
-          Use the real AI bio request record. The processor now keeps generated content as DRAFT until you publish it to the artist profile.
+          Xem, chỉnh sửa và publish nội dung AI bio cho nghệ sĩ.
         </p>
       </div>
 

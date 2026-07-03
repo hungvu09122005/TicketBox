@@ -70,7 +70,7 @@ export default function NotificationDetailPage({ params }: Readonly<{ params: Pr
             <div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Notification ticket detail</h1>
               <p className="mt-3 text-sm leading-6 text-muted">
-                This detail view keeps the notification contract visible for one ticket and uses the live probe endpoint instead of a fake retry action.
+                Kiểm tra gửi thông báo cho một ticket cụ thể.
               </p>
             </div>
           </div>
@@ -128,126 +128,6 @@ export default function NotificationDetailPage({ params }: Readonly<{ params: Pr
           </div>
         </section>
 
-        <section className="space-y-4">
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Retry contract</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Retry remains in the Bull Board. The backend log enforces unique `(ticketId, type, channel)` to stop duplicate delivery.
-            </p>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
-              <table className="min-w-full text-left text-sm">
-                <tbody className="divide-y divide-border">
-                  <tr>
-                    <th className="w-40 px-4 py-3 font-medium text-primary">Queue</th>
-                    <td className="px-4 py-3 text-muted">notification</td>
-                  </tr>
-                  <tr>
-                    <th className="w-40 px-4 py-3 font-medium text-primary">Job name</th>
-                    <td className="px-4 py-3 text-muted">notification.ticket_confirmation</td>
-                  </tr>
-                  <tr>
-                    <th className="w-40 px-4 py-3 font-medium text-primary">Unique key</th>
-                    <td className="px-4 py-3 text-muted">ticketId + type + channel</td>
-                  </tr>
-                  <tr>
-                    <th className="w-40 px-4 py-3 font-medium text-primary">Retry path</th>
-                    <td className="px-4 py-3 text-muted">Bull Board /admin/queues</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Failure triage</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Failed jobs need a reason before retrying. This page does not invent a fake queue list, but it shows the checks an admin should use when a notification fails.
-            </p>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-surface/80 text-muted">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Possible cause</th>
-                    <th className="px-4 py-3 font-medium">What to check</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {[
-                    ['Provider rejection', 'Check SendGrid sandbox credentials and recipient address'],
-                    ['Queue worker error', 'Open queue board and inspect the failed job payload / stack trace'],
-                    ['Duplicate delivery blocked', 'Verify `notification_logs` unique key before retrying'],
-                    ['Missing ticket data', 'Confirm the ticketId exists in the backend before enqueueing again'],
-                  ].map(([cause, check]) => (
-                    <tr key={cause}>
-                      <td className="px-4 py-3 font-medium text-primary">{cause}</td>
-                      <td className="px-4 py-3 text-muted">{check}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Manual retry flow</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              The retry action stays in Bull Board so it can operate on the real job and queue state without creating duplicate jobs in the UI.
-            </p>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-surface/80 text-muted">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Step</th>
-                    <th className="px-4 py-3 font-medium">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {[
-                    ['1', 'Open queue board `/admin/queues`'],
-                    ['2', 'Inspect the failed `notification` job payload and stack trace'],
-                    ['3', 'Confirm `ticketId`, email, and dedupe key before retrying'],
-                    ['4', 'Retry once from the queue board, not from a fake UI button'],
-                  ].map(([step, action]) => (
-                    <tr key={step}>
-                      <td className="px-4 py-3 font-medium text-primary">{step}</td>
-                      <td className="px-4 py-3 text-muted">{action}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">How it maps</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              The notification log model is the source of truth for dedupe; this page mirrors that contract instead of pretending to manage retries itself.
-            </p>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-surface/80 text-muted">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Meaning</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {[
-                    ['QUEUED', 'Waiting in queue'],
-                    ['SENT', 'Delivered to provider'],
-                    ['FAILED', 'Worker failure or provider rejection'],
-                    ['BOUNCED', 'Delivery bounced after send'],
-                  ].map(([status, meaning]) => (
-                    <tr key={status}>
-                      <td className="px-4 py-3 font-medium text-primary">{status}</td>
-                      <td className="px-4 py-3 text-muted">{meaning}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
       </div>
     </div>
   );
