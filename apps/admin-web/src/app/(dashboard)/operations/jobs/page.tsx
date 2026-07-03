@@ -11,6 +11,8 @@ import { operationsService, type AiBioRequestResult, type CsvImportJobStatus, ty
 import type { Artist, Concert } from '@/lib/types';
 
 type AiBioTargetType = 'ARTIST' | 'CONCERT';
+const JOB_TABLE_PAGE_SIZE = 10;
+const JOB_TABLE_PAGE_SIZES = [5, 10, 20, 50] as const;
 
 const queueDashboardHref = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
@@ -99,6 +101,48 @@ function getNotificationTicketId(job: NotificationJobRecord) {
   return typeof rawTicketId === 'string' && rawTicketId.trim() ? rawTicketId : null;
 }
 
+function TablePagination({
+  page,
+  totalPages,
+  totalItems,
+  onPrev,
+  onNext,
+}: Readonly<{
+  page: number;
+  totalPages: number;
+  totalItems: number;
+  onPrev: () => void;
+  onNext: () => void;
+}>) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-4 text-sm text-muted">
+      <span>
+        Page {page} of {totalPages}
+        {' · '}
+        Total {totalItems} jobs
+      </span>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={onPrev}
+          className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-primary disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Prev
+        </button>
+        <button
+          type="button"
+          disabled={page >= totalPages}
+          onClick={onNext}
+          className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-primary disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function JobsPage() {
   const admin = useAuthStore((state) => state.admin);
   const permissions = useAuthStore((state) => state.permissions);
@@ -119,7 +163,13 @@ export default function JobsPage() {
   const [selectedConcertId, setSelectedConcertId] = useState('');
   const [csvFilter, setCsvFilter] = useState<MonitorFilter>('all');
   const [aiFilter, setAiFilter] = useState<MonitorFilter>('all');
-  const [notificationFilter, setNotificationFilter] = useState<MonitorFilter>('FAILED');
+  const [notificationFilter, setNotificationFilter] = useState<MonitorFilter>('all');
+  const [csvPage, setCsvPage] = useState(1);
+  const [aiPage, setAiPage] = useState(1);
+  const [notificationPage, setNotificationPage] = useState(1);
+  const [csvPageSize, setCsvPageSize] = useState(JOB_TABLE_PAGE_SIZE);
+  const [aiPageSize, setAiPageSize] = useState(JOB_TABLE_PAGE_SIZE);
+  const [notificationPageSize, setNotificationPageSize] = useState(JOB_TABLE_PAGE_SIZE);
   const [pageLoading, setPageLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<string | null>(null);
@@ -247,6 +297,37 @@ export default function JobsPage() {
     () => notificationJobs.filter((job) => notificationFilter === 'all' || (job.status ?? 'PENDING') === notificationFilter),
     [notificationFilter, notificationJobs],
   );
+
+  const totalCsvPages = Math.max(1, Math.ceil(filteredCsvJobs.length / csvPageSize));
+  const totalAiPages = Math.max(1, Math.ceil(filteredAiJobs.length / aiPageSize));
+  const totalNotificationPages = Math.max(1, Math.ceil(filteredNotificationJobs.length / notificationPageSize));
+
+  const paginatedCsvJobs = useMemo(
+    () => filteredCsvJobs.slice((csvPage - 1) * csvPageSize, csvPage * csvPageSize),
+    [csvPage, csvPageSize, filteredCsvJobs],
+  );
+
+  const paginatedAiJobs = useMemo(
+    () => filteredAiJobs.slice((aiPage - 1) * aiPageSize, aiPage * aiPageSize),
+    [aiPage, aiPageSize, filteredAiJobs],
+  );
+
+  const paginatedNotificationJobs = useMemo(
+    () => filteredNotificationJobs.slice((notificationPage - 1) * notificationPageSize, notificationPage * notificationPageSize),
+    [filteredNotificationJobs, notificationPage, notificationPageSize],
+  );
+
+  useEffect(() => {
+    setCsvPage((current) => Math.min(current, totalCsvPages));
+  }, [totalCsvPages]);
+
+  useEffect(() => {
+    setAiPage((current) => Math.min(current, totalAiPages));
+  }, [totalAiPages]);
+
+  useEffect(() => {
+    setNotificationPage((current) => Math.min(current, totalNotificationPages));
+  }, [totalNotificationPages]);
 
   const handleCreateAiRequest = async () => {
     if (!pdfFile) {
@@ -570,25 +651,46 @@ export default function JobsPage() {
               <h2 className="text-lg font-semibold text-primary">AI bio jobs</h2>
               <p className="mt-2 text-sm leading-6 text-muted">Monitor press-kit requests from the backend and retry failed draft generation.</p>
             </div>
-            <label className="block min-w-[220px] space-y-2">
-              <span className="text-sm font-medium text-primary">Filter</span>
-              <select
-                value={aiFilter}
-                onChange={(event) => setAiFilter(event.target.value as MonitorFilter)}
-                className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-center text-sm text-primary outline-none focus:border-primary"
-              >
-                {(['all', 'PENDING', 'PROCESSING', 'SUCCESS', 'FAILED'] as const).map((status) => (
-                  <option key={status} value={status}>
-                    {status === 'all' ? 'All statuses' : status}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="flex flex-wrap items-end gap-4">
+              <label className="flex flex-col gap-2 min-w-[180px]">
+                <span className="text-sm font-medium text-primary">Status</span>
+                <select
+                  value={aiFilter}
+                  onChange={(event) => {
+                    setAiFilter(event.target.value as MonitorFilter);
+                    setAiPage(1);
+                  }}
+                  className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-center text-sm font-medium text-primary outline-none focus:border-primary"
+                >
+                  {(['all', 'PENDING', 'PROCESSING', 'SUCCESS', 'FAILED'] as const).map((status) => (
+                    <option key={status} value={status}>
+                      {status === 'all' ? 'All statuses' : status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-2 min-w-[110px]">
+                <span className="text-sm font-medium text-primary">Page size</span>
+                <select
+                  value={aiPageSize}
+                  onChange={(event) => {
+                    setAiPageSize(Number(event.target.value));
+                    setAiPage(1);
+                  }}
+                  className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-center text-sm font-semibold text-primary outline-none focus:border-primary"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </label>
+            </div>
           </div>
 
           <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
             <div className="overflow-x-auto">
-              <table className="min-w-full whitespace-nowrap text-left text-sm">
+              <table className="min-w-full whitespace-nowrap text-center text-sm">
                 <thead className="bg-surface/80 text-muted">
                   <tr>
                     <th className="px-4 py-3 text-center align-middle font-medium">Job</th>
@@ -616,7 +718,7 @@ export default function JobsPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredAiJobs.map((job) => {
+                    paginatedAiJobs.map((job) => {
                       const normalizedStatus = normalizeAiStatus(job.status);
                       const retryable = job.status === 'FAILED';
                       return (
@@ -659,7 +761,7 @@ export default function JobsPage() {
                               ) : null}
                               {job.targetType === 'ARTIST' && job.targetId ? (
                                 <Link
-                                  href={`/artists/${job.targetId}/edit`}
+                                  href={`/artists/${job.targetId}/edit${job.id ? `?bioJobId=${job.id}` : ''}`}
                                   className="inline-flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary whitespace-nowrap"
                                 >
                                   Review & publish
@@ -667,10 +769,10 @@ export default function JobsPage() {
                               ) : null}
                               {job.targetType === 'CONCERT' && job.targetId ? (
                                 <Link
-                                  href={`/concerts/${job.targetId}/edit`}
+                                  href={`/concerts/${job.targetId}/edit${job.id ? `?bioJobId=${job.id}` : ''}`}
                                   className="inline-flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary whitespace-nowrap"
                                 >
-                                  Open concert
+                                  Review & publish
                                 </Link>
                               ) : null}
                               {retryable && canRetryAi ? (
@@ -696,6 +798,15 @@ export default function JobsPage() {
               </table>
             </div>
           </div>
+          {filteredAiJobs.length > 0 ? (
+            <TablePagination
+              page={aiPage}
+              totalPages={totalAiPages}
+              totalItems={filteredAiJobs.length}
+              onPrev={() => setAiPage((current) => Math.max(1, current - 1))}
+              onNext={() => setAiPage((current) => Math.min(totalAiPages, current + 1))}
+            />
+          ) : null}
         </section>
 
         <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
@@ -765,20 +876,41 @@ export default function JobsPage() {
               <h2 className="text-lg font-semibold text-primary">CSV imports</h2>
               <p className="mt-2 text-sm leading-6 text-muted">Monitor backend CSV jobs, inspect status, and retry failed imports with permission.</p>
             </div>
-            <label className="block min-w-[220px] space-y-2">
-              <span className="text-sm font-medium text-primary">Filter</span>
-              <select
-                value={csvFilter}
-                onChange={(event) => setCsvFilter(event.target.value as MonitorFilter)}
-                className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-center text-sm text-primary outline-none focus:border-primary"
-              >
-                {(['all', 'PENDING', 'PROCESSING', 'SUCCESS', 'FAILED'] as const).map((status) => (
-                  <option key={status} value={status}>
-                    {status === 'all' ? 'All statuses' : status}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="flex flex-wrap items-end gap-4">
+              <label className="flex flex-col gap-2 min-w-[180px]">
+                <span className="text-sm font-medium text-primary">Status</span>
+                <select
+                  value={csvFilter}
+                  onChange={(event) => {
+                    setCsvFilter(event.target.value as MonitorFilter);
+                    setCsvPage(1);
+                  }}
+                  className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-center text-sm font-medium text-primary outline-none focus:border-primary"
+                >
+                  {(['all', 'PENDING', 'PROCESSING', 'SUCCESS', 'FAILED'] as const).map((status) => (
+                    <option key={status} value={status}>
+                      {status === 'all' ? 'All statuses' : status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-2 min-w-[110px]">
+                <span className="text-sm font-medium text-primary">Page size</span>
+                <select
+                  value={csvPageSize}
+                  onChange={(event) => {
+                    setCsvPageSize(Number(event.target.value));
+                    setCsvPage(1);
+                  }}
+                  className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-center text-sm font-semibold text-primary outline-none focus:border-primary"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </label>
+            </div>
           </div>
 
           <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
@@ -810,7 +942,7 @@ export default function JobsPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredCsvJobs.map((job) => {
+                    paginatedCsvJobs.map((job) => {
                       const normalizedStatus = normalizeCsvStatus(job.status);
                       const retryable = job.status === 'FAILED' || job.status === 'PARTIALLY_COMPLETED';
                       return (
@@ -856,6 +988,15 @@ export default function JobsPage() {
               </table>
             </div>
           </div>
+          {filteredCsvJobs.length > 0 ? (
+            <TablePagination
+              page={csvPage}
+              totalPages={totalCsvPages}
+              totalItems={filteredCsvJobs.length}
+              onPrev={() => setCsvPage((current) => Math.max(1, current - 1))}
+              onNext={() => setCsvPage((current) => Math.min(totalCsvPages, current + 1))}
+            />
+          ) : null}
         </section>
 
         {canManageDemo ? (
@@ -962,95 +1103,133 @@ export default function JobsPage() {
               <h2 className="text-lg font-semibold text-primary">Notification jobs</h2>
               <p className="mt-2 text-sm leading-6 text-muted">Failed delivery jobs are visible here with reasons and retry buttons for admins.</p>
             </div>
-            <label className="block min-w-[220px] space-y-2">
-              <span className="text-sm font-medium text-primary">Filter</span>
-              <select
-                value={notificationFilter}
-                onChange={(event) => setNotificationFilter(event.target.value as MonitorFilter)}
-                className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-center text-sm text-primary outline-none focus:border-primary"
-              >
-                {(['FAILED', 'PENDING', 'PROCESSING', 'SUCCESS', 'all'] as const).map((status) => (
-                  <option key={status} value={status}>
-                    {status === 'all' ? 'All statuses' : status}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="flex flex-wrap items-end gap-4">
+              <label className="flex flex-col gap-2 min-w-[180px]">
+                <span className="text-sm font-medium text-primary">Status</span>
+                <select
+                  value={notificationFilter}
+                  onChange={(event) => {
+                    setNotificationFilter(event.target.value as MonitorFilter);
+                    setNotificationPage(1);
+                  }}
+                  className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-center text-sm font-medium text-primary outline-none focus:border-primary"
+                >
+                  {(['FAILED', 'PENDING', 'PROCESSING', 'SUCCESS', 'all'] as const).map((status) => (
+                    <option key={status} value={status}>
+                      {status === 'all' ? 'All statuses' : status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-2 min-w-[110px]">
+                <span className="text-sm font-medium text-primary">Page size</span>
+                <select
+                  value={notificationPageSize}
+                  onChange={(event) => {
+                    setNotificationPageSize(Number(event.target.value));
+                    setNotificationPage(1);
+                  }}
+                  className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-center text-sm font-semibold text-primary outline-none focus:border-primary"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </label>
+            </div>
           </div>
 
-        <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
-          <div className="overflow-x-auto">
-            <table className="min-w-full whitespace-nowrap text-left text-sm">
-              <thead className="bg-surface/80 text-muted">
-                <tr>
-                  <th className="px-4 py-3 text-center align-middle font-medium">Job</th>
-                  <th className="px-4 py-3 text-center font-medium">Status</th>
-                  <th className="px-4 py-3 text-center font-medium">Reason</th>
-                  <th className="px-4 py-3 text-center font-medium">Attempts</th>
-                  <th className="px-4 py-3 text-center font-medium">Created</th>
-                  <th className="px-4 py-3 text-center font-medium">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {pageLoading ? (
+          <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
+            <div className="overflow-x-auto">
+              <table className="min-w-full whitespace-nowrap text-center text-sm">
+                <thead className="bg-surface/80 text-muted">
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-muted">
-                      <div className="inline-flex items-center gap-2">
-                        <SpinnerGap size={16} className="animate-spin" />
-                        Loading jobs...
-                      </div>
-                    </td>
+                    <th className="px-4 py-3 text-center align-middle font-medium">Job</th>
+                    <th className="px-4 py-3 text-center font-medium">Status</th>
+                    <th className="px-4 py-3 text-center font-medium">Reason</th>
+                    <th className="px-4 py-3 text-center font-medium">Attempts</th>
+                    <th className="px-4 py-3 text-center font-medium">Created</th>
+                    <th className="px-4 py-3 text-center font-medium">Action</th>
                   </tr>
-                ) : filteredNotificationJobs.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-muted">
-                      No notification jobs found for the selected status.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredNotificationJobs.map((job) => {
-                    const retryable = job.status === 'FAILED';
-                    const ticketId = getNotificationTicketId(job);
-                    return (
-                      <tr key={String(job.id)}>
-                        <td className="px-4 py-3 align-middle font-medium text-primary">
-                          {ticketId ? (
-                            <Link href={`/operations/notifications/${ticketId}`} className="hover:underline">
-                              {job.name ?? String(job.id)}
-                            </Link>
-                          ) : (
-                            job.name ?? String(job.id)
-                          )}
-                        </td>
-                        <td className="px-4 py-3 align-middle">
-                          <NotificationRowStatus item={job} />
-                        </td>
-                        <td className="px-4 py-3 align-middle text-muted">{job.failedReason ?? '--'}</td>
-                        <td className="px-4 py-3 align-middle text-muted">{job.attemptsMade ?? 0}</td>
-                        <td className="px-4 py-3 align-middle text-muted">{formatDateTime(job.timestamp)}</td>
-                        <td className="px-4 py-3 align-middle">
-                          {retryable && canRetryNotifications ? (
-                            <button
-                              type="button"
-                              onClick={() => handleRetry('notification', String(job.id))}
-                              disabled={retrying === `notification:${String(job.id)}`}
-                              className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary disabled:opacity-60"
-                            >
-                              {retrying === `notification:${String(job.id)}` ? <SpinnerGap size={14} className="animate-spin" /> : <ArrowClockwise size={14} />}
-                              Retry
-                            </button>
-                          ) : !canRetryNotifications ? (
-                            <span className="text-xs text-muted">Retry locked</span>
-                          ) : null}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {pageLoading ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-muted">
+                        <div className="inline-flex items-center gap-2">
+                          <SpinnerGap size={16} className="animate-spin" />
+                          Loading jobs...
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredNotificationJobs.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-muted">
+                        No notification jobs found for the selected status.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedNotificationJobs.map((job) => {
+                      const retryable = job.status === 'FAILED';
+                      const ticketId = getNotificationTicketId(job);
+                      return (
+                        <tr key={String(job.id)}>
+                          <td className="px-4 py-3 align-middle font-medium text-primary">
+                            {ticketId ? (
+                              <Link href={`/operations/notifications/${ticketId}`} className="inline-flex justify-center hover:underline">
+                                {job.name ?? String(job.id)}
+                              </Link>
+                            ) : (
+                              job.name ?? String(job.id)
+                            )}
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            <div className="flex justify-center">
+                              <NotificationRowStatus item={job} />
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-middle text-muted">
+                            <div className="mx-auto max-w-[420px] break-words leading-6">
+                              {job.failedReason ?? '--'}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-middle text-muted">{job.attemptsMade ?? 0}</td>
+                          <td className="px-4 py-3 align-middle text-muted">{formatDateTime(job.timestamp)}</td>
+                          <td className="px-4 py-3 align-middle">
+                            <div className="flex justify-center">
+                              {retryable && canRetryNotifications ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRetry('notification', String(job.id))}
+                                  disabled={retrying === `notification:${String(job.id)}`}
+                                  className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary disabled:opacity-60"
+                                >
+                                  {retrying === `notification:${String(job.id)}` ? <SpinnerGap size={14} className="animate-spin" /> : <ArrowClockwise size={14} />}
+                                  Retry
+                                </button>
+                              ) : !canRetryNotifications ? (
+                                <span className="text-xs text-muted">Retry locked</span>
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+          {filteredNotificationJobs.length > 0 ? (
+            <TablePagination
+              page={notificationPage}
+              totalPages={totalNotificationPages}
+              totalItems={filteredNotificationJobs.length}
+              onPrev={() => setNotificationPage((current) => Math.max(1, current - 1))}
+              onNext={() => setNotificationPage((current) => Math.min(totalNotificationPages, current + 1))}
+            />
+          ) : null}
 
         </section>
       </div>
