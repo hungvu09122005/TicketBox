@@ -10,6 +10,7 @@ import { ArrowLeft, FloppyDisk, SpinnerGap, UploadSimple, UserCircle } from '@ph
 import { artistService } from '@/lib/services/artist.service';
 import { extractApiMessages } from '@/lib/api-errors';
 import { hasStoredAdminSession } from '@/lib/auth-store';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const artistSchema = z.object({
   name: z.string().min(1, 'Artist name is required'),
@@ -52,6 +53,8 @@ export default function CreateArtistPage() {
     };
   }, [avatarPreviewUrl]);
 
+  const { toast } = useToast();
+
   const handleAvatarUpload = async (file?: File | null) => {
     if (!file) return;
 
@@ -72,8 +75,11 @@ export default function CreateArtistPage() {
         shouldDirty: true,
         shouldValidate: true,
       });
+      toast.success('Avatar image uploaded successfully.');
     } catch (error) {
-      setServerErrors(extractApiMessages(error, 'Could not upload the avatar.'));
+      const msgs = extractApiMessages(error, 'Could not upload the avatar.');
+      setServerErrors(msgs);
+      toast.error(msgs[0] || 'Could not upload avatar.');
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -89,9 +95,12 @@ export default function CreateArtistPage() {
         shortBio: values.shortBio?.trim() ? values.shortBio : null,
         avatarObjectKey: values.avatarObjectKey?.trim() ? values.avatarObjectKey : null,
       });
+      toast.success(`Artist "${artist.name}" created successfully.`);
       router.push(`/artists/${artist.id}`);
     } catch (error) {
-      setServerErrors(extractApiMessages(error, 'Could not create the artist.'));
+      const msgs = extractApiMessages(error, 'Could not create the artist.');
+      setServerErrors(msgs);
+      toast.error(msgs[0] || 'Could not create artist.');
     } finally {
       setIsSubmitting(false);
     }

@@ -11,6 +11,7 @@ import { useAuthStore } from '@/lib/auth-store';
 import { concertService } from '@/lib/services/concert.service';
 import { Artist } from '@/lib/types';
 import { extractApiMessages } from '@/lib/api-errors';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const concertSchema = z.object({
   name: z.string().min(1, 'Title is required'),
@@ -104,6 +105,8 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
     setValue('artistIds', next, { shouldValidate: true, shouldDirty: true });
   };
 
+  const { toast } = useToast();
+
   const handleBannerUpload = async (file?: File) => {
     if (!file) return;
     setIsUploadingBanner(true);
@@ -116,8 +119,11 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
       const objectKey = await concertService.uploadBannerAsset(file);
       setBannerFileName(file.name);
       setBannerObjectKey(objectKey);
+      toast.success('Banner image uploaded successfully.');
     } catch (err: unknown) {
-      setServerErrors(extractApiMessages(err, 'Could not upload the banner.'));
+      const msgs = extractApiMessages(err, 'Could not upload the banner.');
+      setServerErrors(msgs);
+      toast.error(msgs[0] || 'Could not upload the banner.');
     } finally {
       setIsUploadingBanner(false);
     }
@@ -135,9 +141,12 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
         saleEndsAt: normalizeDateTimeValue(data.saleEndsAt),
         ...(bannerObjectKey ? { bannerObjectKey } : {}),
       });
+      toast.success('Concert details updated successfully.');
       router.push('/concerts');
     } catch (err: unknown) {
-      setServerErrors(extractApiMessages(err, 'An unexpected error occurred while saving.'));
+      const msgs = extractApiMessages(err, 'An unexpected error occurred while saving.');
+      setServerErrors(msgs);
+      toast.error(msgs[0] || 'Failed to save concert details.');
     } finally {
       setIsSubmitting(false);
     }

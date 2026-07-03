@@ -20,12 +20,13 @@ import { concertService } from '@/lib/services/concert.service';
 import { Concert, SeatMapResponse, TicketType } from '@/lib/types';
 import { extractApiMessages } from '@/lib/api-errors';
 import { hasStoredAdminSession } from '@/lib/auth-store';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const ticketTypeSchema = z.object({
   name: z.string().min(1, 'Ticket type name is required'),
-  price: z.coerce.number().min(0, 'Price cannot be negative'),
-  totalQuantity: z.coerce.number().int().min(1, 'Total quantity must be at least 1'),
-  maxPerUser: z.coerce.number().int().min(1, 'Max per user must be at least 1'),
+  price: z.number().min(0, 'Price cannot be negative'),
+  totalQuantity: z.number().int().min(1, 'Total quantity must be at least 1'),
+  maxPerUser: z.number().int().min(1, 'Max per user must be at least 1'),
   saleStartsAt: z.string().optional(),
   saleEndsAt: z.string().optional(),
 }).superRefine((values, ctx) => {
@@ -217,6 +218,8 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
     setIsTicketTypeModalOpen(true);
   };
 
+  const { toast } = useToast();
+
   const onSubmitTicketType = async (values: TicketTypeFormValues) => {
     if (!concert) return;
     setIsSaving(true);
@@ -231,14 +234,18 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
 
       if (editingTicketTypeId) {
         await concertService.updateTicketType(concert.id, editingTicketTypeId, payload);
+        toast.success(`Ticket type "${values.name}" updated successfully.`);
       } else {
         await concertService.createTicketType(concert.id, payload);
+        toast.success(`Ticket type "${values.name}" created successfully.`);
       }
 
       closeTicketTypeModal();
       await loadData();
     } catch (error) {
-      setServerErrors(extractApiMessages(error, 'Could not save the ticket type.'));
+      const msgs = extractApiMessages(error, 'Could not save the ticket type.');
+      setServerErrors(msgs);
+      toast.error(msgs[0] || 'Could not save ticket type.');
     } finally {
       setIsSaving(false);
     }
@@ -271,12 +278,16 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
 
   const handleUploadSeatMap = async () => {
     if (!concert || !svgFile) {
-      setServerErrors(['Please choose an SVG file before uploading.']);
+      const errMsg = 'Please choose an SVG file before uploading.';
+      setServerErrors([errMsg]);
+      toast.error(errMsg);
       return;
     }
 
     if (svgZoneIds.length === 0) {
-      setServerErrors(['No zone IDs were found in the SVG.']);
+      const errMsg = 'No zone IDs were found in the SVG.';
+      setServerErrors([errMsg]);
+      toast.error(errMsg);
       return;
     }
 
@@ -289,7 +300,9 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
     }, {});
 
     if (Object.keys(mapping).length !== svgZoneIds.length) {
-      setServerErrors(['Each zone in the SVG must be mapped to a ticket type.']);
+      const errMsg = 'Each zone in the SVG must be mapped to a ticket type.';
+      setServerErrors([errMsg]);
+      toast.error(errMsg);
       return;
     }
 
@@ -302,9 +315,12 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
       setSvgZoneIds([]);
       setZoneMapping({});
       setSeatMapPreviewError(false);
+      toast.success('SVG seat map uploaded successfully.');
       await loadData();
     } catch (error) {
-      setServerErrors(extractApiMessages(error, 'Could not upload the seat map.'));
+      const msgs = extractApiMessages(error, 'Could not upload the seat map.');
+      setServerErrors(msgs);
+      toast.error(msgs[0] || 'Could not upload seat map.');
     } finally {
       setIsUploading(false);
     }
@@ -607,7 +623,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
                     id="price"
                     type="number"
                     step="1000"
-                    {...register('price')}
+                    {...register('price', { valueAsNumber: true })}
                     className={`w-full rounded-xl border bg-background px-4 py-2.5 text-sm text-primary outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${errors.price ? 'border-red-500' : 'border-border'}`}
                     placeholder="1000000"
                   />
@@ -622,7 +638,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
                     id="totalQuantity"
                     type="number"
                     min={0}
-                    {...register('totalQuantity')}
+                    {...register('totalQuantity', { valueAsNumber: true })}
                     className={`w-full rounded-xl border bg-background px-4 py-2.5 text-sm text-primary outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${errors.totalQuantity ? 'border-red-500' : 'border-border'}`}
                   />
                   {errors.totalQuantity ? <p className="mt-1.5 text-xs text-red-600">{errors.totalQuantity.message}</p> : null}
@@ -634,7 +650,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
                     id="maxPerUser"
                     type="number"
                     min={1}
-                    {...register('maxPerUser')}
+                    {...register('maxPerUser', { valueAsNumber: true })}
                     className={`w-full rounded-xl border bg-background px-4 py-2.5 text-sm text-primary outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${errors.maxPerUser ? 'border-red-500' : 'border-border'}`}
                   />
                   {errors.maxPerUser ? <p className="mt-1.5 text-xs text-red-600">{errors.maxPerUser.message}</p> : null}

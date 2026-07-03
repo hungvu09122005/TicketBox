@@ -27,6 +27,7 @@ import {
   type ReportResponse,
 } from '@/lib/services/operations.service';
 import type { Artist } from '@/lib/types';
+import { useToast } from '@/components/ui/ToastProvider';
 
 type FetchState<T> = {
   data: T | null;
@@ -199,6 +200,7 @@ export default function OperationsPage() {
     isLoading: false,
   });
   const [summaryMessage, setSummaryMessage] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const dashboardHref = queueDashboardBaseUrl;
   const requestCoverage = [
@@ -399,11 +401,13 @@ export default function OperationsPage() {
     const ticketId = probeTicketId.trim();
 
     if (!email || !ticketId) {
+      const errMsg = 'Enter an email and ticket ID to create a notification probe.';
       setProbeState({
         data: null,
-        error: 'Enter an email and ticket ID to create a notification probe.',
+        error: errMsg,
         isLoading: false,
       });
+      toast.error(errMsg);
       return;
     }
 
@@ -416,7 +420,9 @@ export default function OperationsPage() {
         error: null,
         isLoading: false,
       });
-      setSummaryMessage('Queued the notification probe in the real queue.');
+      const msg = 'Queued the notification probe in the real queue.';
+      setSummaryMessage(msg);
+      toast.success(msg);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not enqueue the notification probe.';
       setProbeState({
@@ -424,24 +430,29 @@ export default function OperationsPage() {
         error: message,
         isLoading: false,
       });
+      toast.error(message);
     }
   };
 
   const handleAiUpload = async () => {
     if (!aiFile) {
+      const errMsg = 'Choose a PDF file to create an AI bio request.';
       setAiState({
         data: null,
-        error: 'Choose a PDF file to create an AI bio request.',
+        error: errMsg,
         isLoading: false,
       });
+      toast.error(errMsg);
       return;
     }
     if (!selectedAiArtistId) {
+      const errMsg = 'Choose an artist to attach to the AI bio request.';
       setAiState({
         data: null,
-        error: 'Choose an artist to attach to the AI bio request.',
+        error: errMsg,
         isLoading: false,
       });
+      toast.error(errMsg);
       return;
     }
 
@@ -454,7 +465,9 @@ export default function OperationsPage() {
         error: null,
         isLoading: false,
       });
-      setSummaryMessage('Created a real AI bio request.');
+      const msg = 'Created a real AI bio request.';
+      setSummaryMessage(msg);
+      toast.success(msg);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not create the AI bio request.';
       setAiState({
@@ -462,6 +475,7 @@ export default function OperationsPage() {
         error: message,
         isLoading: false,
       });
+      toast.error(message);
     }
   };
 

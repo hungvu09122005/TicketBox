@@ -14,6 +14,8 @@ import { Permission } from '@/lib/permissions';
 import { roleOrder, roleOptions } from '@/lib/rbac';
 import type { RbacPermissionSummary, RbacRoleSummary } from '@/lib/rbac.types';
 import { rbacService } from '@/lib/services/rbac.service';
+import { useToast } from '@/components/ui/ToastProvider';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 
 function roleLabel(roleName: string) {
   return roleOptions.find((option) => option.code === roleName)?.label ?? roleName;
@@ -150,19 +152,27 @@ export default function RbacPage() {
     };
   }, [reloadNonce]);
 
+  const { toast } = useToast();
+  const confirm = useConfirm();
+
   const handleToggleRolePermission = async (roleName: string, permissionName: string) => {
     const role = roleLookup.get(roleName);
     if (!role) return;
 
-    if (
-      !confirmSensitiveAction(
-        `${role.permissions.includes(permissionName) ? 'Remove' : 'Assign'} permission ${permissionName} for role ${roleLabel(roleName)}?`,
-      )
-    ) {
+    const isRemoving = role.permissions.includes(permissionName);
+    const isConfirmed = await confirm({
+      title: isRemoving ? 'Remove Permission' : 'Assign Permission',
+      message: `Are you sure you want to ${isRemoving ? 'remove' : 'assign'} permission "${permissionName}" for role "${roleLabel(roleName)}"?`,
+      confirmText: 'Confirm',
+      cancelText: 'Cancel',
+      variant: isRemoving ? 'warning' : 'primary',
+    });
+
+    if (!isConfirmed) {
       return;
     }
 
-    const nextPermissions = role.permissions.includes(permissionName)
+    const nextPermissions = isRemoving
       ? role.permissions.filter((value) => value !== permissionName)
       : [...role.permissions, permissionName];
 
@@ -174,11 +184,15 @@ export default function RbacPage() {
       });
 
       setRoles((current) => current.map((item) => (item.id === updatedRole.id ? updatedRole : item)));
-      setNoticeMessage(`Updated permissions for ${roleLabel(roleName)}.`);
+      const msg = `Updated permissions for ${roleLabel(roleName)}.`;
+      setNoticeMessage(msg);
+      toast.success(msg, 'Permission Updated');
       refreshAll();
     } catch (error) {
       console.error('Failed to update role permissions', error);
-      setErrorMessage('Could not update role permissions.');
+      const errMsg = 'Could not update role permissions.';
+      setErrorMessage(errMsg);
+      toast.error(errMsg, 'Update Failed');
     } finally {
       setIsSavingRolePermissions((current) => ({ ...current, [roleName]: false }));
     }
@@ -188,7 +202,15 @@ export default function RbacPage() {
     const nextName = newPermissionName.trim();
     if (!nextName) return;
 
-    if (!confirmSensitiveAction(`Create new permission "${nextName}"?`)) {
+    const isConfirmed = await confirm({
+      title: 'Create Permission',
+      message: `Are you sure you want to create new permission "${nextName}"?`,
+      confirmText: 'Confirm',
+      cancelText: 'Cancel',
+      variant: 'primary',
+    });
+
+    if (!isConfirmed) {
       return;
     }
 
@@ -197,11 +219,15 @@ export default function RbacPage() {
       setNoticeMessage(null);
       await rbacService.createPermission({ name: nextName });
       setNewPermissionName('');
-      setNoticeMessage(`Created permission ${nextName}.`);
+      const msg = `Created permission ${nextName}.`;
+      setNoticeMessage(msg);
+      toast.success(msg, 'Permission Created');
       refreshAll();
     } catch (error) {
       console.error('Failed to create permission', error);
-      setErrorMessage('Could not create the new permission. Check the module:action format.');
+      const errMsg = 'Could not create the new permission. Check the module:action format.';
+      setErrorMessage(errMsg);
+      toast.error(errMsg, 'Creation Failed');
     } finally {
       setIsCreatingPermission(false);
     }

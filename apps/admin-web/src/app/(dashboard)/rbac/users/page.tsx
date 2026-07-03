@@ -16,6 +16,8 @@ import type { RbacUsersPage } from '@/lib/rbac.types';
 import { authService } from '@/lib/services/auth.service';
 import { rbacService } from '@/lib/services/rbac.service';
 import { userService } from '@/lib/services/user.service';
+import { useToast } from '@/components/ui/ToastProvider';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 
 const defaultLimit = 10;
 
@@ -192,10 +194,21 @@ export default function RbacUsersPageView() {
     };
   }, [page, query, roleFilter, limit, reloadNonce]);
 
+  const { toast } = useToast();
+  const confirm = useConfirm();
+
   const handleSaveUserRoles = async () => {
     if (!selectedUser) return;
 
-    if (!confirmSensitiveAction(`Update roles for ${selectedUser.email}?`)) {
+    const isConfirmed = await confirm({
+      title: 'Update User Roles',
+      message: `Are you sure you want to update roles for ${selectedUser.email}?`,
+      confirmText: 'Confirm',
+      cancelText: 'Cancel',
+      variant: 'primary',
+    });
+
+    if (!isConfirmed) {
       return;
     }
 
@@ -203,11 +216,15 @@ export default function RbacUsersPageView() {
       setIsSavingUserRoles(true);
       setNoticeMessage(null);
       await userService.updateRoles(selectedUser.id, { roles: draftUserRoles });
-      setNoticeMessage(`Updated roles for ${selectedUser.email}.`);
+      const msg = `Updated roles for ${selectedUser.email}.`;
+      setNoticeMessage(msg);
+      toast.success(msg, 'Roles Updated');
       refreshAll();
     } catch (error) {
       console.error('Failed to update user roles', error);
-      setErrorMessage('Could not update the user roles.');
+      const errMsg = 'Could not update the user roles.';
+      setErrorMessage(errMsg);
+      toast.error(errMsg, 'Update Failed');
     } finally {
       setIsSavingUserRoles(false);
     }
@@ -220,7 +237,15 @@ export default function RbacUsersPageView() {
   };
 
   const handleToggleUserActive = async (userId: string, isActive: boolean) => {
-    if (!confirmSensitiveAction(`Are you sure you want to ${isActive ? 'activate' : 'deactivate'} this account?`)) {
+    const isConfirmed = await confirm({
+      title: isActive ? 'Activate Account' : 'Deactivate Account',
+      message: `Are you sure you want to ${isActive ? 'activate' : 'deactivate'} this account?`,
+      confirmText: 'Confirm',
+      cancelText: 'Cancel',
+      variant: isActive ? 'primary' : 'warning',
+    });
+
+    if (!isConfirmed) {
       return;
     }
 
@@ -228,11 +253,15 @@ export default function RbacUsersPageView() {
       setIsSavingUserActive((current) => ({ ...current, [userId]: true }));
       setNoticeMessage(null);
       await userService.updateActiveStatus(userId, { isActive });
-      setNoticeMessage(`Account ${isActive ? 'activated' : 'deactivated'}.`);
+      const msg = `Account ${isActive ? 'activated' : 'deactivated'}.`;
+      setNoticeMessage(msg);
+      toast.success(msg, 'Status Updated');
       refreshAll();
     } catch (error) {
       console.error('Failed to update user active status', error);
-      setErrorMessage('Could not update the account status.');
+      const errMsg = 'Could not update the account status.';
+      setErrorMessage(errMsg);
+      toast.error(errMsg, 'Update Failed');
     } finally {
       setIsSavingUserActive((current) => ({ ...current, [userId]: false }));
     }
@@ -244,11 +273,21 @@ export default function RbacUsersPageView() {
     const nextPassword = newUserPassword.trim();
 
     if (!nextName || !nextEmail || !nextPassword) {
-      setErrorMessage('Please enter a name, email, and password.');
+      const errMsg = 'Please enter a name, email, and password.';
+      setErrorMessage(errMsg);
+      toast.error(errMsg, 'Validation Error');
       return;
     }
 
-    if (!confirmSensitiveAction(`Create user ${nextEmail} with ${newUserRoles.length} selected role(s)?`)) {
+    const isConfirmed = await confirm({
+      title: 'Create User',
+      message: `Are you sure you want to create user ${nextEmail} with ${newUserRoles.length} selected role(s)?`,
+      confirmText: 'Confirm',
+      cancelText: 'Cancel',
+      variant: 'primary',
+    });
+
+    if (!isConfirmed) {
       return;
     }
 
@@ -281,15 +320,17 @@ export default function RbacUsersPageView() {
 
       resetCreateUserForm();
       setIsCreateUserModalOpen(false);
-      setNoticeMessage(
-        createdUser
-          ? `Created user ${nextEmail}${newUserRoles.length > 0 ? ' and assigned roles successfully.' : '.'}`
-          : `Created user ${nextEmail}.`,
-      );
+      const msg = createdUser
+        ? `Created user ${nextEmail}${newUserRoles.length > 0 ? ' and assigned roles successfully.' : '.'}`
+        : `Created user ${nextEmail}.`;
+      setNoticeMessage(msg);
+      toast.success(msg, 'User Created');
       refreshAll();
     } catch (error) {
       console.error('Failed to create user', error);
-      setErrorMessage('Could not create the user. Check the email or password.');
+      const errMsg = 'Could not create the user. Check the email or password.';
+      setErrorMessage(errMsg);
+      toast.error(errMsg, 'Creation Failed');
     } finally {
       setIsCreatingUser(false);
     }

@@ -8,6 +8,9 @@ import { useAuthStore } from '@/lib/auth-store';
 import { concertService } from '@/lib/services/concert.service';
 import { Concert } from '@/lib/types';
 
+import { useToast } from '@/components/ui/ToastProvider';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
+
 function getStatusClasses(status: string) {
   switch (status) {
     case 'PUBLISHED':
@@ -85,18 +88,44 @@ export default function ConcertsPage() {
     });
   }, [concerts, searchQuery, statusFilter]);
 
+  const { toast } = useToast();
+  const confirm = useConfirm();
+
   const handleUpdateStatus = async (id: string, newStatus: 'PUBLISHED' | 'CANCELLED') => {
+    const targetConcert = concerts.find((concert) => concert.id === id);
+    if (!targetConcert) return;
+
     try {
       if (newStatus === 'PUBLISHED') {
-        const targetConcert = concerts.find((concert) => concert.id === id);
-        const missing = targetConcert ? getPublishMissingFields(targetConcert) : [];
+        const missing = getPublishMissingFields(targetConcert);
         if (missing.length > 0) {
-          alert(`Cannot publish this concert yet. Missing: ${missing.join(', ')}`);
+          toast.error(`Cannot publish this concert yet. Missing: ${missing.join(', ')}`, 'Missing Information');
           return;
         }
+
+        const isConfirmed = await confirm({
+          title: 'Publish Concert',
+          message: `Are you sure you want to publish "${targetConcert.name}"? This will make the event visible to users.`,
+          confirmText: 'Confirm',
+          cancelText: 'Cancel',
+          variant: 'primary',
+        });
+        if (!isConfirmed) return;
+
         await concertService.publishConcert(admin, id);
+        toast.success(`Concert "${targetConcert.name}" has been published successfully!`, 'Concert Published');
       } else {
+        const isConfirmed = await confirm({
+          title: 'Cancel Concert',
+          message: `Are you sure you want to cancel "${targetConcert.name}"? This action cannot be easily undone.`,
+          confirmText: 'Confirm',
+          cancelText: 'Cancel',
+          variant: 'danger',
+        });
+        if (!isConfirmed) return;
+
         await concertService.cancelConcert(admin, id);
+        toast.success(`Concert "${targetConcert.name}" has been cancelled.`, 'Concert Cancelled');
       }
       setConcerts(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c));
     } catch (err: unknown) {
@@ -107,7 +136,7 @@ export default function ConcertsPage() {
         typeof (err as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
           ? (err as { response?: { data?: { message?: string } } }).response!.data!.message!
           : 'Failed to update status';
-      alert(`Error: ${msg}`);
+      toast.error(msg, 'Status Update Failed');
     }
   };
 
