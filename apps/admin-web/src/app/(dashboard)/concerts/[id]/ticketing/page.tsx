@@ -10,9 +10,11 @@ import {
   ArrowLeft,
   FloppyDisk,
   PencilSimple,
+  Plus,
   SpinnerGap,
   UploadSimple,
   WarningCircle,
+  X,
 } from '@phosphor-icons/react';
 import { concertService } from '@/lib/services/concert.service';
 import { Concert, SeatMapResponse, TicketType } from '@/lib/types';
@@ -37,7 +39,6 @@ const ticketTypeSchema = z.object({
 });
 
 type TicketTypeFormValues = z.infer<typeof ticketTypeSchema>;
-type TicketTypeFormInput = z.input<typeof ticketTypeSchema>;
 
 const emptyTicketTypeValues: TicketTypeFormValues = {
   name: '',
@@ -111,6 +112,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
   const [serverErrors, setServerErrors] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [editingTicketTypeId, setEditingTicketTypeId] = useState<string | null>(null);
+  const [isTicketTypeModalOpen, setIsTicketTypeModalOpen] = useState(false);
   const [svgFile, setSvgFile] = useState<File | null>(null);
   const [svgZoneIds, setSvgZoneIds] = useState<string[]>([]);
   const [zoneMapping, setZoneMapping] = useState<Record<string, string>>({});
@@ -122,7 +124,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<TicketTypeFormInput, undefined, TicketTypeFormValues>({
+  } = useForm<TicketTypeFormValues>({
     resolver: zodResolver(ticketTypeSchema),
     defaultValues: emptyTicketTypeValues,
   });
@@ -130,6 +132,10 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
   const editingTicketType = useMemo(
     () => ticketTypes.find((ticketType) => ticketType.id === editingTicketTypeId) ?? null,
     [editingTicketTypeId, ticketTypes],
+  );
+  const selectedSvgPreviewUrl = useMemo(
+    () => (svgFile ? URL.createObjectURL(svgFile) : null),
+    [svgFile],
   );
 
   const loadData = useCallback(async () => {
@@ -149,7 +155,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
       setSeatMapPreviewError(false);
     } catch (error) {
       console.error('Failed to load ticketing page', error);
-      setPageError('Không thể tải dữ liệu ticketing. Vui lòng thử lại.');
+      setPageError('Không thể tải dữ liệu ticketing. Vui lòng kiểm tra backend và thử lại.');
     } finally {
       setIsLoading(false);
     }
@@ -161,37 +167,55 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
       return;
     }
 
-    void loadData();
+    const timer = window.setTimeout(() => {
+      void loadData();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [id, loadData, router]);
 
   useEffect(() => {
-    if (editingTicketType) {
-      reset({
-        name: editingTicketType.name,
-        price: editingTicketType.price,
-        totalQuantity: editingTicketType.totalQuantity,
-        maxPerUser: editingTicketType.maxPerUser,
-        saleStartsAt: editingTicketType.saleStartsAt ? editingTicketType.saleStartsAt.slice(0, 16) : '',
-        saleEndsAt: editingTicketType.saleEndsAt ? editingTicketType.saleEndsAt.slice(0, 16) : '',
-      });
-    }
-  }, [editingTicketType, reset]);
-
-  useEffect(() => {
-    if (ticketTypes.length === 0) {
+    if (!editingTicketType) {
       return;
     }
 
-    setZoneMapping((current) => {
-      const next = { ...current };
-      svgZoneIds.forEach((zoneId) => {
-        if (!next[zoneId]) {
-          next[zoneId] = ticketTypes[0].id;
-        }
-      });
-      return next;
+    reset({
+      name: editingTicketType.name,
+      price: editingTicketType.price,
+      totalQuantity: editingTicketType.totalQuantity,
+      maxPerUser: editingTicketType.maxPerUser,
+      saleStartsAt: editingTicketType.saleStartsAt ? editingTicketType.saleStartsAt.slice(0, 16) : '',
+      saleEndsAt: editingTicketType.saleEndsAt ? editingTicketType.saleEndsAt.slice(0, 16) : '',
     });
-  }, [svgZoneIds, ticketTypes]);
+  }, [editingTicketType, reset]);
+
+  useEffect(() => {
+    return () => {
+      if (selectedSvgPreviewUrl) {
+        URL.revokeObjectURL(selectedSvgPreviewUrl);
+      }
+    };
+  }, [selectedSvgPreviewUrl]);
+
+  const closeTicketTypeModal = () => {
+    setIsTicketTypeModalOpen(false);
+    setEditingTicketTypeId(null);
+    reset(emptyTicketTypeValues);
+    setServerErrors([]);
+  };
+
+  const openCreateTicketTypeModal = () => {
+    setEditingTicketTypeId(null);
+    reset(emptyTicketTypeValues);
+    setServerErrors([]);
+    setIsTicketTypeModalOpen(true);
+  };
+
+  const openEditTicketTypeModal = (ticketTypeId: string) => {
+    setEditingTicketTypeId(ticketTypeId);
+    setServerErrors([]);
+    setIsTicketTypeModalOpen(true);
+  };
 
   const onSubmitTicketType = async (values: TicketTypeFormValues) => {
     if (!concert) return;
@@ -211,8 +235,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
         await concertService.createTicketType(concert.id, payload);
       }
 
-      setEditingTicketTypeId(null);
-      reset(emptyTicketTypeValues);
+      closeTicketTypeModal();
       await loadData();
     } catch (error) {
       setServerErrors(extractApiMessages(error, 'Không thể lưu ticket type.'));
@@ -296,7 +319,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
       <div className="flex flex-col gap-4">
         <Link
           href={`/concerts/${id}/edit`}
-          className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary transition-colors"
+          className="inline-flex items-center gap-2 text-sm font-medium text-muted transition-colors hover:text-primary"
         >
           <ArrowLeft size={16} />
           Back to concert edit
@@ -309,7 +332,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
               {concert?.name || 'Loading concert...'}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-              Quản lý loại vé, giới hạn mua, khung mở bán và sơ đồ chỗ ngồi.
+              Quản lý ticket type, giới hạn mua, sale window và seat map SVG thật.
             </p>
           </div>
 
@@ -356,175 +379,85 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
       ) : (
         <div className="space-y-6">
           <Panel
-            title={editingTicketType ? `Edit ${editingTicketType.name}` : 'Create ticket type'}
-            description="Tạo hoặc cập nhật loại vé, rồi map từng zone vào đúng loại vé."
-          >
-            <form onSubmit={handleSubmit(onSubmitTicketType)} className="space-y-5">
-              <div className="grid gap-5 md:grid-cols-2">
-                <div>
-                  <label htmlFor="name" className="mb-1.5 block text-sm font-medium text-primary">Name</label>
-                  <input
-                    id="name"
-                    {...register('name')}
-                    className={`w-full rounded-xl border bg-surface px-4 py-2.5 text-sm text-primary outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${errors.name ? 'border-red-500' : 'border-border'}`}
-                    placeholder="VIP"
-                  />
-                  {errors.name ? <p className="mt-1.5 text-xs text-red-600">{errors.name.message}</p> : null}
-                </div>
-
-                <div>
-                  <label htmlFor="price" className="mb-1.5 block text-sm font-medium text-primary">Price</label>
-                  <input
-                    id="price"
-                    type="number"
-                    step="1000"
-                    {...register('price')}
-                    className={`w-full rounded-xl border bg-surface px-4 py-2.5 text-sm text-primary outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${errors.price ? 'border-red-500' : 'border-border'}`}
-                    placeholder="1000000"
-                  />
-                  {errors.price ? <p className="mt-1.5 text-xs text-red-600">{errors.price.message}</p> : null}
-                </div>
-              </div>
-
-              <div className="grid gap-5 md:grid-cols-3">
-                <div>
-                  <label htmlFor="totalQuantity" className="mb-1.5 block text-sm font-medium text-primary">Total quantity</label>
-                  <input
-                    id="totalQuantity"
-                    type="number"
-                    min={0}
-                    {...register('totalQuantity')}
-                    className={`w-full rounded-xl border bg-surface px-4 py-2.5 text-sm text-primary outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${errors.totalQuantity ? 'border-red-500' : 'border-border'}`}
-                  />
-                  {errors.totalQuantity ? <p className="mt-1.5 text-xs text-red-600">{errors.totalQuantity.message}</p> : null}
-                </div>
-
-                <div>
-                  <label htmlFor="maxPerUser" className="mb-1.5 block text-sm font-medium text-primary">Max per user</label>
-                  <input
-                    id="maxPerUser"
-                    type="number"
-                    min={1}
-                    {...register('maxPerUser')}
-                    className={`w-full rounded-xl border bg-surface px-4 py-2.5 text-sm text-primary outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${errors.maxPerUser ? 'border-red-500' : 'border-border'}`}
-                  />
-                  {errors.maxPerUser ? <p className="mt-1.5 text-xs text-red-600">{errors.maxPerUser.message}</p> : null}
-                </div>
-
-                <div className="flex items-end gap-3">
-                  <button
-                    type="submit"
-                    disabled={isSaving}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-surface transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isSaving ? <SpinnerGap size={16} className="animate-spin" /> : <FloppyDisk size={16} />}
-                    {editingTicketType ? 'Save changes' : 'Create ticket type'}
-                  </button>
-                  {editingTicketType ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingTicketTypeId(null);
-                        reset(emptyTicketTypeValues);
-                      }}
-                      className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
-                    >
-                      Cancel
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="grid gap-5 md:grid-cols-2">
-                <div>
-                  <label htmlFor="saleStartsAt" className="mb-1.5 block text-sm font-medium text-primary">Sale starts at</label>
-                  <input
-                    id="saleStartsAt"
-                    type="datetime-local"
-                    {...register('saleStartsAt')}
-                    className="w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-primary outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="saleEndsAt" className="mb-1.5 block text-sm font-medium text-primary">Sale ends at</label>
-                  <input
-                    id="saleEndsAt"
-                    type="datetime-local"
-                    {...register('saleEndsAt')}
-                    className="w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-primary outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-              </div>
-            </form>
-          </Panel>
-
-          <Panel
             title="Ticket types"
-            description="Chọn một loại vé để sửa hoặc theo dõi số lượng đã bán, đang giữ và còn lại."
+            description="Giữ nguyên logic ticket type như trước. Chỉ đổi form tạo và sửa sang pop-up."
           >
-            {ticketTypes.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-border bg-background p-8 text-sm text-muted">
-                Chưa có loại vé nào. Hãy tạo ít nhất một loại vé trước khi tải sơ đồ.
+            <div className="space-y-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted">
+                  Tạo ticket type trước, sau đó phần seat map SVG bên dưới sẽ map zone theo đúng ticket type thật từ backend.
+                </div>
+                <button
+                  type="button"
+                  onClick={openCreateTicketTypeModal}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-surface transition-colors hover:opacity-90"
+                >
+                  <Plus size={16} />
+                  Add ticket type
+                </button>
               </div>
-            ) : (
-              <div className="w-full overflow-x-auto">
-                <table className="min-w-full text-left text-sm whitespace-nowrap">
-                  <thead className="border-b border-border bg-background">
-                    <tr className="text-muted">
-                      <th className="px-4 py-3 font-medium">Name</th>
-                      <th className="px-4 py-3 font-medium">Price</th>
-                      <th className="px-4 py-3 font-medium">Total</th>
-                      <th className="px-4 py-3 font-medium">Sold</th>
-                      <th className="px-4 py-3 font-medium">Held</th>
-                      <th className="px-4 py-3 font-medium">Max / user</th>
-                      <th className="px-4 py-3 font-medium">Sale window</th>
-                      <th className="px-4 py-3 font-medium text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {ticketTypes.map((ticketType) => (
-                      <tr key={ticketType.id} className="hover:bg-primary/5">
-                        <td className="px-4 py-3 font-medium text-primary">{ticketType.name}</td>
-                        <td className="px-4 py-3 text-muted">{formatCurrency(ticketType.price)}</td>
-                        <td className="px-4 py-3 text-muted">{ticketType.totalQuantity}</td>
-                        <td className="px-4 py-3 text-muted">{ticketType.soldQuantity}</td>
-                        <td className="px-4 py-3 text-muted">{ticketType.heldQuantity}</td>
-                        <td className="px-4 py-3 text-muted">{ticketType.maxPerUser}</td>
-                        <td className="px-4 py-3 text-muted">
-                          <div className="space-y-1">
-                            <p>{formatDateTime(ticketType.saleStartsAt)}</p>
-                            <p>{formatDateTime(ticketType.saleEndsAt)}</p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => setEditingTicketTypeId(ticketType.id)}
-                            className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
-                          >
-                            <PencilSimple size={16} />
-                            Edit
-                          </button>
-                        </td>
+
+              {ticketTypes.length === 0 ? (
+                <div className="rounded-3xl border border-dashed border-border bg-background p-8 text-sm text-muted">
+                  Chưa có ticket type nào. Hãy tạo ít nhất một ticket type trước khi upload seat map.
+                </div>
+              ) : (
+                <div className="w-full overflow-x-auto">
+                  <table className="min-w-full whitespace-nowrap text-left text-sm">
+                    <thead className="border-b border-border bg-background">
+                      <tr className="text-muted">
+                        <th className="px-4 py-3 font-medium">Name</th>
+                        <th className="px-4 py-3 font-medium">Price</th>
+                        <th className="px-4 py-3 font-medium">Total</th>
+                        <th className="px-4 py-3 font-medium">Sold</th>
+                        <th className="px-4 py-3 font-medium">Held</th>
+                        <th className="px-4 py-3 font-medium">Max / user</th>
+                        <th className="px-4 py-3 font-medium">Sale window</th>
+                        <th className="px-4 py-3 font-medium text-right">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {ticketTypes.map((ticketType) => (
+                        <tr key={ticketType.id} className="hover:bg-primary/5">
+                          <td className="px-4 py-3 font-medium text-primary">{ticketType.name}</td>
+                          <td className="px-4 py-3 text-muted">{formatCurrency(ticketType.price)}</td>
+                          <td className="px-4 py-3 text-muted">{ticketType.totalQuantity}</td>
+                          <td className="px-4 py-3 text-muted">{ticketType.soldQuantity}</td>
+                          <td className="px-4 py-3 text-muted">{ticketType.heldQuantity}</td>
+                          <td className="px-4 py-3 text-muted">{ticketType.maxPerUser}</td>
+                          <td className="px-4 py-3 text-muted">
+                            <div className="space-y-1">
+                              <p>{formatDateTime(ticketType.saleStartsAt)}</p>
+                              <p>{formatDateTime(ticketType.saleEndsAt)}</p>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => openEditTicketTypeModal(ticketType.id)}
+                              className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
+                            >
+                              <PencilSimple size={16} />
+                              Edit
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </Panel>
 
           <Panel
-            title="Tải sơ đồ chỗ ngồi"
-            description="Tải sơ đồ chỗ ngồi, đọc zone từ file rồi gán từng zone vào loại vé."
+            title="Seat map upload"
+            description="Upload SVG thật, parse zone ID từ file, map từng zone vào ticket type rồi gửi lên backend."
           >
             <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
               <div className="space-y-4">
-                <div className="rounded-[28px] border border-border bg-background p-4">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Step 1</p>
-                  <label htmlFor="seatmap" className="mt-1 block text-sm font-medium text-primary">
-                    Chọn file sơ đồ
-                  </label>
+                <div>
+                  <label htmlFor="seatmap" className="mb-1.5 block text-sm font-medium text-primary">SVG file</label>
                   <input
                     id="seatmap"
                     type="file"
@@ -533,27 +466,19 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
                       const file = event.target.files?.[0] ?? null;
                       void handleSvgFileChange(file);
                     }}
-                    className="mt-3 w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-primary file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-surface"
+                    className="w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-primary file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-surface"
                   />
-                  <p className="mt-2 text-xs leading-5 text-muted">
-                    Đây chỉ là bước chọn file. Nút ở khung bên phải sẽ đọc zone và tải sơ đồ đã chọn.
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
-                    {svgFile ? (
-                      <span className="rounded-full border border-border bg-surface px-3 py-1 font-medium text-primary">
-                        Selected: {svgFile.name}
-                      </span>
-                    ) : (
-                      <span className="rounded-full border border-border bg-surface px-3 py-1">
-                        Chưa chọn file sơ đồ
-                      </span>
-                    )}
-                  </div>
                 </div>
 
                 <div className="rounded-[28px] border border-border bg-background p-4">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Sơ đồ chỗ ngồi hiện tại</p>
-                  {seatMap?.svgUrl && !seatMapPreviewError ? (
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Current seat map</p>
+                  {selectedSvgPreviewUrl ? (
+                    <img
+                      src={selectedSvgPreviewUrl}
+                      alt="Selected seat map preview"
+                      className="mt-3 max-h-[360px] w-full rounded-2xl border border-border object-contain"
+                    />
+                  ) : seatMap?.svgUrl && !seatMapPreviewError ? (
                     <img
                       src={seatMap.svgUrl}
                       alt="Seat map preview"
@@ -561,10 +486,8 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
                       onError={() => setSeatMapPreviewError(true)}
                     />
                   ) : (
-                    <div className="mt-3 flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted">
-                      {seatMapPreviewError
-                        ? 'Không thể tải sơ đồ chỗ ngồi.'
-                        : 'Chưa có sơ đồ chỗ ngồi.'}
+                    <div className="mt-3 rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted">
+                      {seatMapPreviewError ? 'Không thể tải seat map hiện tại.' : 'Chưa có seat map được upload.'}
                     </div>
                   )}
                 </div>
@@ -572,19 +495,19 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
 
               <div className="space-y-4">
                 <div className="rounded-[28px] border border-border bg-background p-4">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Step 2</p>
-                      <p className="mt-1 text-sm text-primary">Parse zone ids rồi xác nhận upload file đã chọn.</p>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Parsed zone ids</p>
+                      <p className="mt-1 text-sm text-primary">Mapping sẽ theo đúng ID lấy từ SVG thật.</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => void handleUploadSeatMap()}
                       disabled={isUploading || !svgFile}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-surface transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-surface transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {isUploading ? <SpinnerGap size={16} className="animate-spin" /> : <UploadSimple size={16} />}
-                      Xác nhận tải sơ đồ
+                      Upload SVG
                     </button>
                   </div>
 
@@ -598,7 +521,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
                       </span>
                     )) : (
                       <span className="text-sm text-muted">
-                        Chưa chọn file hoặc sơ đồ chưa có zone.
+                        Chưa chọn file SVG hoặc SVG chưa có zone id.
                       </span>
                     )}
                   </div>
@@ -631,7 +554,7 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
                     </div>
                   )) : (
                     <div className="rounded-[24px] border border-dashed border-border bg-background p-6 text-sm text-muted">
-                      Chọn file sơ đồ để tự tạo danh sách zone và gán từng zone vào loại vé.
+                      Chọn file SVG để hệ thống tự đọc zone ids và sinh form mapping zone.
                     </div>
                   )}
                 </div>
@@ -640,6 +563,126 @@ export default function ConcertTicketingPage({ params }: Readonly<{ params: Prom
           </Panel>
         </div>
       )}
+
+      {isTicketTypeModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/55 px-4">
+          <div className="w-full max-w-4xl rounded-[28px] border border-border bg-surface p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-muted">
+                  {editingTicketType ? 'Edit ticket type' : 'Create ticket type'}
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold text-primary">
+                  {editingTicketType ? editingTicketType.name : 'New ticket type'}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  Logic giữ nguyên như form cũ. Bạn chỉ nhập trong pop-up thay vì nhập trực tiếp trên trang.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeTicketTypeModal}
+                className="rounded-full border border-border p-2 text-muted transition-colors hover:bg-primary/5 hover:text-primary"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit(onSubmitTicketType)} className="mt-6 space-y-5">
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label htmlFor="name" className="mb-1.5 block text-sm font-medium text-primary">Name</label>
+                  <input
+                    id="name"
+                    {...register('name')}
+                    className={`w-full rounded-xl border bg-background px-4 py-2.5 text-sm text-primary outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${errors.name ? 'border-red-500' : 'border-border'}`}
+                    placeholder="VIP"
+                  />
+                  {errors.name ? <p className="mt-1.5 text-xs text-red-600">{errors.name.message}</p> : null}
+                </div>
+
+                <div>
+                  <label htmlFor="price" className="mb-1.5 block text-sm font-medium text-primary">Price</label>
+                  <input
+                    id="price"
+                    type="number"
+                    step="1000"
+                    {...register('price')}
+                    className={`w-full rounded-xl border bg-background px-4 py-2.5 text-sm text-primary outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${errors.price ? 'border-red-500' : 'border-border'}`}
+                    placeholder="1000000"
+                  />
+                  {errors.price ? <p className="mt-1.5 text-xs text-red-600">{errors.price.message}</p> : null}
+                </div>
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label htmlFor="totalQuantity" className="mb-1.5 block text-sm font-medium text-primary">Total quantity</label>
+                  <input
+                    id="totalQuantity"
+                    type="number"
+                    min={0}
+                    {...register('totalQuantity')}
+                    className={`w-full rounded-xl border bg-background px-4 py-2.5 text-sm text-primary outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${errors.totalQuantity ? 'border-red-500' : 'border-border'}`}
+                  />
+                  {errors.totalQuantity ? <p className="mt-1.5 text-xs text-red-600">{errors.totalQuantity.message}</p> : null}
+                </div>
+
+                <div>
+                  <label htmlFor="maxPerUser" className="mb-1.5 block text-sm font-medium text-primary">Max per user</label>
+                  <input
+                    id="maxPerUser"
+                    type="number"
+                    min={1}
+                    {...register('maxPerUser')}
+                    className={`w-full rounded-xl border bg-background px-4 py-2.5 text-sm text-primary outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${errors.maxPerUser ? 'border-red-500' : 'border-border'}`}
+                  />
+                  {errors.maxPerUser ? <p className="mt-1.5 text-xs text-red-600">{errors.maxPerUser.message}</p> : null}
+                </div>
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label htmlFor="saleStartsAt" className="mb-1.5 block text-sm font-medium text-primary">Sale starts at</label>
+                  <input
+                    id="saleStartsAt"
+                    type="datetime-local"
+                    {...register('saleStartsAt')}
+                    className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-primary outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="saleEndsAt" className="mb-1.5 block text-sm font-medium text-primary">Sale ends at</label>
+                  <input
+                    id="saleEndsAt"
+                    type="datetime-local"
+                    {...register('saleEndsAt')}
+                    className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-primary outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeTicketTypeModal}
+                  className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-surface transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isSaving ? <SpinnerGap size={16} className="animate-spin" /> : <FloppyDisk size={16} />}
+                  {editingTicketType ? 'Save changes' : 'Create ticket type'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
