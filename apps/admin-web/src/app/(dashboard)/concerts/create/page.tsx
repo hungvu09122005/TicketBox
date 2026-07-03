@@ -10,6 +10,7 @@ import { ArrowLeft, CheckCircle, SpinnerGap, UploadSimple } from '@phosphor-icon
 import { concertService } from '@/lib/services/concert.service';
 import { Artist } from '@/lib/types';
 import { extractApiMessages } from '@/lib/api-errors';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const concertSchema = z.object({
   name: z.string().min(1, 'Title is required'),
@@ -67,6 +68,8 @@ export default function CreateConcertPage() {
     loadMeta();
   }, []);
 
+  const { toast } = useToast();
+
   const handleBannerUpload = async (file?: File) => {
     if (!file) return;
     setIsUploadingBanner(true);
@@ -79,8 +82,11 @@ export default function CreateConcertPage() {
       const objectKey = await concertService.uploadBannerAsset(file);
       setBannerFileName(file.name);
       setBannerObjectKey(objectKey);
+      toast.success('Cover image uploaded successfully.');
     } catch (err: unknown) {
-      setServerErrors(extractApiMessages(err, 'Could not upload the banner.'));
+      const msgs = extractApiMessages(err, 'Could not upload the banner.');
+      setServerErrors(msgs);
+      toast.error(msgs[0] || 'Could not upload banner.');
     } finally {
       setIsUploadingBanner(false);
     }
@@ -94,9 +100,12 @@ export default function CreateConcertPage() {
         ...data,
         bannerObjectKey: bannerObjectKey ?? undefined,
       });
+      toast.success('Concert draft created successfully.');
       router.push('/concerts');
     } catch (err: unknown) {
-      setServerErrors(extractApiMessages(err, 'An unexpected error occurred while saving.'));
+      const msgs = extractApiMessages(err, 'An unexpected error occurred while saving.');
+      setServerErrors(msgs);
+      toast.error(msgs[0] || 'Could not save concert draft.');
     } finally {
       setIsSubmitting(false);
     }
