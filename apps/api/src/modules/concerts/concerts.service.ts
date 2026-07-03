@@ -255,6 +255,11 @@ export class ConcertsService {
     return this.concertsRepository.findById(id) as Promise<Concert>;
   }
 
+  async updateById(id: string, dto: Partial<Concert>): Promise<void> {
+    await this.concertsRepository.update(id, dto);
+    await this.invalidateCacheFor(id);
+  }
+
   async publish(id: string, organizerId: string, isAdmin: boolean): Promise<Concert> {
     const concert = await this.checkOwnership(id, organizerId, isAdmin);
     

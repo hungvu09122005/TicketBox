@@ -1,4 +1,3 @@
-import { describe, beforeEach, it, expect, jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { GrokAdapter } from './grok.adapter';
@@ -9,12 +8,10 @@ jest.mock('openai', () => {
     __esModule: true,
     default: jest.fn().mockImplementation(() => {
       return {
-        chat: {
-          completions: {
-            create: (jest.fn() as any).mockResolvedValue({
-              choices: [{ message: { content: 'Grok Biography Content' } }],
-            }),
-          },
+        responses: {
+          create: (jest.fn() as any).mockResolvedValue({
+            output_text: 'Grok Biography Content',
+          }),
         },
       };
     }),
@@ -30,7 +27,7 @@ describe('GrokAdapter', () => {
       get: jest.fn((key: string) => {
         if (key === 'app.ai.provider') return 'grok';
         if (key === 'app.ai.grokApiKey') return 'mock-grok-key';
-        if (key === 'app.ai.grokModel') return 'grok-beta';
+        if (key === 'app.ai.grokModel') return 'grok-4.3';
         if (key === 'app.ai.grokBaseUrl') return 'https://api.x.ai/v1';
         if (key === 'app.ai.timeoutMs') return 5000;
         if (key === 'app.ai.maxTokens') return 500;

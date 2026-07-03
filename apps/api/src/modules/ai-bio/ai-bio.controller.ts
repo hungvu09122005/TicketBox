@@ -7,6 +7,7 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
 import { AiBioService } from './ai-bio.service';
+import { AiBioTargetType } from './entities/ai-bio-request.entity';
 
 @ApiTags('ai-bio')
 @ApiBearerAuth()
@@ -23,6 +24,13 @@ export class AiBioController {
     schema: {
       type: 'object',
       properties: {
+        targetType: {
+          type: 'string',
+          enum: ['ARTIST', 'CONCERT'],
+        },
+        targetId: {
+          type: 'string',
+        },
         pdf: {
           type: 'string',
           format: 'binary',
@@ -30,22 +38,32 @@ export class AiBioController {
         artistId: {
           type: 'string',
         },
+        concertId: {
+          type: 'string',
+        },
       },
-      required: ['pdf', 'artistId'],
+      required: ['pdf'],
     },
   })
   async uploadPdf(
     @UploadedFile() file: Express.Multer.File,
-    @Body('artistId') artistId: string,
+    @Body('targetType') targetType: string | undefined,
+    @Body('targetId') targetId: string | undefined,
+    @Body('artistId') artistId: string | undefined,
+    @Body('concertId') concertId: string | undefined,
     @CurrentUser() user: AuthenticatedUser,
   ) {
     if (!file) {
       throw new BadRequestException('PDF file is required');
     }
-    if (!artistId) {
-      throw new BadRequestException('artistId is required');
+    const resolvedTargetType = (targetType?.toUpperCase() as AiBioTargetType | undefined)
+      ?? (concertId ? AiBioTargetType.CONCERT : AiBioTargetType.ARTIST);
+    const resolvedTargetId = targetId ?? artistId ?? concertId;
+
+    if (!resolvedTargetId) {
+      throw new BadRequestException('targetId is required');
     }
-    return this.aiBioService.createRequest(file, artistId, user.sub);
+    return this.aiBioService.createRequest(file, resolvedTargetId, resolvedTargetType, user.sub);
   }
 
   @Post('manual')
@@ -54,7 +72,18 @@ export class AiBioController {
   schema: {
     type: 'object',
     properties: {
+      targetType: {
+        type: 'string',
+        enum: ['ARTIST', 'CONCERT'],
+      },
+      targetId: {
+        type: 'string',
+      },
       artistId: {
+        type: 'string',
+        example: 'c6258bff-29cb-4e4e-9422-a265e02797fc',
+      },
+      concertId: {
         type: 'string',
         example: 'c6258bff-29cb-4e4e-9422-a265e02797fc',
       },
@@ -63,23 +92,30 @@ export class AiBioController {
         example: 'Taylor Swift là nghệ sĩ biểu diễn nổi bật, có sức ảnh hưởng lớn trong âm nhạc đại chúng.',
       },
     },
-    required: ['artistId', 'bio'],
+    required: ['bio'],
   },
 })
   async createManualBio(
-  @Body('artistId') artistId: string,
+  @Body('targetType') targetType: string | undefined,
+  @Body('targetId') targetId: string | undefined,
+  @Body('artistId') artistId: string | undefined,
+  @Body('concertId') concertId: string | undefined,
   @Body('bio') bio: string,
   @CurrentUser() user: AuthenticatedUser,
 ) {
-  if (!artistId) {
-    throw new BadRequestException('artistId is required');
-  }
-
   if (!bio || !bio.trim()) {
     throw new BadRequestException('bio is required');
   }
 
-  return this.aiBioService.createManualBio(artistId, bio, user.sub);
+  const resolvedTargetType = (targetType?.toUpperCase() as AiBioTargetType | undefined)
+    ?? (concertId ? AiBioTargetType.CONCERT : AiBioTargetType.ARTIST);
+  const resolvedTargetId = targetId ?? artistId ?? concertId;
+
+  if (!resolvedTargetId) {
+    throw new BadRequestException('targetId is required');
+  }
+
+  return this.aiBioService.createManualBio(resolvedTargetId, bio, user.sub, resolvedTargetType);
 }
 
 

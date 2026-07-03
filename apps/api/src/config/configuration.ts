@@ -61,7 +61,7 @@ export default registerAs('app', () => ({
   ai: {
     provider: 'grok',
     grokApiKey: process.env.GROK_API_KEY ?? '',
-    grokModel: process.env.GROK_MODEL ?? 'grok-beta',
+    grokModel: process.env.GROK_MODEL ?? 'grok-4.3',
     grokBaseUrl: process.env.GROK_BASE_URL ?? 'https://api.x.ai/v1',
     timeoutMs: parseInt(process.env.GROK_TIMEOUT_MS ?? process.env.OPENAI_TIMEOUT_MS ?? '15000', 10),
     maxTokens: parseInt(process.env.GROK_MAX_OUTPUT_TOKENS ?? process.env.OPENAI_MAX_OUTPUT_TOKENS ?? '1000', 10),

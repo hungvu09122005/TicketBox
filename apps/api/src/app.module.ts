@@ -41,7 +41,7 @@ import { BootstrapService } from '@database/bootstrap.service';
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
-      envFilePath: ['.env', '../../.env'],
+      envFilePath: ['../../.env', '.env'],
     }),
 
     LoggerModule.forRoot({
@@ -113,5 +113,4 @@ export class AppModule implements NestModule {
     consumer.apply(RequestIdMiddleware).forRoutes('*');
   }
 }
-
 

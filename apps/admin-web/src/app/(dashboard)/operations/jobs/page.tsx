@@ -10,6 +10,8 @@ import { concertService } from '@/lib/services/concert.service';
 import { operationsService, type AiBioRequestResult, type CsvImportJobStatus, type DemoBootstrapStatus, type NotificationJobRecord } from '@/lib/services/operations.service';
 import type { Artist, Concert } from '@/lib/types';
 
+type AiBioTargetType = 'ARTIST' | 'CONCERT';
+
 const queueDashboardHref = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
   return `${apiUrl.replace(/\/$/, '')}/admin/queues`;
@@ -80,6 +82,10 @@ function normalizeAiStatus(status?: AiBioRequestResult['status']) {
   }
 }
 
+function getTargetLabel(targetType: AiBioTargetType) {
+  return targetType === 'CONCERT' ? 'concert' : 'artist';
+}
+
 function NotificationRowStatus({ item }: Readonly<{ item: NotificationJobRecord }>) {
   return (
     <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${statusTone(item.status)}`}>
@@ -103,7 +109,8 @@ export default function JobsPage() {
   const [notificationJobs, setNotificationJobs] = useState<NotificationJobRecord[]>([]);
   const [artists, setArtists] = useState<Artist[]>([]);
   const [concerts, setConcerts] = useState<Concert[]>([]);
-  const [selectedArtistId, setSelectedArtistId] = useState('');
+  const [selectedTargetType, setSelectedTargetType] = useState<AiBioTargetType>('ARTIST');
+  const [selectedTargetId, setSelectedTargetId] = useState('');
   const [selectedConcertId, setSelectedConcertId] = useState('');
   const [csvFilter, setCsvFilter] = useState<MonitorFilter>('all');
   const [aiFilter, setAiFilter] = useState<MonitorFilter>('all');
@@ -155,7 +162,6 @@ export default function JobsPage() {
     try {
       const nextArtists = await artistService.getArtists();
       setArtists(nextArtists);
-      setSelectedArtistId((current) => current || nextArtists[0]?.id || '');
     } catch {
       setArtists([]);
     }
@@ -163,7 +169,6 @@ export default function JobsPage() {
     try {
       const nextConcerts = await concertService.getConcerts(admin);
       setConcerts(nextConcerts);
-      setSelectedConcertId((current) => current || nextConcerts[0]?.id || '');
     } catch {
       setConcerts([]);
     }
@@ -173,6 +178,25 @@ export default function JobsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- load initial jobs and artists when the page mounts
     void loadAllJobs();
   }, []);
+
+  useEffect(() => {
+    const options = selectedTargetType === 'ARTIST' ? artists : concerts;
+    setSelectedTargetId((current) => {
+      if (current && options.some((item) => item.id === current)) {
+        return current;
+      }
+      return options[0]?.id || '';
+    });
+  }, [artists, concerts, selectedTargetType]);
+
+  useEffect(() => {
+    setSelectedConcertId((current) => {
+      if (current && concerts.some((item) => item.id === current)) {
+        return current;
+      }
+      return concerts[0]?.id || '';
+    });
+  }, [concerts]);
 
   useEffect(() => {
     if (!demoJobId || demoStatus?.status === 'COMPLETED' || demoStatus?.status === 'FAILED') {
@@ -219,8 +243,8 @@ export default function JobsPage() {
       setCreateError('Please choose a PDF file.');
       return;
     }
-    if (!selectedArtistId) {
-      setCreateError('Please choose an artist.');
+    if (!selectedTargetId) {
+      setCreateError(`Please choose a ${getTargetLabel(selectedTargetType)}.`);
       return;
     }
 
@@ -229,7 +253,7 @@ export default function JobsPage() {
     setCreateMessage(null);
 
     try {
-      const result = await operationsService.createAiBioRequest(pdfFile, selectedArtistId);
+      const result = await operationsService.createAiBioRequest(pdfFile, selectedTargetId, selectedTargetType);
       setCreateMessage(result.status ? `AI bio request created: ${result.status}` : 'AI bio request created.');
       await loadAllJobs();
     } catch (error) {
@@ -240,8 +264,8 @@ export default function JobsPage() {
   };
 
   const handleCreateManualBio = async () => {
-    if (!selectedArtistId) {
-      setManualBioError('Please choose an artist.');
+    if (!selectedTargetId) {
+      setManualBioError(`Please choose a ${getTargetLabel(selectedTargetType)}.`);
       return;
     }
     if (!manualBioContent.trim()) {
@@ -254,7 +278,7 @@ export default function JobsPage() {
     setManualBioMessage(null);
 
     try {
-      const result = await operationsService.createManualAiBioDraft(selectedArtistId, manualBioContent.trim());
+      const result = await operationsService.createManualAiBioDraft(selectedTargetId, manualBioContent.trim(), selectedTargetType);
       setManualBioMessage(result.id ? `Manual draft created: ${result.id}` : 'Manual draft created.');
       setManualBioContent('');
       await loadAllJobs();
@@ -422,23 +446,34 @@ export default function JobsPage() {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-primary">Create AI job</h2>
-              <p className="text-sm text-muted">Create an AI bio request from an artist PDF.</p>
+              <p className="text-sm text-muted">Create an AI bio request from an artist or concert press kit PDF.</p>
             </div>
           </div>
 
           <div className="mt-5 space-y-4">
-            <div className="grid gap-3 md:grid-cols-2 md:items-end">
-              <label className="block space-y-2 md:col-span-2">
-                <span className="text-sm font-medium text-primary">Artist</span>
+            <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)] md:items-end">
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-primary">Target type</span>
                 <select
-                  value={selectedArtistId}
-                  onChange={(event) => setSelectedArtistId(event.currentTarget.value)}
+                  value={selectedTargetType}
+                  onChange={(event) => setSelectedTargetType(event.target.value as AiBioTargetType)}
                   className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-sm text-primary outline-none focus:border-primary"
                 >
-                  <option value="">Select artist</option>
-                  {artists.map((artist) => (
-                    <option key={artist.id} value={artist.id}>
-                      {artist.name}
+                  <option value="ARTIST">Artist</option>
+                  <option value="CONCERT">Concert</option>
+                </select>
+              </label>
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-primary">{selectedTargetType === 'ARTIST' ? 'Artist' : 'Concert'}</span>
+                <select
+                  value={selectedTargetId}
+                  onChange={(event) => setSelectedTargetId(event.currentTarget.value)}
+                  className="h-11 w-full rounded-2xl border border-border bg-background px-4 text-sm text-primary outline-none focus:border-primary"
+                >
+                  <option value="">Select {getTargetLabel(selectedTargetType)}</option>
+                  {(selectedTargetType === 'ARTIST' ? artists : concerts).map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
                     </option>
                   ))}
                 </select>
@@ -472,14 +507,14 @@ export default function JobsPage() {
                     value={manualBioContent}
                     onChange={(event) => setManualBioContent(event.target.value)}
                     rows={4}
-                    placeholder="Write a manual artist bio when AI generation fails."
+                    placeholder={`Write a manual ${selectedTargetType === 'ARTIST' ? 'artist bio' : 'concert intro'} when AI generation fails.`}
                     className="w-full rounded-2xl border border-border bg-surface px-4 py-3 text-sm leading-6 text-primary outline-none focus:border-primary"
                   />
                 </label>
                 <button
                   type="button"
                   onClick={() => void handleCreateManualBio()}
-                  disabled={manualBioLoading || !selectedArtistId}
+                  disabled={manualBioLoading || !selectedTargetId}
                   className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-medium text-primary disabled:opacity-60"
                 >
                   {manualBioLoading ? <SpinnerGap size={16} className="animate-spin" /> : <CloudArrowUp size={16} />}
@@ -765,7 +800,7 @@ export default function JobsPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-primary">AI bio jobs</h2>
-              <p className="mt-2 text-sm leading-6 text-muted">Monitor PDF-to-bio requests from the backend and retry failed draft generation.</p>
+              <p className="mt-2 text-sm leading-6 text-muted">Monitor press-kit requests from the backend and retry failed draft generation.</p>
             </div>
             <label className="block min-w-[220px] space-y-2">
               <span className="text-sm font-medium text-primary">Filter</span>
@@ -790,7 +825,7 @@ export default function JobsPage() {
                 <tr>
                   <th className="px-4 py-3 text-center align-middle font-medium">Job</th>
                   <th className="px-4 py-3 text-center font-medium">Status</th>
-                  <th className="px-4 py-3 text-center font-medium">Artist</th>
+                  <th className="px-4 py-3 text-center font-medium">Target</th>
                   <th className="px-4 py-3 text-center font-medium">Draft</th>
                   <th className="px-4 py-3 text-center font-medium">Created</th>
                   <th className="px-4 py-3 text-center font-medium">Action</th>
@@ -824,7 +859,12 @@ export default function JobsPage() {
                             {normalizedStatus}
                           </span>
                         </td>
-                        <td className="px-4 py-3 align-middle text-muted">{job.artistId ?? '--'}</td>
+                        <td className="px-4 py-3 align-middle text-muted">
+                          <div className="space-y-1">
+                            <p>{getTargetLabel((job.targetType ?? 'ARTIST') as AiBioTargetType)}: {job.targetId ?? job.artistId ?? '--'}</p>
+                            <p className="text-[11px] uppercase tracking-[0.18em] text-muted">{job.targetType ?? 'ARTIST'}</p>
+                          </div>
+                        </td>
                         <td className="px-4 py-3 align-middle text-muted">
                           <div className="max-w-[360px] break-words leading-6">
                             {job.draftContent?.trim()
@@ -843,12 +883,20 @@ export default function JobsPage() {
                                 Review draft
                               </Link>
                             ) : null}
-                            {job.artistId ? (
+                            {job.targetType === 'ARTIST' && job.targetId ? (
                               <Link
-                                href={`/artists/${job.artistId}/edit`}
+                                href={`/artists/${job.targetId}/edit`}
                                 className="inline-flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary whitespace-nowrap"
                               >
                                 Review & publish
+                              </Link>
+                            ) : null}
+                            {job.targetType === 'CONCERT' && job.targetId ? (
+                              <Link
+                                href={`/concerts/${job.targetId}/edit`}
+                                className="inline-flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary whitespace-nowrap"
+                              >
+                                Open concert
                               </Link>
                             ) : null}
                             {retryable && canRetryAi ? (

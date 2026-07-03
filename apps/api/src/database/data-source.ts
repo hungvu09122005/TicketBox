@@ -25,5 +25,7 @@ export const AppDataSource = new DataSource({
     join(projectRoot, 'src', 'migrations', '1782444000000-AddFailureReasonToCsvAndNotifications.{ts,js}'),
     join(projectRoot, 'src', 'migrations', '1782450000000-AddConcertMetadata.{ts,js}'),
     join(projectRoot, 'src', 'migrations', '1782460000000-AddManualCodeToTickets.{ts,js}'),
+    join(projectRoot, 'src', 'migrations', '1782470000000-AddTargetTypeToAiBioRequests.{ts,js}'),
+    join(projectRoot, 'src', 'migrations', '1782480000000-DropLegacyArtistIdFromAiBioRequests.{ts,js}'),
   ],
 });

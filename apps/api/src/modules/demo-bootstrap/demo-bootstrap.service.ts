@@ -19,7 +19,7 @@ import { CheckinLog, CheckinMode, CheckinStatus } from '../checkin/entities/chec
 import { CsvImportJob, CsvImportJobStatus } from '../csv-import/entities/csv-import-job.entity';
 import { CsvImportRow, CsvRowStatus } from '../csv-import/entities/csv-import-row.entity';
 import { VipGuest } from '../csv-import/entities/vip-guest.entity';
-import { AiBioRequest, AiBioStatus } from '../ai-bio/entities/ai-bio-request.entity';
+import { AiBioRequest, AiBioStatus, AiBioTargetType } from '../ai-bio/entities/ai-bio-request.entity';
 import { OrderStatus } from '../orders/enums/order-status.enum';
 import { Role } from '../../common/constants/roles.enum';
 import { seedRbac } from '../../database/seed-rbac';
@@ -280,7 +280,8 @@ export class DemoBootstrapService {
 
           if (options.createAiBioDemoJob && artist && adminUser) {
             aiBioRequest = m.create(AiBioRequest, {
-              artistId: artist.id,
+              targetId: artist.id,
+              targetType: AiBioTargetType.ARTIST,
               requestedBy: adminUser.id,
               pdfObjectKey: 'ai-bio/the-neon-waves.pdf',
               status: AiBioStatus.PUBLISHED,
