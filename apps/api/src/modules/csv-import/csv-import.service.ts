@@ -154,7 +154,7 @@ export class CsvImportService {
     const optionalColumns = ['guest_external_id', 'phone', 'sponsor', 'gate', 'note'];
     const fallbackCsv = [
       'guest_external_id,full_name,email,phone,sponsor,ticket_type,gate,note',
-      'SPONSOR-001,Nguyen Minh Anh,minh.anh@example.com,+84901234567,Brand A,VIP,VIP-A,Replace this sample row with real guest data',
+      'SPONSOR-001,Nguyen Minh Anh,minh.anh@example.com,+84901234567,Brand A,VIP,VIP-A,Use ticket type name from BTC not UUID',
       'SPONSOR-002,Tran Bao Ngoc,bao.ngoc@example.com,+84901234568,Brand A,VIP,VIP-A,One guest per row',
       'SPONSOR-003,Le Quoc Huy,quoc.huy@example.com,,Brand B,VIP,VIP-B,Phone is optional but email is required',
     ].join('\n');
@@ -224,13 +224,14 @@ export class CsvImportService {
           sponsor: 'Brand A',
           ticket_type: 'VIP',
           gate: 'VIP-A',
-          note: 'Replace this sample row with real guest data',
+          note: 'Use ticket type name from BTC not UUID',
         },
       ],
       notes: [
         'Download source: sample/guest-lists/template.csv',
         'Keep the header row unchanged.',
         'ticket_type must exactly match a ticket type name configured for the selected concert.',
+        'Sponsors should send ticket type names such as VIP or SVIP, not internal UUID values.',
         'If needed, read sample/guest-lists/template.md for sponsor-facing instructions.',
       ],
       csv,

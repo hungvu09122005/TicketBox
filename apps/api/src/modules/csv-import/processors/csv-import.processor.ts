@@ -98,6 +98,12 @@ function normalizeTicketTypeKey(value: string): string {
     .replace(/[\s_-]+/g, '');
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    compactWhitespace(value),
+  );
+}
+
 function validateRecord(record: NormalizedCsvRecord): string | null {
   if (!record.email) return 'Missing email';
   if (!record.name) return 'Missing name';
@@ -208,7 +214,7 @@ if (!importJob) {
 
         const email = record.email!;
         const name = record.name!;
-        const ticketTypeId = record.ticketTypeId!;
+        const ticketTypeInput = record.ticketTypeId!;
         const phone = record.phone || '';
 
         const dedupKey = email || phone;
@@ -242,15 +248,19 @@ if (!importJob) {
 
         try {
   const notificationPayload = await this.manager.transaction(async (m) => {
-    let ticketType = await m.findOne(TicketType, {
-      where: { id: ticketTypeId, concertId },
-    });
+    let ticketType: TicketType | null = null;
+
+    if (isUuid(ticketTypeInput)) {
+      ticketType = await m.findOne(TicketType, {
+        where: { id: ticketTypeInput, concertId },
+      });
+    }
 
     if (!ticketType) {
       const ticketTypes = await m.find(TicketType, {
         where: { concertId },
       });
-      const expectedTicketTypeKey = normalizeTicketTypeKey(ticketTypeId);
+      const expectedTicketTypeKey = normalizeTicketTypeKey(ticketTypeInput);
       ticketType =
         ticketTypes.find(
           (candidate) => normalizeTicketTypeKey(candidate.name) === expectedTicketTypeKey,
@@ -258,7 +268,7 @@ if (!importJob) {
     }
 
     if (!ticketType) {
-      throw new Error(`Ticket type ${ticketTypeId} not found for this concert`);
+      throw new Error(`Ticket type ${ticketTypeInput} not found for this concert`);
     }
 
     let user = await m.findOne(User, { where: { email } });
