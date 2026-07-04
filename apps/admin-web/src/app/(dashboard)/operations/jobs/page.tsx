@@ -1005,48 +1005,6 @@ export default function JobsPage() {
           ) : null}
         </section>
 
-        {canManageDemo ? (
-          <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-center gap-3">
-                <div className="rounded-2xl border border-border bg-background p-3 text-primary">
-                  <Database size={20} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-primary">Demo data bootstrap</h2>
-                  <p className="text-sm text-muted">Starts the admin demo bootstrap API and polls its Redis-backed progress.</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => void handleStartDemoBootstrap()}
-                disabled={demoLoading || demoStatus?.status === 'PROCESSING'}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-surface disabled:opacity-60"
-              >
-                {demoLoading ? <SpinnerGap size={16} className="animate-spin" /> : <Play size={16} />}
-                Start bootstrap
-              </button>
-            </div>
-            {demoStatus ? (
-              <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm leading-6 text-muted">
-                <p>Status: {demoStatus.status ?? '--'} · Progress: {demoStatus.progress ?? 0}%</p>
-                <p className="mt-1">{demoStatus.message ?? '--'}</p>
-                {demoStatus.created ? (
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <p>Admin user: {demoStatus.created.adminUserId ?? '--'}</p>
-                    <p>Organizer user: {demoStatus.created.organizerUserId ?? '--'}</p>
-                    <p>Staff user: {demoStatus.created.staffUserId ?? '--'}</p>
-                    <p>Audience user: {demoStatus.created.audienceUserId ?? '--'}</p>
-                    <p>Concert: {demoStatus.created.concertId ?? '--'}</p>
-                    <p>CSV job: {demoStatus.created.csvJobId ?? '--'}</p>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-            {demoError ? <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{demoError}</div> : null}
-          </section>
-        ) : null}
-
         <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-2xl border border-border bg-background p-3 text-primary">
@@ -1238,6 +1196,48 @@ export default function JobsPage() {
           ) : null}
 
         </section>
+
+        {canManageDemo ? (
+          <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl border border-border bg-background p-3 text-primary">
+                  <Database size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-primary">Demo data bootstrap</h2>
+                  <p className="text-sm text-muted">Starts the admin demo bootstrap API and polls its Redis-backed progress.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleStartDemoBootstrap()}
+                disabled={demoLoading || demoStatus?.status === 'PROCESSING'}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-surface disabled:opacity-60"
+              >
+                {demoLoading ? <SpinnerGap size={16} className="animate-spin" /> : <Play size={16} />}
+                Start bootstrap
+              </button>
+            </div>
+            {demoStatus ? (
+              <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm leading-6 text-muted">
+                <p>Status: {demoStatus.status ?? '--'} · Progress: {demoStatus.progress ?? 0}%</p>
+                <p className="mt-1">{demoStatus.message ?? '--'}</p>
+                {demoStatus.created ? (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <p>Admin user: {demoStatus.created.adminUserId ?? '--'}</p>
+                    <p>Organizer user: {demoStatus.created.organizerUserId ?? '--'}</p>
+                    <p>Staff user: {demoStatus.created.staffUserId ?? '--'}</p>
+                    <p>Audience user: {demoStatus.created.audienceUserId ?? '--'}</p>
+                    <p>Concert: {demoStatus.created.concertId ?? '--'}</p>
+                    <p>CSV job: {demoStatus.created.csvJobId ?? '--'}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {demoError ? <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{demoError}</div> : null}
+          </section>
+        ) : null}
       </div>
     </div>
   );
