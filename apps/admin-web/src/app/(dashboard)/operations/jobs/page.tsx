@@ -437,17 +437,18 @@ export default function JobsPage() {
 
     try {
       const template = await operationsService.getCsvImportTemplate();
-      const columns = template.columns?.map((column) => column.name) ?? ['email', 'name', 'phone', 'ticketTypeId'];
-      const exampleRows = template.exampleRows && template.exampleRows.length > 0 ? template.exampleRows : [];
-      const csvLines = [
-        columns.join(','),
-        ...exampleRows.map((row) => columns.map((column) => row[column] ?? '').join(',')),
-      ];
-      const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8' });
+      const fallbackColumns = template.columns?.map((column) => column.name) ?? ['guest_external_id', 'full_name', 'email', 'phone', 'sponsor', 'ticket_type', 'gate', 'note'];
+      const fallbackRows = template.exampleRows && template.exampleRows.length > 0 ? template.exampleRows : [];
+      const fallbackCsv = [
+        fallbackColumns.join(','),
+        ...fallbackRows.map((row) => fallbackColumns.map((column) => row[column] ?? '').join(',')),
+      ].join('\n');
+      const csvContent = template.csv && template.csv.trim() ? template.csv : fallbackCsv;
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = template.filename ?? 'vip-import-template.csv';
+      anchor.download = template.filename ?? 'template.csv';
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -690,7 +691,7 @@ export default function JobsPage() {
 
           <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
             <div className="overflow-x-auto">
-              <table className="min-w-full whitespace-nowrap text-center text-sm">
+              <table className="min-w-[1560px] w-full whitespace-nowrap text-center text-sm">
                 <thead className="bg-surface/80 text-muted">
                   <tr>
                     <th className="px-4 py-3 text-center align-middle font-medium">Job</th>
@@ -721,11 +722,16 @@ export default function JobsPage() {
                     paginatedAiJobs.map((job) => {
                       const normalizedStatus = normalizeAiStatus(job.status);
                       const retryable = job.status === 'FAILED';
+                      const targetLabel = `${getTargetLabel((job.targetType ?? 'ARTIST') as AiBioTargetType)}: ${job.targetId ?? job.artistId ?? '--'}`;
+                      const draftTitle = job.draftContent?.trim() || 'No draft content returned yet.';
+                      const draftPreview = job.draftContent?.trim()
+                        ? truncateText(job.draftContent, 96)
+                        : 'No draft content returned yet.';
                       return (
                         <tr key={String(job.id)}>
                           <td className="px-4 py-3 align-middle font-medium text-primary">
                             {job.id ? (
-                              <Link href={`/operations/jobs/ai/${job.id}`} className="hover:underline">
+                              <Link href={`/operations/jobs/ai/${job.id}`} className="inline-block whitespace-nowrap hover:underline" title={job.id}>
                                 {job.id}
                               </Link>
                             ) : '--'}
@@ -737,24 +743,24 @@ export default function JobsPage() {
                           </td>
                           <td className="px-4 py-3 align-middle text-muted">
                             <div className="space-y-1">
-                              <p>{getTargetLabel((job.targetType ?? 'ARTIST') as AiBioTargetType)}: {job.targetId ?? job.artistId ?? '--'}</p>
+                              <p className="whitespace-nowrap" title={targetLabel}>
+                                {targetLabel}
+                              </p>
                               <p className="text-[11px] uppercase tracking-[0.18em] text-muted">{job.targetType ?? 'ARTIST'}</p>
                             </div>
                           </td>
                           <td className="px-4 py-3 align-middle text-muted">
-                            <div className="max-w-[360px] break-words leading-6">
-                              {job.draftContent?.trim()
-                                ? truncateText(job.draftContent, 120)
-                                : 'No draft content returned yet.'}
+                            <div className="mx-auto max-w-[360px] truncate leading-6" title={draftTitle}>
+                              {draftPreview}
                             </div>
                           </td>
                           <td className="px-4 py-3 align-middle text-muted">{formatDateTime(job.createdAt)}</td>
                           <td className="px-4 py-3 align-middle">
-                            <div className="flex flex-nowrap gap-2">
+                            <div className="inline-flex min-w-max flex-nowrap items-center justify-center gap-2">
                               {job.id ? (
                                 <Link
                                   href={`/operations/jobs/ai/${job.id}`}
-                                  className="inline-flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary whitespace-nowrap"
+                                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-xs font-medium text-primary whitespace-nowrap"
                                 >
                                   Review draft
                                 </Link>
@@ -762,7 +768,7 @@ export default function JobsPage() {
                               {job.targetType === 'ARTIST' && job.targetId ? (
                                 <Link
                                   href={`/artists/${job.targetId}/edit${job.id ? `?bioJobId=${job.id}` : ''}`}
-                                  className="inline-flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary whitespace-nowrap"
+                                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-xs font-medium text-primary whitespace-nowrap"
                                 >
                                   Review & publish
                                 </Link>
@@ -770,7 +776,7 @@ export default function JobsPage() {
                               {job.targetType === 'CONCERT' && job.targetId ? (
                                 <Link
                                   href={`/concerts/${job.targetId}/edit${job.id ? `?bioJobId=${job.id}` : ''}`}
-                                  className="inline-flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary whitespace-nowrap"
+                                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-xs font-medium text-primary whitespace-nowrap"
                                 >
                                   Review & publish
                                 </Link>
@@ -780,7 +786,7 @@ export default function JobsPage() {
                                   type="button"
                                   onClick={() => handleRetry('ai', String(job.id))}
                                   disabled={retrying === `ai:${String(job.id)}`}
-                                  className="inline-flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-primary whitespace-nowrap disabled:opacity-60"
+                                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-xs font-medium text-primary whitespace-nowrap disabled:opacity-60"
                                 >
                                   {retrying === `ai:${String(job.id)}` ? <SpinnerGap size={14} className="animate-spin" /> : <ArrowClockwise size={14} />}
                                   Retry

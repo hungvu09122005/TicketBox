@@ -96,6 +96,7 @@ export interface CsvImportTemplateResponse {
   filename?: string;
   delimiter?: string;
   encoding?: string;
+  csv?: string;
   requiredColumns?: string[];
   optionalColumns?: string[];
   columns?: Array<{

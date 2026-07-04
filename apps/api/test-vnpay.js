@@ -1,4 +1,3 @@
-require('dotenv').config({ path: 'apps/api/.env' });
 const { VnpayAdapter } = require('./dist/modules/payments/adapters/vnpay.adapter');
 const qs = require('qs');
 const crypto = require('crypto');

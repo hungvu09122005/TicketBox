@@ -53,55 +53,7 @@ export class CsvImportController {
   @Get('template')
   @RequirePermissions(Permission.VIP_IMPORT)
   async getTemplate() {
-    return {
-      filename: 'vip-import-template.csv',
-      delimiter: ',',
-      encoding: 'utf-8',
-      requiredColumns: ['email', 'full_name', 'ticket_type'],
-      optionalColumns: ['phone', 'sponsor', 'gate', 'note'],
-      columns: [
-        {
-          name: 'email',
-          required: true,
-          description: 'Guest email, used for deduplication',
-        },
-        {
-          name: 'full_name',
-          required: true,
-          description: 'Guest name to store in VIP guest list',
-        },
-        {
-          name: 'phone',
-          required: false,
-          description: 'Optional phone number',
-        },
-        {
-          name: 'ticket_type',
-          required: true,
-          description: 'Ticket type label from sponsor CSV, mapped inside the selected concert',
-        },
-      ],
-      exampleRows: [
-        {
-          email: 'guest1@example.com',
-          full_name: 'Guest 1',
-          phone: '0900000001',
-          ticket_type: 'VIP',
-        },
-        {
-          email: 'guest2@example.com',
-          full_name: 'Guest 2',
-          phone: '0900000002',
-          ticket_type: 'VIP',
-        },
-      ],
-      notes: [
-        'Accepted aliases: name/full_name and ticketTypeId/ticket_type.',
-        'Upload one CSV file per concert.',
-        'Backend validates each row and supports partial success.',
-        'Rows with duplicate email or invalid ticketTypeId are written into the error report.',
-      ],
-    };
+    return this.csvImportService.getTemplate();
   }
 
   @Get(':jobId/status')

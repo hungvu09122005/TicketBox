@@ -33,6 +33,7 @@ import * as qs from 'qs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { URL } from 'url';
+import { workspaceRoot } from '../src/config/load-env';
 
 // Import non-conflicting migrations directly for type-safety and robust class constructor execution
 import { InitialSchemaMigration1781899060208 } from '../src/database/migrations/1781899060208-InitialSchemaMigration';
@@ -42,24 +43,12 @@ import { AddFailureReasonToNotificationLogs1782372768844 } from '../src/database
 import { AddCsvImportAndConcertMissingColumns1782402200000 } from '../src/database/migrations/1782402200000-AddCsvImportAndConcertMissingColumns';
 import { AddFailureReasonToCsvAndNotifications1782444000000 } from '../src/migrations/1782444000000-AddFailureReasonToCsvAndNotifications';
 
-// Resolve project api root
-const projectRoot = process.cwd().endsWith('apps/api') || process.cwd().endsWith('apps\\api')
-  ? process.cwd()
-  : path.resolve(process.cwd(), 'apps/api');
+const workspaceRootEnvPath = path.resolve(workspaceRoot, '.env');
+const workspaceRootTestEnvPath = path.resolve(workspaceRoot, '.env.test');
 
-const apiEnvPath = path.resolve(projectRoot, '.env');
-const workspaceRootEnvPath = path.resolve(projectRoot, '../..', '.env');
-const apiTestEnvPath = path.resolve(projectRoot, '.env.test');
-const workspaceRootTestEnvPath = path.resolve(projectRoot, '../..', '.env.test');
+console.log('Loading env files:', { workspaceRootEnvPath, workspaceRootTestEnvPath });
 
-console.log('Loading env files:', { apiEnvPath, workspaceRootEnvPath, apiTestEnvPath, workspaceRootTestEnvPath });
-
-// Load regular env first
-dotenv.config({ path: apiEnvPath, override: true });
 dotenv.config({ path: workspaceRootEnvPath, override: true });
-
-// Load test envs to override configurations
-dotenv.config({ path: apiTestEnvPath, override: true });
 dotenv.config({ path: workspaceRootTestEnvPath, override: true });
 
 function parseDbConfig() {
