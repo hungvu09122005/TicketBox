@@ -24,7 +24,6 @@ const navigation = [
 
 const operationsShortcuts = [
   { name: 'Order & payment', href: '/operations/orders' },
-  { name: 'Failed jobs', href: '/operations/notifications' },
   { name: 'Reports', href: '/operations/reports' },
   { name: 'Job monitor', href: '/operations/jobs' },
 ];

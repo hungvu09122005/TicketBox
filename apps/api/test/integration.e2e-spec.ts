@@ -16,7 +16,7 @@ import { TicketType } from '../src/modules/ticket-types/entities/ticket-type.ent
 import { Order } from '../src/modules/orders/entities/order.entity';
 import { Ticket, TicketStatus } from '../src/modules/tickets/entities/ticket.entity';
 import { CsvImportJob, CsvImportJobStatus } from '../src/modules/csv-import/entities/csv-import-job.entity';
-import { AiBioRequest, AiBioStatus } from '../src/modules/ai-bio/entities/ai-bio-request.entity';
+import { AiBioRequest, AiBioStatus, AiBioTargetType } from '../src/modules/ai-bio/entities/ai-bio-request.entity';
 import { CheckinDevice, DeviceStatus } from '../src/modules/checkin/entities/checkin-device.entity';
 import { JwtService } from '@nestjs/jwt';
 import { CsvImportService } from '../src/modules/csv-import/csv-import.service';
@@ -28,6 +28,7 @@ import { QrCodeGeneratorPort, QR_CODE_GENERATOR_PORT } from '../src/common/ports
 import { Job } from 'bull';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import * as fs from 'fs';
 import * as qs from 'qs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
@@ -839,25 +840,30 @@ describe('TicketBox Integration Tests (Real Database)', () => {
   });
 
   describe('6. AI Artist Bio & Failure Recovery Processor', () => {
-    it('should update request status to FAILED and write error reason when AI generation fails (e.g. missing API key)', async () => {
+    it('should update request status to FAILED and write error reason when AI generation fails', async () => {
+      const request = dataSource.manager.create(AiBioRequest, {
+        targetId: crypto.randomUUID(),
+        targetType: AiBioTargetType.ARTIST,
+        requestedBy: crypto.randomUUID(),
+        status: AiBioStatus.PENDING,
+        pdfObjectKey: 'biographies/taylor-swift.pdf',
+        failureReason: undefined,
+      });
+      const savedRequest = await dataSource.manager.save(AiBioRequest, request);
+
+      const pdfPath = path.resolve(projectRoot, '../../sample/press-kits/artist-ai-bio-test.pdf');
+      const buffer = fs.readFileSync(pdfPath);
+      await storagePort.upload({
+        objectKey: 'biographies/taylor-swift.pdf',
+        buffer,
+        contentType: 'application/pdf',
+        size: buffer.length,
+      });
+
+      const aiGenerateSpy = jest.spyOn((aiBioProcessor as any).aiPort, 'generateArtistBio');
+      aiGenerateSpy.mockRejectedValue(new Error('Simulated AI provider failure'));
+
       try {
-        const request = dataSource.manager.create(AiBioRequest, {
-          artistId: crypto.randomUUID(),
-          requestedBy: crypto.randomUUID(),
-          status: AiBioStatus.PENDING,
-          pdfObjectKey: 'biographies/taylor-swift.pdf',
-          failureReason: undefined,
-        });
-        const savedRequest = await dataSource.manager.save(AiBioRequest, request);
-
-        const buffer = Buffer.from(' Taylor Swift Biography Text press kit ');
-        await storagePort.upload({
-          objectKey: 'biographies/taylor-swift.pdf',
-          buffer,
-          contentType: 'application/pdf',
-          size: buffer.length,
-        });
-
         const mockJob = {
           data: {
             requestId: savedRequest.id,
@@ -865,15 +871,13 @@ describe('TicketBox Integration Tests (Real Database)', () => {
           },
         } as Job;
 
-        await aiBioProcessor.handle(mockJob);
+        await expect(aiBioProcessor.handle(mockJob)).rejects.toThrow('Simulated AI provider failure');
 
         const finalRequest = await dataSource.manager.findOneBy(AiBioRequest, { id: savedRequest.id });
         expect(finalRequest?.status).toBe(AiBioStatus.FAILED);
-        expect(finalRequest?.failureReason).toBeDefined();
-        expect(finalRequest?.failureReason?.length).toBeGreaterThan(0);
-      } catch (err) {
-        console.error('AI Biography processing failed:', err);
-        throw err;
+        expect(finalRequest?.failureReason).toContain('Simulated AI provider failure');
+      } finally {
+        aiGenerateSpy.mockRestore();
       }
     }, 15000);
   });

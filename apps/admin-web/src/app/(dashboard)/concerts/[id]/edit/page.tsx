@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState, use } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle, SpinnerGap, Ticket, UploadSimple } from '@phosphor-icons/react';
+import { ArrowLeft, CheckCircle, Sparkle, SpinnerGap, Ticket, UploadSimple } from '@phosphor-icons/react';
 import { useAuthStore } from '@/lib/auth-store';
 import { concertService } from '@/lib/services/concert.service';
+import { operationsService } from '@/lib/services/operations.service';
 import { Artist } from '@/lib/types';
 import { extractApiMessages } from '@/lib/api-errors';
 import { useToast } from '@/components/ui/ToastProvider';
@@ -36,8 +37,10 @@ function normalizeDateTimeValue(value: string) {
   return value ? new Date(value).toISOString() : undefined;
 }
 
-export default function EditConcertPage({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
+function EditConcertFormContent({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const bioJobId = searchParams.get('bioJobId');
   const { id } = use(params);
   const admin = useAuthStore((state) => state.admin);
   
@@ -49,6 +52,7 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
   const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [serverErrors, setServerErrors] = useState<string[] | null>(null);
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
 
   const {
     register,
@@ -74,9 +78,23 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
         setArtists(aData);
         
         if (concertData) {
+          let description = concertData.description || '';
+
+          if (bioJobId) {
+            try {
+              const aiJob = await operationsService.getAiBioJobStatus(bioJobId);
+              if (aiJob?.draftContent) {
+                description = aiJob.draftContent;
+                setAiNotice(`Auto-filled concert description from AI job (${bioJobId.slice(0, 8)}). Save changes to publish.`);
+              }
+            } catch (err) {
+              console.warn('Failed to load AI bio draft for concert pre-fill', err);
+            }
+          }
+
           reset({
             name: concertData.name || '',
-            description: concertData.description || '',
+            description,
             artistIds: concertData.artists?.map((artist) => artist.id) || [],
             venue: concertData.venue || '',
             startsAt: formatDateTimeLocalInput(concertData.startsAt),
@@ -95,7 +113,7 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
       }
     }
     loadData();
-  }, [id, reset]);
+  }, [bioJobId, id, reset]);
 
   const toggleArtist = (artistId: string) => {
     const current = selectedArtistIds || [];
@@ -182,6 +200,13 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
         <h1 className="text-2xl font-semibold tracking-tight text-primary">Edit Concert</h1>
         <p className="text-sm text-muted mt-1">Update the details of this event.</p>
       </div>
+
+      {aiNotice ? (
+        <div className="mb-6 flex items-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm font-medium text-sky-900">
+          <Sparkle size={18} className="shrink-0 text-sky-600" />
+          <span>{aiNotice}</span>
+        </div>
+      ) : null}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 bg-surface border border-border rounded-xl p-6 md:p-8 shadow-sm">
         {serverErrors && (
@@ -376,5 +401,21 @@ export default function EditConcertPage({ params }: Readonly<{ params: Promise<{
         </div>
       </form>
     </div>
+  );
+}
+
+export default function EditConcertPage(props: Readonly<{ params: Promise<{ id: string }> }>) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <div className="flex items-center gap-3 text-sm text-muted">
+            <SpinnerGap size={32} className="animate-spin" />
+          </div>
+        </div>
+      }
+    >
+      <EditConcertFormContent params={props.params} />
+    </Suspense>
   );
 }

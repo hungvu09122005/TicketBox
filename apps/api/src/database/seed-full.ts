@@ -25,7 +25,7 @@ import {
 } from '../modules/csv-import/entities/csv-import-job.entity';
 import { CsvImportRow, CsvRowStatus } from '../modules/csv-import/entities/csv-import-row.entity';
 import { VipGuest } from '../modules/csv-import/entities/vip-guest.entity';
-import { AiBioRequest, AiBioStatus } from '../modules/ai-bio/entities/ai-bio-request.entity';
+import { AiBioRequest, AiBioStatus, AiBioTargetType } from '../modules/ai-bio/entities/ai-bio-request.entity';
 import { OrderStatus } from '../modules/orders/enums/order-status.enum';
 
 const seedIds = {
@@ -407,7 +407,8 @@ export async function seedFullData(dataSource: DataSource) {
 
   await saveEntity(aiBioRepo, {
     id: seedIds.aiBioOne,
-    artistId: artistOne.id,
+    targetId: artistOne.id,
+    targetType: AiBioTargetType.ARTIST,
     requestedBy: admin.id,
     pdfObjectKey: 'ai-bio/the-neon-waves.pdf',
     status: AiBioStatus.PUBLISHED,

@@ -494,7 +494,7 @@ export default function RbacUsersPageView() {
                           </div>
                         </td>
                         <td className="px-4 py-4 align-middle">
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap justify-center gap-2">
                             {user.roles.length > 0 ? (
                               user.roles.map((roleName) => <Pill key={roleName}>{roleLabel(roleName)}</Pill>)
                             ) : (
@@ -502,23 +502,23 @@ export default function RbacUsersPageView() {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-4 align-middle">
+                        <td className="px-4 py-4 align-middle text-center">
                           <Pill tone={user.isActive ? 'success' : 'warning'}>
                             {user.isActive ? 'Active' : 'Inactive'}
                           </Pill>
                         </td>
-                        <td className="px-4 py-4 align-middle">
+                        <td className="px-4 py-4 align-middle text-center">
                           <span className="font-medium text-primary">{user.permissions.length}</span>
                           <span className="ml-1 text-muted">codes</span>
                         </td>
-                        <td className="px-4 py-4 align-middle">
+                        <td className="px-4 py-4 align-middle text-center">
                           <span className="font-medium text-primary">{user.permissionVersion}</span>
                         </td>
-                        <td className="px-4 py-4 align-middle whitespace-nowrap text-muted">
+                        <td className="px-4 py-4 align-middle whitespace-nowrap text-center text-muted">
                           {formatDateTime(user.updatedAt)}
                         </td>
                         <td className="px-4 py-4 align-middle whitespace-nowrap">
-                          <div className="flex flex-nowrap justify-end gap-2">
+                          <div className="flex flex-nowrap justify-center gap-2">
                             <button
                               type="button"
                               onClick={() => openUserDetailModal(user.id, 'view')}

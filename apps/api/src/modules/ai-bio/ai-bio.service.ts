@@ -3,9 +3,10 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { AiBioRepository } from './ai-bio.repository';
 import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../common/ports/object-storage.port';
-import { AiBioStatus } from './entities/ai-bio-request.entity';
+import { AiBioStatus, AiBioTargetType } from './entities/ai-bio-request.entity';
 import { AI_BIO_JOB } from './processors/ai-bio.processor';
 import { ArtistsService } from '../artists/artists.service';
+import { ConcertsService } from '../concerts/concerts.service';
 
 const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024;
 
@@ -16,9 +17,15 @@ export class AiBioService {
     @Inject(OBJECT_STORAGE_PORT) private readonly storage: ObjectStoragePort,
     @InjectQueue('ai-bio') private readonly queue: Queue,
     private readonly artistsService: ArtistsService,
+    private readonly concertsService: ConcertsService,
   ) {}
   
-  async createRequest(pdfFile: Express.Multer.File, artistId: string, userId: string) {
+  async createRequest(
+    pdfFile: Express.Multer.File,
+    targetId: string,
+    targetType: AiBioTargetType,
+    userId: string,
+  ) {
     if (!pdfFile) {
       throw new BadRequestException('PDF file is required');
     }
@@ -35,14 +42,20 @@ export class AiBioService {
       throw new BadRequestException('PDF file size must not exceed 10MB');
     }
 
-    // Sanitize artistId to prevent path traversal in object key
-    const safeArtistId = artistId.replace(/[^a-zA-Z0-9\-_]/g, '');
-    if (!safeArtistId) {
-      throw new BadRequestException('Invalid artistId');
+    const safeTargetId = targetId.replace(/[^a-zA-Z0-9\-_]/g, '');
+    if (!safeTargetId) {
+      throw new BadRequestException('Invalid targetId');
     }
 
+    if (targetType === AiBioTargetType.ARTIST) {
+      await this.artistsService.findById(targetId);
+    } else if (targetType === AiBioTargetType.CONCERT) {
+      await this.concertsService.findById(targetId);
+    } else {
+      throw new BadRequestException('Invalid targetType');
+    }
 
-    const objectKey = `artist-bios/${safeArtistId}-${Date.now()}.pdf`;
+    const objectKey = `press-kits/${targetType.toLowerCase()}/${safeTargetId}-${Date.now()}.pdf`;
 
     await this.storage.upload({
       objectKey,
@@ -52,7 +65,8 @@ export class AiBioService {
     });
 
     const bio = await this.repo.create({
-      artistId,
+      targetId,
+      targetType,
       pdfObjectKey: objectKey,
       status: AiBioStatus.PENDING,
       requestedBy: userId,
@@ -81,20 +95,31 @@ export class AiBioService {
       job_id: bio.id,
       status: bio.status,
       pdfObjectKey: bio.pdfObjectKey,
+      targetId: bio.targetId,
+      targetType: bio.targetType,
     };
   }
 
-  async createManualBio(artistId: string, bio: string, userId: string) {
-    if (!artistId) {
-      throw new BadRequestException('artistId is required');
+  async createManualBio(targetId: string, bio: string, userId: string, targetType: AiBioTargetType) {
+    if (!targetId) {
+      throw new BadRequestException('targetId is required');
     }
 
     if (!bio || !bio.trim()) {
       throw new BadRequestException('bio is required');
     }
 
+    if (targetType === AiBioTargetType.ARTIST) {
+      await this.artistsService.findById(targetId);
+    } else if (targetType === AiBioTargetType.CONCERT) {
+      await this.concertsService.findById(targetId);
+    } else {
+      throw new BadRequestException('Invalid targetType');
+    }
+
     const request = await this.repo.create({
-      artistId,
+      targetId,
+      targetType,
       requestedBy: userId,
       draftContent: bio.trim(),
       status: AiBioStatus.DRAFT,
@@ -176,10 +201,14 @@ export class AiBioService {
       throw new BadRequestException('Bio draft content is empty. Cannot publish.');
     }
 
-    // Cập nhật biography của Artist
-    await this.artistsService.update(bio.artistId, { shortBio: bio.draftContent });
+    if (bio.targetType === AiBioTargetType.ARTIST) {
+      await this.artistsService.update(bio.targetId, { shortBio: bio.draftContent });
+    } else if (bio.targetType === AiBioTargetType.CONCERT) {
+      await this.concertsService.updateById(bio.targetId, { description: bio.draftContent });
+    } else {
+      throw new BadRequestException(`Unsupported target type: ${bio.targetType}`);
+    }
 
-    // Cập nhật trạng thái bio request thành PUBLISHED
     await this.repo.updateStatus(id, AiBioStatus.PUBLISHED);
 
     return this.repo.findById(id);

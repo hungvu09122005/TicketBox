@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowSquareOut, MagnifyingGlass, SpinnerGap, Ticket, Funnel } from '@phosphor-icons/react';
 import { useAuthStore } from '@/lib/auth-store';
 import { concertService } from '@/lib/services/concert.service';
-import { operationsService, type OrderDetails } from '@/lib/services/operations.service';
+import { operationsService, type OrderDetails, type PaginationMeta } from '@/lib/services/operations.service';
 import type { Concert } from '@/lib/types';
 
 function formatCurrency(value?: number) {
@@ -47,12 +47,15 @@ const queueDashboardHref = (() => {
 export default function OrdersOperationsPage() {
   const admin = useAuthStore((state) => state.admin);
   const [orders, setOrders] = useState<OrderDetails[]>([]);
+  const [paginationMeta, setPaginationMeta] = useState<PaginationMeta | null>(null);
   const [concerts, setConcerts] = useState<Concert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | OrderDetails['status']>('all');
   const [concertFilter, setConcertFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
 
   useEffect(() => {
     let isActive = true;
@@ -63,13 +66,19 @@ export default function OrdersOperationsPage() {
 
       try {
         const [orderData, concertData] = await Promise.all([
-          operationsService.getOrders(),
+          operationsService.getOrders({
+            page,
+            limit,
+            status: statusFilter === 'all' ? undefined : statusFilter,
+            concertId: concertFilter === 'all' ? undefined : concertFilter,
+          }),
           concertService.getConcerts(admin),
         ]);
 
         if (!isActive) return;
 
-        setOrders(orderData);
+        setOrders(orderData.data);
+        setPaginationMeta(orderData.meta);
         setConcerts(concertData);
       } catch (error) {
         if (!isActive) return;
@@ -86,7 +95,7 @@ export default function OrdersOperationsPage() {
     return () => {
       isActive = false;
     };
-  }, [admin]);
+  }, [admin, concertFilter, limit, page, statusFilter]);
 
   const filteredOrders = useMemo(() => {
     const orderList = Array.isArray(orders) ? orders : [];
@@ -117,6 +126,8 @@ export default function OrdersOperationsPage() {
     () => concerts.filter((concert) => concert.status !== 'DRAFT' || admin?.roles?.includes('SYSTEM_ADMIN')),
     [admin?.roles, concerts],
   );
+
+  const totalPages = Math.max(1, paginationMeta?.totalPages ?? 1);
 
   return (
     <div className="space-y-6">
@@ -163,7 +174,10 @@ export default function OrdersOperationsPage() {
             <Funnel size={16} className="text-muted" />
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as 'all' | OrderDetails['status'])}
+              onChange={(event) => {
+                setPage(1);
+                setStatusFilter(event.target.value as 'all' | OrderDetails['status']);
+              }}
               className="w-full bg-transparent text-sm text-primary outline-none"
             >
               <option value="all">All statuses</option>
@@ -181,7 +195,10 @@ export default function OrdersOperationsPage() {
             <Funnel size={16} className="text-muted" />
             <select
               value={concertFilter}
-              onChange={(event) => setConcertFilter(event.target.value)}
+              onChange={(event) => {
+                setPage(1);
+                setConcertFilter(event.target.value);
+              }}
               className="w-full bg-transparent text-sm text-primary outline-none"
             >
               <option value="all">All concerts</option>
@@ -197,9 +214,26 @@ export default function OrdersOperationsPage() {
 
       <div className="rounded-[32px] border border-border bg-surface shadow-sm">
         <div className="border-b border-border px-6 py-4">
-          <div className="flex items-center gap-2 text-sm text-muted">
-            <Ticket size={16} />
-            Order list
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted">
+              <Ticket size={16} />
+              Order list
+            </div>
+            <label className="flex items-center gap-3 text-sm text-muted">
+              <span>Page size</span>
+              <select
+                value={limit}
+                onChange={(event) => {
+                  setPage(1);
+                  setLimit(Number(event.target.value));
+                }}
+                className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-primary outline-none"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </label>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -233,7 +267,7 @@ export default function OrdersOperationsPage() {
               ) : filteredOrders.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-14 text-center text-muted">
-                    No orders matched the current filters. The UI is ready for the backend list when it starts returning data.
+                    No orders matched the current filters.
                   </td>
                 </tr>
               ) : (
@@ -265,6 +299,31 @@ export default function OrdersOperationsPage() {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-4 text-sm text-muted">
+          <span>
+            Page {paginationMeta?.page ?? page} of {totalPages}
+            {' · '}
+            Total {paginationMeta?.total ?? 0} orders
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={page <= 1 || isLoading}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-primary disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              disabled={page >= totalPages || isLoading}
+              onClick={() => setPage((current) => current + 1)}
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-primary disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
 

@@ -95,9 +95,9 @@ export default function AiBioReviewPage({ params }: Readonly<{ params: Promise<{
 
       <div className="rounded-[32px] border border-border bg-surface p-6 shadow-sm">
         <p className="text-[11px] uppercase tracking-[0.22em] text-muted">AI bio review</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Review draft</h1>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Review press-kit draft</h1>
         <p className="mt-3 text-sm leading-6 text-muted">
-          View, edit, and publish AI bio content for the artist.
+          View, edit, and publish AI-generated copy for the selected target.
         </p>
       </div>
 
@@ -125,7 +125,7 @@ export default function AiBioReviewPage({ params }: Readonly<{ params: Promise<{
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-primary">Draft content</h2>
-                <p className="text-sm text-muted">Edit before publishing to the artist profile.</p>
+                <p className="text-sm text-muted">Edit before publishing to the target record.</p>
               </div>
             </div>
             <textarea
@@ -152,7 +152,7 @@ export default function AiBioReviewPage({ params }: Readonly<{ params: Promise<{
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm font-medium text-primary disabled:opacity-60"
               >
                 {isPublishing ? <SpinnerGap size={16} className="animate-spin" /> : <UploadSimple size={16} />}
-                Publish to artist
+                {job?.targetType === 'CONCERT' ? 'Publish to concert' : 'Publish to artist'}
               </button>
             </div>
             {statusMessage ? <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{statusMessage}</div> : null}
@@ -163,7 +163,8 @@ export default function AiBioReviewPage({ params }: Readonly<{ params: Promise<{
               <h2 className="text-lg font-semibold text-primary">Request metadata</h2>
               <div className="mt-4 grid gap-3 text-sm leading-6 text-muted">
                 <p>Status: {job.status ?? '--'}</p>
-                <p>Artist ID: {job.artistId ?? '--'}</p>
+                <p>Target type: {job.targetType ?? '--'}</p>
+                <p>Target ID: {job.targetId ?? job.artistId ?? '--'}</p>
                 <p>Requested by: {job.requestedBy ?? '--'}</p>
                 <p>Created: {formatDateTime(job.createdAt)}</p>
                 <p>Updated: {formatDateTime(job.updatedAt)}</p>
@@ -173,7 +174,7 @@ export default function AiBioReviewPage({ params }: Readonly<{ params: Promise<{
             <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
               <h2 className="text-lg font-semibold text-primary">How it behaves</h2>
               <p className="mt-2 text-sm leading-6 text-muted">
-                DRAFT stays hidden from the audience because only the artist profile is public. Publishing copies this draft into `artist.shortBio`.
+                DRAFT stays hidden from the audience until an admin publishes it. Publishing writes to `artist.shortBio` for artist targets and to `concert.description` for concert targets.
               </p>
             </div>
           </aside>

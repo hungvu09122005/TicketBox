@@ -15,7 +15,7 @@ export class GrokAdapter implements AITextGenerationPort {
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.get<string>('app.ai.grokApiKey');
-    this.model = this.configService.get<string>('app.ai.grokModel') ?? 'grok-beta';
+    this.model = this.configService.get<string>('app.ai.grokModel') ?? 'grok-4.3';
     const baseURL = this.configService.get<string>('app.ai.grokBaseUrl') ?? 'https://api.x.ai/v1';
 
     this.timeoutMs = this.configService.get<number>('app.ai.timeoutMs') ?? 15000;
@@ -43,23 +43,23 @@ export class GrokAdapter implements AITextGenerationPort {
     this.enforceQuota();
 
     try {
-      const response = await this.openai.chat.completions.create({
+      const response = await this.openai.responses.create({
         model: this.model,
-        messages: [
+        input: [
           {
             role: 'system',
-            content: 'You are a professional music journalist. Write a concise, engaging, and structured artist biography based on the provided press kit text. Return only the biography content, formatted in markdown.',
+            content: 'You are a professional music journalist. Write concise, engaging, public-facing copy based on the provided press kit text. Return only the requested content, formatted in markdown.',
           },
           {
             role: 'user',
-            content: `Here is the artist press kit text:\n\n${extractedText}${promptHint ? `\n\nPrompt hint: ${promptHint}` : ''}`,
+            content: `Here is the press kit text:\n\n${extractedText}${promptHint ? `\n\nPrompt hint: ${promptHint}` : ''}`,
           },
         ],
-        max_tokens: this.maxTokens,
+        max_output_tokens: this.maxTokens,
         temperature: this.temperature,
       });
 
-      const content = response.choices[0]?.message?.content?.trim();
+      const content = response.output_text?.trim();
 
       if (!content) {
         throw new Error('No content returned from Grok response.');

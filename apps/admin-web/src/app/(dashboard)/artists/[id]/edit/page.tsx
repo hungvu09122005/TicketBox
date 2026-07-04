@@ -1,13 +1,14 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { Suspense, use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowLeft, FloppyDisk, SpinnerGap, UploadSimple, UserCircle } from '@phosphor-icons/react';
+import { ArrowLeft, FloppyDisk, Sparkle, SpinnerGap, UploadSimple, UserCircle } from '@phosphor-icons/react';
 import { artistService } from '@/lib/services/artist.service';
+import { operationsService } from '@/lib/services/operations.service';
 import { Artist } from '@/lib/types';
 import { extractApiMessages } from '@/lib/api-errors';
 import { hasStoredAdminSession } from '@/lib/auth-store';
@@ -28,8 +29,11 @@ function formatDateTime(value?: string) {
   }).format(new Date(value));
 }
 
-export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
+function EditArtistFormContent({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const bioJobId = searchParams.get('bioJobId');
+
   const { id } = use(params);
   const [artist, setArtist] = useState<Artist | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +42,7 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [avatarFileName, setAvatarFileName] = useState<string | null>(null);
   const [serverErrors, setServerErrors] = useState<string[] | null>(null);
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
 
   const {
     register,
@@ -67,9 +72,24 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
       try {
         const data = await artistService.getArtist(id);
         setArtist(data);
+
+        let initialShortBio = data.shortBio ?? '';
+
+        if (bioJobId) {
+          try {
+            const aiJob = await operationsService.getAiBioJobStatus(bioJobId);
+            if (aiJob?.draftContent) {
+              initialShortBio = aiJob.draftContent;
+              setAiNotice(`Auto-filled short bio from AI job (${bioJobId.slice(0, 8)}). Save changes to publish.`);
+            }
+          } catch (error) {
+            console.warn('Failed to load AI bio draft for pre-fill', error);
+          }
+        }
+
         reset({
           name: data.name ?? '',
-          shortBio: data.shortBio ?? '',
+          shortBio: initialShortBio,
           avatarObjectKey: data.avatarObjectKey ?? '',
         });
         setAvatarPreviewUrl(data.avatarUrl ?? null);
@@ -82,7 +102,7 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
     };
 
     void load();
-  }, [id, reset, router]);
+  }, [bioJobId, id, reset, router]);
 
   useEffect(() => {
     return () => {
@@ -177,6 +197,13 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
           </div>
         </div>
       </div>
+
+      {aiNotice ? (
+        <div className="flex items-center gap-2.5 rounded-[24px] border border-sky-200 bg-sky-50 p-4 text-sm font-medium text-sky-900">
+          <Sparkle size={18} className="shrink-0 text-sky-600" />
+          <span>{aiNotice}</span>
+        </div>
+      ) : null}
 
       {serverErrors ? (
         <div className="rounded-[28px] border border-red-200 bg-red-50 p-5 text-sm text-red-800">
@@ -304,5 +331,22 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
         </aside>
       </form>
     </div>
+  );
+}
+
+export default function EditArtistPage(props: Readonly<{ params: Promise<{ id: string }> }>) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <div className="flex items-center gap-3 text-sm text-muted">
+            <SpinnerGap size={18} className="animate-spin" />
+            Loading artist edit form...
+          </div>
+        </div>
+      }
+    >
+      <EditArtistFormContent params={props.params} />
+    </Suspense>
   );
 }

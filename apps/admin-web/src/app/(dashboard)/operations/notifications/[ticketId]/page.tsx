@@ -63,9 +63,9 @@ export default function NotificationDetailPage({ params }: Readonly<{ params: Pr
       <div className="rounded-[32px] border border-border bg-surface p-6 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="max-w-2xl space-y-3">
-            <Link href="/operations/notifications" className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary">
+            <Link href="/operations/jobs" className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary">
               <ArrowLeft size={16} />
-              Back to notifications
+              Back to job monitor
             </Link>
             <div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Notification ticket detail</h1>

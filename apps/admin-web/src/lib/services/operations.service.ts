@@ -31,6 +31,25 @@ export interface OrderDetails {
   }>;
 }
 
+export interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface OrderListResponse {
+  data: OrderDetails[];
+  meta: PaginationMeta;
+}
+
+export interface OrderListQuery {
+  page?: number;
+  limit?: number;
+  status?: OrderDetails['status'];
+  concertId?: string;
+}
+
 export interface ReportResponse {
   message?: string;
   [key: string]: unknown;
@@ -149,6 +168,8 @@ export interface AiBioRequestResult {
   id?: string;
   job_id?: string;
   artistId?: string;
+  targetId?: string;
+  targetType?: 'ARTIST' | 'CONCERT';
   requestedBy?: string;
   pdfObjectKey?: string;
   status?: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'DRAFT' | 'PUBLISHED' | 'FAILED';
@@ -186,13 +207,27 @@ function normalizeAiBioResult(payload: AiBioRequestResult): AiBioRequestResult {
   return {
     ...payload,
     id: payload.id ?? payload.job_id,
+    targetId: payload.targetId ?? payload.artistId,
+    artistId: payload.artistId ?? payload.targetId,
   };
 }
 
 export const operationsService = {
-  getOrders: async (): Promise<OrderDetails[]> => {
-    const response = await apiClient.get('/orders');
-    return extractListData<OrderDetails>(response.data.data ?? response.data);
+  getOrders: async (query?: OrderListQuery): Promise<OrderListResponse> => {
+    const response = await apiClient.get('/orders', {
+      params: query,
+    });
+    const payload = response.data.data ?? response.data;
+
+    return {
+      data: extractListData<OrderDetails>(payload),
+      meta: (payload?.meta ?? {
+        total: 0,
+        page: query?.page ?? 1,
+        limit: query?.limit ?? 10,
+        totalPages: 1,
+      }) as PaginationMeta,
+    };
   },
 
   getRevenueReport: async (): Promise<ReportResponse> => {
@@ -319,17 +354,30 @@ export const operationsService = {
     return response.data.data ?? response.data;
   },
 
-  createAiBioRequest: async (pdfFile: File, artistId: string): Promise<AiBioRequestResult> => {
+  createAiBioRequest: async (
+    pdfFile: File,
+    targetId: string,
+    targetType: 'ARTIST' | 'CONCERT' = 'ARTIST',
+  ): Promise<AiBioRequestResult> => {
     const formData = new FormData();
     formData.append('pdf', pdfFile);
-    formData.append('artistId', artistId);
+    formData.append('targetId', targetId);
+    formData.append('targetType', targetType);
 
     const response = await apiClient.post('/api/artist-bio', formData);
     return normalizeAiBioResult(response.data.data ?? response.data);
   },
 
-  createManualAiBioDraft: async (artistId: string, bio: string): Promise<AiBioRequestResult> => {
-    const response = await apiClient.post('/api/artist-bio/manual', { artistId, bio });
+  createManualAiBioDraft: async (
+    targetId: string,
+    bio: string,
+    targetType: 'ARTIST' | 'CONCERT' = 'ARTIST',
+  ): Promise<AiBioRequestResult> => {
+    const response = await apiClient.post('/api/artist-bio/manual', {
+      targetId,
+      targetType,
+      bio,
+    });
     return normalizeAiBioResult(response.data.data ?? response.data);
   },
 

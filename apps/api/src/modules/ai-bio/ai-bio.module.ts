@@ -12,6 +12,7 @@ import { GrokAdapter } from './adapters/grok.adapter';
 import { AI_TEXT_GENERATION_PORT } from '../../common/ports/ai-text-generation.port';
 import { StorageModule } from '../storage/storage.module';
 import { ArtistsModule } from '../artists/artists.module';
+import { ConcertsModule } from '../concerts/concerts.module';
 
 /**
  * AiBioModule — PDF upload → AI generation → draft → publish pipeline.
@@ -28,6 +29,7 @@ import { ArtistsModule } from '../artists/artists.module';
     BullModule.registerQueue({ name: 'ai-bio' }),
     StorageModule,
     ArtistsModule,
+    ConcertsModule,
     ConfigModule,
   ],
   controllers: [AiBioController],

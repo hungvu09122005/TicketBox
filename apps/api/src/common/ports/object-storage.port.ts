@@ -10,9 +10,16 @@ export interface ObjectStoragePort {
 
   download(objectKey: string): Promise<Buffer>;
   downloadStream(objectKey: string): Promise<Readable>;
+  listObjects(prefix: string): Promise<StoredObjectInfo[]>;
 
 
   delete(objectKey: string): Promise<void>;
+}
+
+export interface StoredObjectInfo {
+  objectKey: string;
+  lastModified?: Date;
+  size?: number;
 }
 
 export interface UploadParams {

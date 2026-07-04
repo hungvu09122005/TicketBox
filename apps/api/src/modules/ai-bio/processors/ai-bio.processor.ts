@@ -5,7 +5,7 @@ const pdf = require('pdf-parse');
 import { AI_TEXT_GENERATION_PORT, AITextGenerationPort } from '../../../common/ports/ai-text-generation.port';
 import { OBJECT_STORAGE_PORT, ObjectStoragePort } from '../../../common/ports/object-storage.port';
 import { AiBioRepository } from '../ai-bio.repository';
-import { AiBioStatus } from '../entities/ai-bio-request.entity';
+import { AiBioStatus, AiBioTargetType } from '../entities/ai-bio-request.entity';
 import { createCircuitBreaker } from '../../../common/utils/circuit-breaker.factory';
 import CircuitBreaker from 'opossum';
 import { ConfigService } from '@nestjs/config';
@@ -88,17 +88,15 @@ export class AiBioProcessor {
 
     
     
-    this.aiBreaker.fallback(() => {
-      throw new Error('AI Provider is currently unavailable. Manual biography entry required.');
-    });
   }
 
-     @Process(AI_BIO_JOB)
+  @Process(AI_BIO_JOB)
   async handle(
     job: Job<{ requestId: string; fileUrl?: string; objectKey?: string }>,
   ): Promise<void> {
     const { requestId } = job.data;
     const objectKey = job.data.objectKey ?? job.data.fileUrl;
+    const request = await this.repo.findById(requestId);
 
     if (!objectKey) {
       await this.repo.updateStatus(
@@ -109,15 +107,23 @@ export class AiBioProcessor {
       return;
     }
 
+    if (!request) {
+      throw new Error(`AI bio job ${requestId} not found in database`);
+    }
+
     try {
       await this.repo.updateStatus(requestId, AiBioStatus.PROCESSING);
 
       const pdfText = await this.extractAndSanitizePdfText(objectKey);
-      const content = await this.aiBreaker.fire(pdfText, undefined);
+      const promptHint = request?.targetType === AiBioTargetType.CONCERT
+        ? 'Write a concise, engaging concert introduction for a concert detail page. Focus on the event concept, lineup, atmosphere, and public-facing promo copy. Return only the introduction content, formatted in markdown.'
+        : 'Write a concise, engaging artist biography based on the provided press kit text. Return only the biography content, formatted in markdown.';
+      const content = await this.aiBreaker.fire(pdfText, promptHint);
 
       await this.repo.updateStatus(requestId, AiBioStatus.DRAFT, content);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      const friendlyMessage = this.getFriendlyErrorMessage(message);
 
       this.logger.error(
         `Failed to process AI bio job ${requestId} (attempt ${job.attemptsMade + 1}): ${message}`,
@@ -132,10 +138,10 @@ export class AiBioProcessor {
       const isLastAttempt = job.attemptsMade + 1 >= maxAttempts;
 
       if (isLastAttempt) {
-        await this.repo.updateStatus(requestId, AiBioStatus.FAILED, message);
+        await this.repo.updateStatus(requestId, AiBioStatus.FAILED, friendlyMessage);
       } else {
         await this.repo.updateStatus(requestId, AiBioStatus.PROCESSING, {
-          failureReason: `Attempt ${job.attemptsMade + 1} failed: ${message}`,
+          failureReason: `Attempt ${job.attemptsMade + 1} failed: ${friendlyMessage}`,
         });
       }
 
@@ -172,5 +178,27 @@ export class AiBioProcessor {
 
     return sanitizedText;
 
+  }
+
+  private getFriendlyErrorMessage(message: string): string {
+    const normalizedMessage = message.toLowerCase();
+
+    if (normalizedMessage.includes('credits or licenses')) {
+      return 'xAI API is not enabled for this team. Please add credits/licenses in the xAI console before retrying.';
+    }
+
+    if (normalizedMessage.includes('model not found')) {
+      return 'The configured xAI model is not available. Please verify GROK_MODEL.';
+    }
+
+    if (normalizedMessage.includes('api key')) {
+      return 'xAI API key is missing or invalid. Please verify GROK_API_KEY.';
+    }
+
+    if (normalizedMessage.includes('provider unavailable')) {
+      return 'AI Provider is currently unavailable. Manual biography entry required.';
+    }
+
+    return message;
   }
 }

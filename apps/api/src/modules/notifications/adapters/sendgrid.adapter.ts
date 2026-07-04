@@ -14,40 +14,45 @@ export class SendgridAdapter implements NotificationPort {
   async sendTicketConfirmation(params: TicketConfirmationParams): Promise<void> {
     const concertDate = new Date(params.concertDate).toLocaleString('vi-VN');
     const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
-const ticketUrl = `${frontendUrl}/tickets/${params.ticketId}`;
-const qrUrl = `${frontendUrl}/tickets/${params.ticketId}/qr`;
+    const ticketUrl = `${frontendUrl}/tickets/${params.ticketId}`;
+    const qrUrl = `${frontendUrl}/tickets/${params.ticketId}/qr`;
 
     const html = `
-      <h2>TicketBox - XÃ¡c nháº­n vÃ©</h2>
-      <p>Xin chÃ o <b>${params.toName}</b>,</p>
-      <p>ÄÆ¡n hÃ ng <b>${params.orderId}</b> Ä‘Ã£ Ä‘Æ°á»£c xÃ¡c nháº­n.</p>
+      <h2>TicketBox - Xác nhận vé</h2>
+      <p>Xin chào <b>${params.toName}</b>,</p>
+      <p>Đơn hàng <b>${params.orderId}</b> đã được xác nhận.</p>
 
-      <h3>ThÃ´ng tin vÃ©</h3>
+      <h3>Thông tin vé</h3>
       <ul>
-        <li><b>Sá»± kiá»‡n:</b> ${params.concertName}</li>
-        <li><b>Thá»i gian:</b> ${concertDate}</li>
-        <li><b>Äá»‹a Ä‘iá»ƒm:</b> ${params.venue}</li>
-        <li><b>Loáº¡i vÃ©:</b> ${params.ticketTypeName}</li>
+        <li><b>Sự kiện:</b> ${params.concertName}</li>
+        <li><b>Thời gian:</b> ${concertDate}</li>
+        <li><b>Địa điểm:</b> ${params.venue}</li>
+        <li><b>Loại vé:</b> ${params.ticketTypeName}</li>
       </ul>
 
       <h3>E-ticket / QR token</h3>
-      <p>Xuáº¥t trÃ¬nh mÃ£ nÃ y táº¡i cá»•ng check-in:</p>
+      <p>Xuất trình mã này tại cổng check-in:</p>
       <pre style="white-space: pre-wrap; word-break: break-all;">${params.qrToken}</pre>
+      <p><a href="${ticketUrl}">Xem vé điện tử</a></p>
+      <p><a href="${qrUrl}">Mở mã QR</a></p>
     `;
 
     const text = `
-TicketBox - XÃ¡c nháº­n vÃ©
+TicketBox - Xác nhận vé
 
-Xin chÃ o ${params.toName},
-ÄÆ¡n hÃ ng ${params.orderId} Ä‘Ã£ Ä‘Æ°á»£c xÃ¡c nháº­n.
+Xin chào ${params.toName},
+Đơn hàng ${params.orderId} đã được xác nhận.
 
-Sá»± kiá»‡n: ${params.concertName}
-Thá»i gian: ${concertDate}
-Äá»‹a Ä‘iá»ƒm: ${params.venue}
-Loáº¡i vÃ©: ${params.ticketTypeName}
+Sự kiện: ${params.concertName}
+Thời gian: ${concertDate}
+Địa điểm: ${params.venue}
+Loại vé: ${params.ticketTypeName}
 
 QR token:
 ${params.qrToken}
+
+Vé điện tử: ${ticketUrl}
+Mã QR: ${qrUrl}
 `;
 
     await this.mailService.sendEmail({
@@ -63,35 +68,35 @@ ${params.qrToken}
       dateStyle: 'full',
       timeStyle: 'short',
       timeZone: 'Asia/Ho_Chi_Minh',
-  });
+    });
 
 
     const html = `
-      <h2>TicketBox - Nháº¯c lá»‹ch concert</h2>
-      <p>Xin chÃ o <b>${params.toName}</b>,</p>
-      <p>Sá»± kiá»‡n <b>${params.concertName}</b> sáº¯p diá»…n ra trong khoáº£ng 24 giá» tá»›i .</p>
+      <h2>TicketBox - Nhắc lịch concert</h2>
+      <p>Xin chào <b>${params.toName}</b>,</p>
+      <p>Sự kiện <b>${params.concertName}</b> sắp diễn ra trong khoảng 24 giờ tới.</p>
 
-      <h3>ThÃ´ng tin sá»± kiá»‡n</h3>
+      <h3>Thông tin sự kiện</h3>
       <ul>
-        <li><b>Thá»i gian:</b> ${concertDate}</li>
-        <li><b>Äá»‹a Ä‘iá»ƒm:</b> ${params.venue}</li>
-        <li><b>Loáº¡i vÃ©:</b> ${params.ticketTypeName}</li>
+        <li><b>Thời gian:</b> ${concertDate}</li>
+        <li><b>Địa điểm:</b> ${params.venue}</li>
+        <li><b>Loại vé:</b> ${params.ticketTypeName}</li>
       </ul>
 
-      <p>Vui lÃ²ng chuáº©n bá»‹ QR/e-ticket trÆ°á»›c khi Ä‘áº¿n cá»•ng check-in.</p>
+      <p>Vui lòng chuẩn bị QR/e-ticket trước khi đến cổng check-in.</p>
     `;
 
     const text = `
-    TicketBox - Nháº¯c lá»‹ch concert
+    TicketBox - Nhắc lịch concert
 
-    Xin chÃ o ${params.toName},
-    Sá»± kiá»‡n ${params.concertName} sáº¯p diá»…n ra trong 24 giá» tá»›i.
+    Xin chào ${params.toName},
+    Sự kiện ${params.concertName} sắp diễn ra trong 24 giờ tới.
 
-    Thá»i gian: ${concertDate}
-    Äá»‹a Ä‘iá»ƒm: ${params.venue}
-    Loáº¡i vÃ©: ${params.ticketTypeName}
+    Thời gian: ${concertDate}
+    Địa điểm: ${params.venue}
+    Loại vé: ${params.ticketTypeName}
 
-    Vui lÃ²ng chuáº©n bá»‹ QR/e-ticket trÆ°á»›c khi Ä‘áº¿n cá»•ng check-in.
+    Vui lòng chuẩn bị QR/e-ticket trước khi đến cổng check-in.
     `;
 
     await this.mailService.sendEmail({

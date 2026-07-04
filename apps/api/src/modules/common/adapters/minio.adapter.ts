@@ -1,7 +1,11 @@
 ﻿import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client } from 'minio';
-import { ObjectStoragePort, UploadParams } from '../../../common/ports/object-storage.port';
+import {
+  ObjectStoragePort,
+  StoredObjectInfo,
+  UploadParams,
+} from '../../../common/ports/object-storage.port';
 import { Readable } from 'stream';
 
 type MinioConfig = {
@@ -67,6 +71,29 @@ export class MinioObjectStorageAdapter implements ObjectStoragePort {
   async delete(objectKey: string): Promise<void> {
     await this.ensureBucket();
     await this.client.removeObject(this.bucketName, objectKey);
+  }
+
+  async listObjects(prefix: string): Promise<StoredObjectInfo[]> {
+    await this.ensureBucket();
+
+    return await new Promise((resolve, reject) => {
+      const objects: StoredObjectInfo[] = [];
+      const stream = this.client.listObjectsV2(this.bucketName, prefix, true);
+
+      stream.on('data', (item) => {
+        if (!item?.name) {
+          return;
+        }
+
+        objects.push({
+          objectKey: item.name,
+          lastModified: item.lastModified,
+          size: item.size,
+        });
+      });
+      stream.on('error', reject);
+      stream.on('end', () => resolve(objects));
+    });
   }
 
   private async ensureBucket(): Promise<void> {
