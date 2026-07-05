@@ -8,10 +8,18 @@ jest.mock('openai', () => {
     __esModule: true,
     default: jest.fn().mockImplementation(() => {
       return {
-        responses: {
-          create: (jest.fn() as any).mockResolvedValue({
-            output_text: 'Grok Biography Content',
-          }),
+        chat: {
+          completions: {
+            create: (jest.fn() as any).mockResolvedValue({
+              choices: [
+                {
+                  message: {
+                    content: 'Grok Biography Content',
+                  },
+                },
+              ],
+            }),
+          },
         },
       };
     }),

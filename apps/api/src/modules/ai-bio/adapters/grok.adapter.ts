@@ -43,9 +43,9 @@ export class GrokAdapter implements AITextGenerationPort {
     this.enforceQuota();
 
     try {
-      const response = await this.openai.responses.create({
+      const response = await this.openai.chat.completions.create({
         model: this.model,
-        input: [
+        messages: [
           {
             role: 'system',
             content: 'You are a professional music journalist. Write concise, engaging, public-facing copy based on the provided press kit text. Return only the requested content, formatted in markdown.',
@@ -55,11 +55,11 @@ export class GrokAdapter implements AITextGenerationPort {
             content: `Here is the press kit text:\n\n${extractedText}${promptHint ? `\n\nPrompt hint: ${promptHint}` : ''}`,
           },
         ],
-        max_output_tokens: this.maxTokens,
+        max_tokens: this.maxTokens,
         temperature: this.temperature,
       });
 
-      const content = response.output_text?.trim();
+      const content = response.choices[0]?.message?.content?.trim();
 
       if (!content) {
         throw new Error('No content returned from Grok response.');

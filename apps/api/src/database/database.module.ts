@@ -42,6 +42,7 @@ import { BootstrapService } from './bootstrap.service';
         join(process.cwd(), 'src', 'migrations', '1782450000000-AddConcertMetadata.{ts,js}'),
         join(process.cwd(), 'src', 'migrations', '1782460000000-AddManualCodeToTickets.{ts,js}'),
         join(process.cwd(), 'src', 'migrations', '1782470000000-AddTargetTypeToAiBioRequests.{ts,js}'),
+        join(process.cwd(), 'src', 'migrations', '1782480000000-DropLegacyArtistIdFromAiBioRequests.{ts,js}'),
       ],
       logging: config.get<string>('app.nodeEnv') === 'development',
       autoLoadEntities: true,

@@ -11,21 +11,27 @@
   },
   "dependencies": {
     "@babel/runtime": "^7.29.7",
-    "@react-native-community/netinfo": "^11.3.1",
+    "@react-native-community/netinfo": "^11.4.1",
     "axios": "^1.18.0",
     "crypto-js": "^4.2.0",
-    "expo": "~51.0.39",
-    "expo-camera": "~15.0.16",
-    "expo-crypto": "~13.0.2",
-    "expo-sqlite": "~14.0.6",
-    "expo-status-bar": "~1.12.1",
-    "react": "18.2.0",
-    "react-native": "0.74.5"
+    "expo": "~54.0.35",
+    "expo-camera": "~17.0.10",
+    "expo-crypto": "~15.0.9",
+    "expo-modules-core": "~3.0.30",
+    "expo-sqlite": "~16.0.10",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@types/crypto-js": "^4.2.2",
-    "@types/react": "~18.2.45",
-    "typescript": "^5.3.3"
+    "@types/react": "~19.1.17",
+    "base64-js": "^1.5.1",
+    "expo-asset": "^12.0.13",
+    "expo-constants": "^18.0.13",
+    "invariant": "^2.2.4",
+    "metro-runtime": "^0.85.0",
+    "typescript": "^5.9.3"
   }
 }
