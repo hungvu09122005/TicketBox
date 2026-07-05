@@ -14,9 +14,14 @@ const reactNativePath = path.dirname(
   require.resolve('react-native/package.json', { paths: [projectRoot] }),
 );
 
-config.watchFolders = [workspaceRoot];
+// Giữ default watchFolders của Expo, rồi thêm workspaceRoot.
+// Không được ghi đè thành [workspaceRoot] vì Expo Doctor sẽ báo lỗi.
+config.watchFolders = Array.from(
+  new Set([...(config.watchFolders ?? []), workspaceRoot]),
+);
 
-config.resolver.disableHierarchicalLookup = true;
+// Expo SDK 54 muốn giá trị này là false.
+config.resolver.disableHierarchicalLookup = false;
 
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
