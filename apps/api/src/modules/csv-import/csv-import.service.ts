@@ -8,6 +8,8 @@ import {
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { randomUUID } from 'crypto';
+import { readFile } from 'fs/promises';
+import { basename, resolve } from 'path';
 import { CsvImportRepository } from './csv-import.repository';
 import {
   OBJECT_STORAGE_PORT,
@@ -16,6 +18,7 @@ import {
 import { CsvImportJobStatus } from './entities/csv-import-job.entity';
 import { CsvRowStatus } from './entities/csv-import-row.entity';
 import { CSV_IMPORT_JOB } from './processors/csv-import.processor';
+import { workspaceRoot } from '../../config/load-env';
 
 const MAX_CSV_SIZE_BYTES = 5 * 1024 * 1024;
 
@@ -26,6 +29,8 @@ const ALLOWED_CSV_MIME_TYPES = new Set([
 ]);
 
 const REQUIRED_CSV_HEADERS = ['email', 'name'];
+const CSV_TEMPLATE_PATH = resolve(workspaceRoot, '../sample/guest-lists/template.csv');
+const CSV_TEMPLATE_FILENAME = basename(CSV_TEMPLATE_PATH);
 
 function normalizeCsvHeader(header: string): string {
   const key = header
@@ -142,6 +147,95 @@ export class CsvImportService {
 
   async listJobs(status?: CsvImportJobStatus) {
     return this.repo.findAll(status);
+  }
+
+  async getTemplate() {
+    const requiredColumns = ['email', 'full_name', 'ticket_type'];
+    const optionalColumns = ['guest_external_id', 'phone', 'sponsor', 'gate', 'note'];
+    const fallbackCsv = [
+      'guest_external_id,full_name,email,phone,sponsor,ticket_type,gate,note',
+      'SPONSOR-001,Nguyen Minh Anh,minh.anh@example.com,+84901234567,Brand A,VIP,VIP-A,Use ticket type name from BTC not UUID',
+      'SPONSOR-002,Tran Bao Ngoc,bao.ngoc@example.com,+84901234568,Brand A,VIP,VIP-A,One guest per row',
+      'SPONSOR-003,Le Quoc Huy,quoc.huy@example.com,,Brand B,VIP,VIP-B,Phone is optional but email is required',
+    ].join('\n');
+
+    let csv = fallbackCsv;
+
+    try {
+      csv = await readFile(CSV_TEMPLATE_PATH, 'utf8');
+    } catch {
+      csv = fallbackCsv;
+    }
+
+    return {
+      filename: CSV_TEMPLATE_FILENAME,
+      delimiter: ',',
+      encoding: 'utf-8',
+      requiredColumns,
+      optionalColumns,
+      columns: [
+        {
+          name: 'guest_external_id',
+          required: false,
+          description: 'Optional sponsor-side guest reference code',
+        },
+        {
+          name: 'full_name',
+          required: true,
+          description: 'Guest full name',
+        },
+        {
+          name: 'email',
+          required: true,
+          description: 'Guest email, used for validation and deduplication',
+        },
+        {
+          name: 'phone',
+          required: false,
+          description: 'Optional phone number in digits or +digits format',
+        },
+        {
+          name: 'sponsor',
+          required: false,
+          description: 'Optional sponsor or partner name',
+        },
+        {
+          name: 'ticket_type',
+          required: true,
+          description: 'Exact ticket type name configured by organizer for the selected concert',
+        },
+        {
+          name: 'gate',
+          required: false,
+          description: 'Optional gate or check-in area label',
+        },
+        {
+          name: 'note',
+          required: false,
+          description: 'Optional note for organizer',
+        },
+      ],
+      exampleRows: [
+        {
+          guest_external_id: 'SPONSOR-001',
+          full_name: 'Nguyen Minh Anh',
+          email: 'minh.anh@example.com',
+          phone: '+84901234567',
+          sponsor: 'Brand A',
+          ticket_type: 'VIP',
+          gate: 'VIP-A',
+          note: 'Use ticket type name from BTC not UUID',
+        },
+      ],
+      notes: [
+        'Download source: sample/guest-lists/template.csv',
+        'Keep the header row unchanged.',
+        'ticket_type must exactly match a ticket type name configured for the selected concert.',
+        'Sponsors should send ticket type names such as VIP or SVIP, not internal UUID values.',
+        'If needed, read sample/guest-lists/template.md for sponsor-facing instructions.',
+      ],
+      csv,
+    };
   }
 
   async retryJob(jobId: string) {
