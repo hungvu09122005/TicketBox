@@ -53,8 +53,29 @@ export const concertService = {
   },
   
   updateConcert: async (profile: Pick<AdminProfile, 'roles'> | null | undefined, id: string, data: Partial<Concert>): Promise<void> => {
-    const endpoint = concertService.isSystemAdmin(profile) ? `/concerts/admin/${id}` : `/concerts/${id}`;
-    await apiClient.patch(endpoint, data);
+    const endpoints = concertService.isSystemAdmin(profile)
+      ? [`/concerts/admin/${id}`, `/concerts/${id}`]
+      : [`/concerts/${id}`, `/concerts/admin/${id}`];
+
+    let lastError: unknown = null;
+
+    for (const endpoint of endpoints) {
+      try {
+        await apiClient.patch(endpoint, data);
+        return;
+      } catch (error) {
+        lastError = error;
+        const status = typeof error === 'object' && error !== null && 'response' in error
+          ? (error as { response?: { status?: number } }).response?.status
+          : undefined;
+
+        if (status !== 403 && status !== 404) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError;
   },
   
   publishConcert: async (profile: Pick<AdminProfile, 'roles'> | null | undefined, id: string): Promise<void> => {

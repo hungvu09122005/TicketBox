@@ -38,7 +38,7 @@ export default function ArtistDetailPage({ params }: Readonly<{ params: Promise<
         setArtist(data);
       } catch (error) {
         console.error('Failed to load artist detail', error);
-        setErrorMessage('Không thể tải artist detail.');
+        setErrorMessage('Could not load the artist details.');
       } finally {
         setIsLoading(false);
       }
@@ -132,12 +132,12 @@ export default function ArtistDetailPage({ params }: Readonly<{ params: Promise<
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-primary">Artist Bio</p>
-                  <p className="text-xs text-muted">Bio công khai của nghệ sĩ.</p>
+                  <p className="text-xs text-muted">Artist public bio.</p>
                 </div>
               </div>
 
               <p className="mt-4 text-sm leading-7 text-muted">
-                {artist.shortBio?.trim() || 'Nghệ sĩ này chưa có bio công khai.'}
+                {artist.shortBio?.trim() || 'This artist has no public bio yet.'}
               </p>
             </div>
 
@@ -173,11 +173,11 @@ export default function ArtistDetailPage({ params }: Readonly<{ params: Promise<
               <p className="mt-1 text-sm font-semibold text-primary">{formatDateTime(artist.updatedAt)}</p>
             </div>
             <div className="rounded-2xl border border-border bg-background px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Ảnh đại diện</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Avatar</p>
               <p className="mt-1 break-all text-sm font-semibold text-primary">{artist.avatarObjectKey || '--'}</p>
             </div>
             <div className="rounded-2xl border border-border bg-background px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Link ảnh</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Image link</p>
               <p className="mt-1 break-all text-sm font-semibold text-primary">{artist.avatarUrl || '--'}</p>
             </div>
           </div>

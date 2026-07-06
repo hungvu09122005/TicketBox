@@ -1,3 +1,4 @@
+import './config/load-env';
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
@@ -41,7 +42,7 @@ import { BootstrapService } from '@database/bootstrap.service';
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
-      envFilePath: ['.env', '../../.env'],
+      ignoreEnvFile: true,
     }),
 
     LoggerModule.forRoot({
@@ -113,5 +114,3 @@ export class AppModule implements NestModule {
     consumer.apply(RequestIdMiddleware).forRoutes('*');
   }
 }
-
-

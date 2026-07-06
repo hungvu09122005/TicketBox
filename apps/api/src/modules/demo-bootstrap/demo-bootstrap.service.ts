@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { RedisService } from '../redis/redis.service';
 import * as bcrypt from 'bcrypt';
@@ -18,12 +19,11 @@ import { CheckinLog, CheckinMode, CheckinStatus } from '../checkin/entities/chec
 import { CsvImportJob, CsvImportJobStatus } from '../csv-import/entities/csv-import-job.entity';
 import { CsvImportRow, CsvRowStatus } from '../csv-import/entities/csv-import-row.entity';
 import { VipGuest } from '../csv-import/entities/vip-guest.entity';
-import { AiBioRequest, AiBioStatus } from '../ai-bio/entities/ai-bio-request.entity';
+import { AiBioRequest, AiBioStatus, AiBioTargetType } from '../ai-bio/entities/ai-bio-request.entity';
 import { OrderStatus } from '../orders/enums/order-status.enum';
 import { Role } from '../../common/constants/roles.enum';
 import { seedRbac } from '../../database/seed-rbac';
 import { resetSeedTables } from '../../database/seed-full';
-import { InjectDataSource } from '@nestjs/typeorm';
 
 @Injectable()
 export class DemoBootstrapService {
@@ -280,7 +280,8 @@ export class DemoBootstrapService {
 
           if (options.createAiBioDemoJob && artist && adminUser) {
             aiBioRequest = m.create(AiBioRequest, {
-              artistId: artist.id,
+              targetId: artist.id,
+              targetType: AiBioTargetType.ARTIST,
               requestedBy: adminUser.id,
               pdfObjectKey: 'ai-bio/the-neon-waves.pdf',
               status: AiBioStatus.PUBLISHED,

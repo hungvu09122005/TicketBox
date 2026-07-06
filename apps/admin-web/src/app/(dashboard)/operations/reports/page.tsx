@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowSquareOut, SpinnerGap, TrendUp } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowSquareOut, SpinnerGap, TrendUp } from '@phosphor-icons/react';
 import { Permission } from '@/lib/permissions';
 import { useAuthStore } from '@/lib/auth-store';
 import {
@@ -33,7 +33,7 @@ const chartColors = [
 
 const queueDashboardHref = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-  return apiUrl.replace(/\/api\/v1\/?$/, '') + '/admin/queues';
+  return `${apiUrl.replace(/\/$/, '')}/admin/queues`;
 })();
 
 function formatMetricValue(value: unknown) {
@@ -359,7 +359,7 @@ export default function ReportsPage() {
         setCheckin({ data: checkinData, isLoading: false, error: null });
       } catch (error) {
         if (!isActive) return;
-        const message = error instanceof Error ? error.message : 'Không thể tải báo cáo.';
+        const message = error instanceof Error ? error.message : 'Could not load the report.';
         setRevenue({ data: null, isLoading: false, error: message });
         setTickets({ data: null, isLoading: false, error: message });
         setCheckin({ data: null, isLoading: false, error: message });
@@ -384,22 +384,22 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <div className="rounded-[32px] border border-border bg-surface p-6 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="max-w-2xl space-y-3">
+            <Link href="/operations" className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary">
+              <ArrowLeft size={16} />
+              Back to operations hub
+            </Link>
             <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Reports</p>
             <div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Sales and check-in dashboard</h1>
-              <p className="mt-3 text-sm leading-6 text-muted">
-                Live backend series from `/reports/revenue/timeline`, `/reports/tickets-sold/timeline`, and `/reports/checkin-rate/timeline`.
-                Each concert renders as its own line with a real time axis.
-              </p>
             </div>
           </div>
           <a
             href={queueDashboardHref}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface md:self-start"
           >
             <ArrowSquareOut size={16} />
             Open queue board

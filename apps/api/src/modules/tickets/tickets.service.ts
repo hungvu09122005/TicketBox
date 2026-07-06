@@ -107,6 +107,7 @@ export class TicketsService {
         concertId: order.concertId,
         qrToken,
         status: TicketStatus.ACTIVE,
+        manualCode: crypto.randomBytes(6).toString('hex').toUpperCase(),
       };
 
       if (manager) {

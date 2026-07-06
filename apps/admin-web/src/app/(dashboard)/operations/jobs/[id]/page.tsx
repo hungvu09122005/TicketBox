@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowSquareOut, FileMagnifyingGlass, SpinnerGap } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowSquareOut, DownloadSimple, FileMagnifyingGlass, SpinnerGap } from '@phosphor-icons/react';
 import { operationsService, type CsvImportJobStatus } from '@/lib/services/operations.service';
 
 function formatDateTime(value?: string) {
@@ -39,7 +39,7 @@ function displayJobStatus(status?: CsvImportJobStatus['status']) {
 
 const queueDashboardHref = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-  return apiUrl.replace(/\/api\/v1\/?$/, '') + '/admin/queues';
+  return `${apiUrl.replace(/\/$/, '')}/admin/queues`;
 })();
 
 export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
@@ -47,6 +47,7 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [resolvedJobId, setResolvedJobId] = useState<string | null>(null);
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -62,7 +63,7 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
         setResolvedJobId(id);
       } catch (error) {
         if (!isActive) return;
-        setErrorMessage(error instanceof Error ? error.message : 'Không thể tải chi tiết CSV job.');
+        setErrorMessage(error instanceof Error ? error.message : 'Could not load the CSV job details.');
       } finally {
         if (isActive) {
           setIsLoading(false);
@@ -77,6 +78,39 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
     };
   }, [params]);
 
+  const handleDownloadErrorReport = async () => {
+    if (!resolvedJobId) {
+      return;
+    }
+
+    setIsDownloadingReport(true);
+
+    try {
+      const report = await operationsService.downloadCsvErrorReport(resolvedJobId);
+      const csv = report.csv ?? 'rowNumber,status,errorReason\n';
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = report.filename ?? `csv-error-report-${resolvedJobId}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not load the error report.');
+    } finally {
+      setIsDownloadingReport(false);
+    }
+  };
+
+  const failureReason =
+    typeof job?.failureReason === 'string'
+      ? job.failureReason
+      : job?.failureReason
+        ? JSON.stringify(job.failureReason)
+        : null;
+
   return (
     <div className="space-y-6">
       <div className="rounded-[32px] border border-border bg-surface p-6 shadow-sm">
@@ -89,7 +123,7 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
             <div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">CSV job detail</h1>
               <p className="mt-3 text-sm leading-6 text-muted">
-                This detail view reads the real CSV status endpoint so admins can inspect a specific job without guessing from a generic monitor screen.
+                View a CSV job in detail, including processing status and error file if available.
               </p>
             </div>
           </div>
@@ -97,18 +131,26 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
             <ArrowSquareOut size={16} />
             Open queue board
           </a>
+          <button
+            type="button"
+            onClick={() => void handleDownloadErrorReport()}
+            disabled={!resolvedJobId || isDownloadingReport}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm font-medium text-primary disabled:opacity-60"
+          >
+            {isDownloadingReport ? <SpinnerGap size={16} className="animate-spin" /> : <DownloadSimple size={16} />}
+            Download error report
+          </button>
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+      <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-2xl border border-border bg-background p-3 text-primary">
               <FileMagnifyingGlass size={20} />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-primary">Job summary</h2>
-              <p className="text-sm text-muted">Live data from `GET /imports/:jobId/status`.</p>
+              <p className="text-sm text-muted">Current information for the selected job.</p>
             </div>
           </div>
 
@@ -154,85 +196,16 @@ export default function CsvJobDetailPage({ params }: Readonly<{ params: Promise<
                   <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Object key</p>
                   <p className="mt-2 break-words text-sm text-primary">{job.objectKey ?? '--'}</p>
                 </div>
+                {failureReason ? (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4 sm:col-span-2">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-red-700">Failure reason</p>
+                    <p className="mt-2 break-words text-sm text-red-800">{failureReason}</p>
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
-        </section>
-
-        <section className="space-y-4">
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Queue context</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              The full retry and worker state remains in the backend Bull Board, which keeps this UI contract honest and avoids simulating worker internals.
-            </p>
-          </div>
-
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Status contract</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              These are the states the CSV monitor expects from the backend job record.
-            </p>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-surface/80 text-muted">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Meaning</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {[
-                    ['PENDING', 'Queued and not yet processed'],
-                    ['PROCESSING', 'Worker is reading the CSV'],
-                    ['COMPLETED', 'Displayed as SUCCESS in the UI'],
-                    ['PARTIALLY_COMPLETED', 'Some rows failed validation'],
-                    ['FAILED', 'Worker or import pipeline failed'],
-                  ].map(([status, meaning]) => (
-                    <tr key={status}>
-                      <td className="px-4 py-3 font-medium text-primary">{status}</td>
-                      <td className="px-4 py-3 text-muted">{meaning}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Paths available</h2>
-            <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm leading-6 text-muted">
-              <p>GET /imports/:jobId/status</p>
-              <p className="mt-1">POST /imports/csv</p>
-              <p className="mt-1">Bull Board /admin/queues</p>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Manual actions</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              CSV retry is only available in the queue dashboard. The frontend page focuses on inspection and navigation, not on inventing a missing API.
-            </p>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
-              <table className="min-w-full text-left text-sm">
-                <tbody className="divide-y divide-border">
-                  <tr>
-                    <th className="w-44 px-4 py-3 font-medium text-primary">Retry</th>
-                    <td className="px-4 py-3 text-muted">Use Bull Board on the backend</td>
-                  </tr>
-                  <tr>
-                    <th className="w-44 px-4 py-3 font-medium text-primary">Inspect failure</th>
-                    <td className="px-4 py-3 text-muted">Review `errorRows` and queue logs</td>
-                  </tr>
-                  <tr>
-                    <th className="w-44 px-4 py-3 font-medium text-primary">Permission gate</th>
-                    <td className="px-4 py-3 text-muted">Visible only to job-monitor roles</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-      </div>
+      </section>
     </div>
   );
 }

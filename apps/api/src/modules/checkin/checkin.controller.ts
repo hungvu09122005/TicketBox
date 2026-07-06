@@ -6,7 +6,13 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
 import { CheckinService } from './checkin.service';
-import { CheckinDto, RegisterDeviceDto, SyncDatasetQueryDto } from './dto/checkin.dto';
+import {
+  CheckinDto,
+  ConfirmVipGuestDto,
+  RegisterDeviceDto,
+  SyncDatasetQueryDto,
+  VipGuestLookupQueryDto,
+} from './dto/checkin.dto';
 
 import { RateLimitPolicy } from '../../common/decorators/rate-limit.decorator';
 import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
@@ -46,5 +52,22 @@ export class CheckinController {
   @UseGuards(JwtAuthGuard, RbacGuard, RateLimitGuard)
   async syncOfflineEvents(@Body() logs: CheckinDto[], @CurrentUser() user: AuthenticatedUser) {
     return await this.checkinService.processSyncBatch(logs, user.sub);
+  }
+
+  @Get('vip-guests')
+  @RequirePermissions(Permission.TICKET_VALIDATE)
+  async searchVipGuests(@Query() query: VipGuestLookupQueryDto) {
+    return await this.checkinService.searchVipGuests(query);
+  }
+
+  @Post('vip-guests/confirm')
+  @RateLimitPolicy('checkin')
+  @RequirePermissions(Permission.TICKET_VALIDATE)
+  @UseGuards(JwtAuthGuard, RbacGuard, RateLimitGuard)
+  async confirmVipGuest(
+    @Body() dto: ConfirmVipGuestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return await this.checkinService.confirmVipGuest(dto, user);
   }
 }

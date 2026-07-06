@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CsvImportJob } from './entities/csv-import-job.entity';
-import { CsvImportRow } from './entities/csv-import-row.entity';
+import { CsvImportRow, CsvRowStatus } from './entities/csv-import-row.entity';
 import { VipGuest } from './entities/vip-guest.entity';
 import { CsvImportJobStatus } from './entities/csv-import-job.entity';
 
@@ -26,6 +26,16 @@ export class CsvImportRepository {
     return this.jobRepo.findOneBy({ id: jobId });
   }
 
+  async findByConcertAndObjectKey(
+    concertId: string,
+    objectKey: string,
+  ): Promise<CsvImportJob | null> {
+    return this.jobRepo.findOne({
+      where: { concertId, objectKey },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   async findAll(status?: CsvImportJobStatus): Promise<CsvImportJob[]> {
     return this.jobRepo.find({
       where: status ? { status } : {},
@@ -35,6 +45,13 @@ export class CsvImportRepository {
 
   async updateStatus(jobId: string, status: CsvImportJobStatus): Promise<void> {
     await this.jobRepo.update(jobId, { status });
+  }
+
+  async updateJobProgress(
+    jobId: string,
+    data: Partial<Pick<CsvImportJob, 'status' | 'totalRows' | 'successRows' | 'errorRows' | 'failureReason'>>,
+  ): Promise<void> {
+    await this.jobRepo.update(jobId, data);
   }
 
   async updateJobStats(
@@ -47,17 +64,31 @@ export class CsvImportRepository {
   async createRowOutcome(
     jobId: string,
     rowNumber: number,
-    status: any, // CsvRowStatus
+    status: CsvRowStatus,
     errorReason?: string,
   ): Promise<CsvImportRow> {
-    const row = this.rowRepo.create({
+    const existing = await this.rowRepo.findOne({
+      where: {
       jobId,
-      rowNumber,
-      status,
-      errorReason,
+      rowNumber,}
+
     });
-    return this.rowRepo.save(row);
+    if (existing) {
+    existing.status = status;
+    existing.errorReason = errorReason;
+    return this.rowRepo.save(existing);
   }
+
+  const row = this.rowRepo.create({
+    jobId,
+    rowNumber,
+    status,
+    errorReason,
+  });
+
+  return this.rowRepo.save(row);
+}
+
 
   async findVipGuestByConcertAndKey(concertId: string, dedupKey: string): Promise<VipGuest | null> {
     return this.vipRepo.findOne({ where: { concertId, dedupKey } });
@@ -73,5 +104,17 @@ export class CsvImportRepository {
       where: { jobId },
       order: { rowNumber: 'ASC' },
     });
+  }
+
+  async addRow(row: Partial<CsvImportRow>): Promise<CsvImportRow> {
+    return this.rowRepo.save(this.rowRepo.create(row));
+  }
+
+  async findVipGuest(concertId: string, dedupKey: string): Promise<VipGuest | null> {
+    return this.vipRepo.findOneBy({ concertId, dedupKey });
+  }
+
+  async saveVipGuest(data: Partial<VipGuest>): Promise<VipGuest> {
+    return this.vipRepo.save(this.vipRepo.create(data));
   }
 }

@@ -15,6 +15,16 @@ export interface RegisterPayload {
   name: string;
   email: string;
   password: string;
+  app?: 'audience' | 'admin';
+}
+
+export interface UpdateOwnProfilePayload {
+  name?: string;
+}
+
+export interface ChangeOwnPasswordPayload {
+  currentPassword: string;
+  newPassword: string;
 }
 
 export const authService = {
@@ -23,13 +33,43 @@ export const authService = {
     return response.data.data;
   },
 
-  register: async (payload: RegisterPayload): Promise<AuthTokens> => {
+  register: async (payload: RegisterPayload): Promise<{ success: boolean; message: string }> => {
     const response = await apiClient.post('/auth/register', payload);
+    return response.data.data;
+  },
+
+  forgotPassword: async (payload: { email: string; app?: 'audience' | 'admin' }): Promise<{ success: boolean; message: string }> => {
+    const response = await apiClient.post('/auth/forgot-password', payload);
+    return response.data.data;
+  },
+
+  resetPassword: async (payload: { token: string; password: string }): Promise<{ success: boolean; message: string }> => {
+    const response = await apiClient.post('/auth/reset-password', payload);
+    return response.data.data;
+  },
+
+  activateAccount: async (token: string): Promise<{ success: boolean; message: string }> => {
+    const response = await apiClient.post('/auth/activate-account', { token });
     return response.data.data;
   },
 
   me: async (): Promise<AdminProfile> => {
     const response = await apiClient.get('/users/me');
+    return response.data.data;
+  },
+
+  getMyProfile: async (): Promise<AdminProfile> => {
+    const response = await apiClient.get('/users/me/profile');
+    return response.data.data;
+  },
+
+  updateMyProfile: async (payload: UpdateOwnProfilePayload): Promise<AdminProfile> => {
+    const response = await apiClient.patch('/users/me/profile', payload);
+    return response.data.data;
+  },
+
+  changeMyPassword: async (payload: ChangeOwnPasswordPayload): Promise<AdminProfile> => {
+    const response = await apiClient.patch('/users/me/password', payload);
     return response.data.data;
   },
 };

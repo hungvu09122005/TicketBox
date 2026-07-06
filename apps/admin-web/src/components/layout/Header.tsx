@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { List } from '@phosphor-icons/react';
 import { useAuthStore } from '@/lib/auth-store';
 
@@ -16,7 +17,7 @@ export function Header({ onMenuClick }: Readonly<{ onMenuClick?: () => void }>) 
           <List size={24} />
         </button>
       </div>
-      <div className="flex items-center gap-4">
+      <Link href="/profile" className="flex items-center gap-4">
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
             <div className="text-sm font-medium text-primary">{admin?.name ?? 'Admin User'}</div>
@@ -26,7 +27,7 @@ export function Header({ onMenuClick }: Readonly<{ onMenuClick?: () => void }>) 
             {(admin?.name ?? 'A').charAt(0).toUpperCase()}
           </div>
         </div>
-      </div>
+      </Link>
     </header>
   );
 }

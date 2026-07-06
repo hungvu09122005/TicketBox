@@ -2,253 +2,282 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowSquareOut, BellRinging, SpinnerGap } from '@phosphor-icons/react';
-import { operationsService } from '@/lib/services/operations.service';
+import { ArrowClockwise, ArrowLeft, ArrowSquareOut, BellRinging, SpinnerGap } from '@phosphor-icons/react';
+import { operationsService, type NotificationJobRecord } from '@/lib/services/operations.service';
 
 const queueDashboardHref = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-  return apiUrl.replace(/\/api\/v1\/?$/, '') + '/admin/queues';
+  return `${apiUrl.replace(/\/$/, '')}/admin/queues`;
 })();
+
+function getNotificationTicketId(job: NotificationJobRecord) {
+  const rawTicketId = job.data?.ticketId;
+  return typeof rawTicketId === 'string' && rawTicketId.trim() ? rawTicketId : null;
+}
+
+function getNotificationEmail(job: NotificationJobRecord) {
+  const rawEmail = job.data?.toEmail;
+  return typeof rawEmail === 'string' && rawEmail.trim() ? rawEmail : '--';
+}
+
+function getNotificationResult(job: NotificationJobRecord) {
+  if (job.failedReason?.trim()) {
+    return job.failedReason;
+  }
+
+  switch (job.status) {
+    case 'PROCESSING':
+      return 'Notification is being processed.';
+    case 'PENDING':
+      return 'Notification is queued for delivery.';
+    case 'FAILED':
+      return 'Notification delivery failed.';
+    default:
+      return null;
+  }
+}
+
+function getStatusTone(status?: string) {
+  switch (status) {
+    case 'SUCCESS':
+      return 'border-emerald-200 bg-emerald-50 text-emerald-800';
+    case 'FAILED':
+      return 'border-red-200 bg-red-50 text-red-800';
+    case 'PROCESSING':
+      return 'border-amber-200 bg-amber-50 text-amber-800';
+    case 'PENDING':
+      return 'border-sky-200 bg-sky-50 text-sky-800';
+    default:
+      return 'border-border bg-background text-muted';
+  }
+}
+
+function formatDateTime(value?: number | null) {
+  if (!value) return '--';
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(value));
+}
 
 export default function NotificationDetailPage({ params }: Readonly<{ params: Promise<{ ticketId: string }> }>) {
   const [ticketId, setTicketId] = useState<string | null>(null);
-  const [email, setEmail] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [jobs, setJobs] = useState<NotificationJobRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [initId, setInitId] = useState<string | null>(null);
+
+  const loadJobs = async (targetTicketId: string) => {
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const notificationJobs = await operationsService.getNotificationJobs();
+      const nextJobs = notificationJobs
+        .filter((job) => getNotificationTicketId(job) === targetTicketId)
+        .sort((left, right) => (right.timestamp ?? 0) - (left.timestamp ?? 0));
+
+      setJobs(nextJobs);
+    } catch (error) {
+      setJobs([]);
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to load notification records.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     let isActive = true;
 
-    const load = async () => {
-      const resolved = await params;
+    const loadPage = async () => {
+      const resolvedParams = await params;
       if (!isActive) return;
-      setTicketId(resolved.ticketId);
+
+      setTicketId(resolvedParams.ticketId);
+
+      setIsLoading(true);
+      setErrorMessage(null);
+
+      try {
+        const notificationJobs = await operationsService.getNotificationJobs();
+        if (!isActive) return;
+
+        const nextJobs = notificationJobs
+          .filter((job) => getNotificationTicketId(job) === resolvedParams.ticketId)
+          .sort((left, right) => (right.timestamp ?? 0) - (left.timestamp ?? 0));
+
+        setJobs(nextJobs);
+      } catch (error) {
+        if (!isActive) return;
+
+        setJobs([]);
+        setErrorMessage(error instanceof Error ? error.message : 'Unable to load notification records.');
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
     };
 
-    void load();
+    void loadPage();
 
     return () => {
       isActive = false;
     };
   }, [params]);
 
-  const handleProbe = async () => {
-    if (!ticketId || !email.trim()) {
-      setErrorMessage('Please enter email for the probe.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setErrorMessage(null);
-    setMessage(null);
-
-    try {
-      const result = await operationsService.sendNotificationProbe({
-        email: email.trim(),
-        ticketId,
-      });
-      setInitId(result.message ? ticketId : null);
-      setMessage(result.message ?? 'Notification probe submitted.');
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to submit notification probe.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const latestStatus = jobs[0]?.status ?? 'NO_RECORDS';
 
   return (
     <div className="space-y-6">
       <div className="rounded-[32px] border border-border bg-surface p-6 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="max-w-2xl space-y-3">
-            <Link href="/operations/notifications" className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary">
+            <Link href="/operations/jobs" className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary">
               <ArrowLeft size={16} />
-              Back to notifications
+              Back to job monitor
             </Link>
             <div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Notification ticket detail</h1>
               <p className="mt-3 text-sm leading-6 text-muted">
-                This detail view keeps the notification contract visible for one ticket and uses the live probe endpoint instead of a fake retry action.
+                Read-only delivery history for the selected ticket.
               </p>
             </div>
           </div>
           <a href={queueDashboardHref} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface">
             <ArrowSquareOut size={16} />
-            Open Bull Board
+            Open queue board
           </a>
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-        <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+          <p className="text-sm font-medium text-muted">Ticket ID</p>
+          <p className="mt-3 break-all font-mono text-sm leading-6 text-primary">{ticketId ?? '--'}</p>
+        </div>
+        <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+          <p className="text-sm font-medium text-muted">Jobs found</p>
+          <p className="mt-3 text-3xl font-semibold tracking-tight text-primary">{jobs.length}</p>
+        </div>
+        <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+          <p className="text-sm font-medium text-muted">Latest status</p>
+          <div className="mt-3">
+            <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${getStatusTone(latestStatus)}`}>
+              {latestStatus === 'NO_RECORDS' ? 'NO RECORDS' : latestStatus}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <section className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex items-center gap-3">
             <div className="rounded-2xl border border-border bg-background p-3 text-primary">
               <BellRinging size={20} />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-primary">Probe a ticket</h2>
-              <p className="text-sm text-muted">Uses `/notifications/test-confirmation` with the current ticket id.</p>
+              <h2 className="text-lg font-semibold text-primary">Notification records</h2>
+              <p className="text-sm text-muted">Each row maps the delivery email, ticket id, and backend result for this ticket.</p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (ticketId) {
+                void loadJobs(ticketId);
+              }
+            }}
+            disabled={isLoading || !ticketId}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm font-medium text-primary disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isLoading ? <SpinnerGap size={16} className="animate-spin" /> : <ArrowClockwise size={16} />}
+            Refresh
+          </button>
+        </div>
 
-          <div className="mt-5 space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block space-y-2">
-                <span className="text-sm font-medium text-primary">Ticket ID</span>
-                <input
-                  value={ticketId ?? ''}
-                  onChange={(event) => setTicketId(event.target.value)}
-                  placeholder="ticket_123"
-                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-primary outline-none focus:border-primary"
-                />
-              </label>
-              <label className="block space-y-2">
-                <span className="text-sm font-medium text-primary">Email</span>
-                <input
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="ops@ticketbox.vn"
-                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-primary outline-none focus:border-primary"
-                />
-              </label>
-            </div>
-            <button
-              type="button"
-              onClick={handleProbe}
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-surface sm:w-auto"
-            >
-              {isSubmitting ? <SpinnerGap size={16} className="animate-spin" /> : <BellRinging size={16} />}
-              Send probe
-            </button>
-            {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{message}</div> : null}
-            {errorMessage ? <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{errorMessage}</div> : null}
-            {initId ? <div className="rounded-2xl border border-border bg-background p-4 text-sm text-muted">Probe tracked for ticket: {initId}</div> : null}
-          </div>
-        </section>
+        <div className="mt-5 overflow-hidden rounded-2xl border border-border bg-background">
+          <div className="w-full overflow-x-auto">
+            <table className="min-w-[1220px] w-full text-center text-sm">
+              <thead className="bg-surface/80 text-muted">
+                <tr>
+                  <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Email</th>
+                  <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Ticket ID</th>
+                  <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Result</th>
+                  <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Job</th>
+                  <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Attempts</th>
+                  <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Created</th>
+                  <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Finished</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-10 text-center text-muted">
+                      <div className="inline-flex items-center gap-2">
+                        <SpinnerGap size={16} className="animate-spin" />
+                        Loading notification records...
+                      </div>
+                    </td>
+                  </tr>
+                ) : errorMessage ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-10 text-center text-red-800">
+                      {errorMessage}
+                    </td>
+                  </tr>
+                ) : jobs.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-10 text-center text-muted">
+                      No notification records found for this ticket.
+                    </td>
+                  </tr>
+                ) : (
+                  jobs.map((job) => {
+                    const notificationEmail = getNotificationEmail(job);
+                    const notificationTicketId = getNotificationTicketId(job) ?? '--';
+                    const notificationResult = getNotificationResult(job);
+                    const jobName = job.name ?? '--';
 
-        <section className="space-y-4">
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Retry contract</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Retry remains in the Bull Board. The backend log enforces unique `(ticketId, type, channel)` to stop duplicate delivery.
-            </p>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
-              <table className="min-w-full text-left text-sm">
-                <tbody className="divide-y divide-border">
-                  <tr>
-                    <th className="w-40 px-4 py-3 font-medium text-primary">Queue</th>
-                    <td className="px-4 py-3 text-muted">notification</td>
-                  </tr>
-                  <tr>
-                    <th className="w-40 px-4 py-3 font-medium text-primary">Job name</th>
-                    <td className="px-4 py-3 text-muted">notification.ticket_confirmation</td>
-                  </tr>
-                  <tr>
-                    <th className="w-40 px-4 py-3 font-medium text-primary">Unique key</th>
-                    <td className="px-4 py-3 text-muted">ticketId + type + channel</td>
-                  </tr>
-                  <tr>
-                    <th className="w-40 px-4 py-3 font-medium text-primary">Retry path</th>
-                    <td className="px-4 py-3 text-muted">Bull Board /admin/queues</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Failure triage</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Failed jobs need a reason before retrying. This page does not invent a fake queue list, but it shows the checks an admin should use when a notification fails.
-            </p>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-surface/80 text-muted">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Possible cause</th>
-                    <th className="px-4 py-3 font-medium">What to check</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {[
-                    ['Provider rejection', 'Check SendGrid sandbox credentials and recipient address'],
-                    ['Queue worker error', 'Open Bull Board and inspect the failed job payload / stack trace'],
-                    ['Duplicate delivery blocked', 'Verify `notification_logs` unique key before retrying'],
-                    ['Missing ticket data', 'Confirm the ticketId exists in the backend before enqueueing again'],
-                  ].map(([cause, check]) => (
-                    <tr key={cause}>
-                      <td className="px-4 py-3 font-medium text-primary">{cause}</td>
-                      <td className="px-4 py-3 text-muted">{check}</td>
+                    return (
+                    <tr key={String(job.id)} className="align-top">
+                      <td className="px-4 py-4 text-center whitespace-nowrap text-primary">{notificationEmail}</td>
+                      <td className="px-4 py-4 text-center">
+                        <span className="whitespace-nowrap font-mono text-[12px] leading-6 text-primary">
+                          {notificationTicketId}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <div className="flex flex-col items-center space-y-2">
+                          <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.16em] ${getStatusTone(job.status)}`}>
+                            {job.status ?? 'UNKNOWN'}
+                          </span>
+                          {notificationResult ? (
+                            <p className="max-w-[280px] break-words leading-6 text-muted">
+                              {notificationResult}
+                            </p>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-center whitespace-nowrap text-muted">{jobName}</td>
+                      <td className="px-4 py-4 text-center whitespace-nowrap text-muted">{job.attemptsMade ?? 0}</td>
+                      <td className="px-4 py-4 text-center text-muted">
+                        <span className="whitespace-nowrap">{formatDateTime(job.timestamp)}</span>
+                      </td>
+                      <td className="px-4 py-4 text-center text-muted">
+                        <span className="whitespace-nowrap">{formatDateTime(job.finishedOn)}</span>
+                      </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  )})
+                )}
+              </tbody>
+            </table>
           </div>
-
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Manual retry flow</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              The retry action stays in Bull Board so it can operate on the real job and queue state without creating duplicate jobs in the UI.
-            </p>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-surface/80 text-muted">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Step</th>
-                    <th className="px-4 py-3 font-medium">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {[
-                    ['1', 'Open Bull Board `/admin/queues`'],
-                    ['2', 'Inspect the failed `notification` job payload and stack trace'],
-                    ['3', 'Confirm `ticketId`, email, and dedupe key before retrying'],
-                    ['4', 'Retry once from the queue board, not from a fake UI button'],
-                  ].map(([step, action]) => (
-                    <tr key={step}>
-                      <td className="px-4 py-3 font-medium text-primary">{step}</td>
-                      <td className="px-4 py-3 text-muted">{action}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">How it maps</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              The notification log model is the source of truth for dedupe; this page mirrors that contract instead of pretending to manage retries itself.
-            </p>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-surface/80 text-muted">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Meaning</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {[
-                    ['QUEUED', 'Waiting in queue'],
-                    ['SENT', 'Delivered to provider'],
-                    ['FAILED', 'Worker failure or provider rejection'],
-                    ['BOUNCED', 'Delivery bounced after send'],
-                  ].map(([status, meaning]) => (
-                    <tr key={status}>
-                      <td className="px-4 py-3 font-medium text-primary">{status}</td>
-                      <td className="px-4 py-3 text-muted">{meaning}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CheckinLog } from './entities/checkin-log.entity';
 import { CheckinDevice } from './entities/checkin-device.entity';
+import { VipGuest } from '../csv-import/entities/vip-guest.entity';
 import { CheckinController } from './checkin.controller';
 import { CheckinService } from './checkin.service';
 import { TicketsModule } from '../tickets/tickets.module';
@@ -11,7 +12,7 @@ import { DatabaseModule } from '../../database/database.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([CheckinLog, CheckinDevice]),
+    TypeOrmModule.forFeature([CheckinLog, CheckinDevice, VipGuest]),
     TicketsModule,DatabaseModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

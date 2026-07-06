@@ -7,6 +7,7 @@ import { NotificationsService } from '../../notifications/notifications.service'
 import { EntityManager } from 'typeorm';
 import { Job } from 'bull';
 import { CsvImportJobStatus } from '../entities/csv-import-job.entity';
+import { Readable } from 'stream';
 
 describe('CsvImportProcessor', () => {
   let processor: CsvImportProcessor;
@@ -26,6 +27,7 @@ describe('CsvImportProcessor', () => {
 
     storage = {
       download: jest.fn(),
+      downloadStream: jest.fn(),
     };
 
     ticketsService = {
@@ -38,6 +40,7 @@ describe('CsvImportProcessor', () => {
 
     manager = {
       findOne: jest.fn(),
+      find: jest.fn(),
       transaction: jest.fn((cb) => cb(manager)),
       create: jest.fn((entity, data) => data),
       save: jest.fn((entity, data) => Promise.resolve(data)),
@@ -57,25 +60,30 @@ describe('CsvImportProcessor', () => {
     processor = module.get<CsvImportProcessor>(CsvImportProcessor);
   });
 
-  it('should process a valid CSV successfully', async () => {
+  it('should process a valid CSV successfully when the CSV provides a ticket type UUID', async () => {
     const jobId = 'test-job-id';
     const concertId = 'test-concert-id';
-    const csvContent = 'email,name,ticketTypeId,phone\nvip@example.com,Vip Guest,vip-type-id,0900000001\n';
+    const ticketTypeId = '8ab25cda-8427-4f4e-aff3-e1b24db0c321';
+    const csvContent = `email,name,ticketTypeId,phone\nvip@example.com,Vip Guest,${ticketTypeId},0900000001\n`;
 
     repo.findById.mockResolvedValue({ id: jobId, concertId } as any);
-    storage.download.mockResolvedValue(Buffer.from(csvContent));
+    storage.downloadStream.mockResolvedValue(Readable.from([csvContent]));
     manager.findOne.mockImplementation((entity: any, options: any) => {
       if (entity === 'Concert' || (entity && entity.name === 'Concert')) {
         return Promise.resolve({ id: concertId, name: 'Test Concert' });
       }
       if (entity === 'TicketType' || (entity && entity.name === 'TicketType')) {
-        return Promise.resolve({ id: 'vip-type-id', concertId });
+        if (options?.where?.id === ticketTypeId) {
+          return Promise.resolve({ id: ticketTypeId, concertId, name: 'VIP' });
+        }
+        return Promise.resolve(null);
       }
       if (entity === 'Role' || (entity && (entity.name === 'Role' || entity.name === 'RoleEntity'))) {
         return Promise.resolve({ id: 'role-id', name: 'AUDIENCE' });
       }
       return Promise.resolve(null);
     });
+    (manager as any).find.mockResolvedValue([]);
 
     ticketsService.issueVipTicket.mockResolvedValue({ id: 'ticket-id' } as any);
 
@@ -86,6 +94,96 @@ describe('CsvImportProcessor', () => {
     await processor.handle(mockJob);
 
     expect(repo.updateStatus).toHaveBeenCalledWith(jobId, CsvImportJobStatus.PROCESSING);
+    expect(repo.updateJobStats).toHaveBeenCalledWith(jobId, {
+      totalRows: 1,
+      successRows: 1,
+      errorRows: 0,
+      status: CsvImportJobStatus.COMPLETED,
+    });
+  });
+
+  it('should accept sponsor CSV headers and resolve ticket type by name', async () => {
+    const jobId = 'test-job-id-2';
+    const concertId = 'test-concert-id';
+    const csvContent =
+      'email,full_name,ticket_type,phone,sponsor\n' +
+      'vip@example.com,Vip Guest,VIP,0900000001,Brand A\n';
+
+    repo.findById.mockResolvedValue({ id: jobId, concertId } as any);
+    storage.downloadStream.mockResolvedValue(Readable.from([csvContent]));
+    manager.findOne.mockImplementation((entity: any, options: any) => {
+      if (entity === 'Concert' || (entity && entity.name === 'Concert')) {
+        return Promise.resolve({ id: concertId, name: 'Test Concert' });
+      }
+      if (entity === 'TicketType' || (entity && entity.name === 'TicketType')) {
+        if (options?.where?.id === 'VIP') {
+          return Promise.reject(new Error('Should not query ticket type UUID with sponsor label'));
+        }
+        return Promise.resolve(null);
+      }
+      if (entity === 'Role' || (entity && (entity.name === 'Role' || entity.name === 'RoleEntity'))) {
+        return Promise.resolve({ id: 'role-id', name: 'AUDIENCE' });
+      }
+      return Promise.resolve(null);
+    });
+    (manager as any).find.mockImplementation((entity: any) => {
+      if (entity === 'TicketType' || (entity && entity.name === 'TicketType')) {
+        return Promise.resolve([{ id: 'vip-type-id', concertId, name: 'VIP' }]);
+      }
+      return Promise.resolve([]);
+    });
+
+    ticketsService.issueVipTicket.mockResolvedValue({ id: 'ticket-id' } as any);
+
+    const mockJob = {
+      data: { jobId, fileUrl: 'test.csv', concertId },
+    } as Job;
+
+    await processor.handle(mockJob);
+
+    expect(repo.updateJobStats).toHaveBeenCalledWith(jobId, {
+      totalRows: 1,
+      successRows: 1,
+      errorRows: 0,
+      status: CsvImportJobStatus.COMPLETED,
+    });
+  });
+
+  it('should still resolve ticket type by UUID when the CSV provides an internal id', async () => {
+    const jobId = 'test-job-id-3';
+    const concertId = 'test-concert-id';
+    const ticketTypeId = '8ab25cda-8427-4f4e-aff3-e1b24db0c321';
+    const csvContent =
+      'email,full_name,ticket_type,phone\n' +
+      `vip@example.com,Vip Guest,${ticketTypeId},0900000001\n`;
+
+    repo.findById.mockResolvedValue({ id: jobId, concertId } as any);
+    storage.downloadStream.mockResolvedValue(Readable.from([csvContent]));
+    manager.findOne.mockImplementation((entity: any, options: any) => {
+      if (entity === 'Concert' || (entity && entity.name === 'Concert')) {
+        return Promise.resolve({ id: concertId, name: 'Test Concert' });
+      }
+      if (entity === 'TicketType' || (entity && entity.name === 'TicketType')) {
+        if (options?.where?.id === ticketTypeId) {
+          return Promise.resolve({ id: ticketTypeId, concertId, name: 'VIP' });
+        }
+        return Promise.resolve(null);
+      }
+      if (entity === 'Role' || (entity && (entity.name === 'Role' || entity.name === 'RoleEntity'))) {
+        return Promise.resolve({ id: 'role-id', name: 'AUDIENCE' });
+      }
+      return Promise.resolve(null);
+    });
+    (manager as any).find.mockResolvedValue([]);
+
+    ticketsService.issueVipTicket.mockResolvedValue({ id: 'ticket-id' } as any);
+
+    const mockJob = {
+      data: { jobId, fileUrl: 'test.csv', concertId },
+    } as Job;
+
+    await processor.handle(mockJob);
+
     expect(repo.updateJobStats).toHaveBeenCalledWith(jobId, {
       totalRows: 1,
       successRows: 1,

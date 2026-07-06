@@ -15,12 +15,13 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "infra:up": "docker compose -f infra/docker-compose.yml up -d",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d --build",
     "infra:down": "docker compose -f infra/docker-compose.yml down",
     "migration:run": "pnpm --filter @ticketbox/api migration:run",
     "migration:revert": "pnpm --filter @ticketbox/api migration:revert"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/nodemailer": "^8.0.1",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.4.5"

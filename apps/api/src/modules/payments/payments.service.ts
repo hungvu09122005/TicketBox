@@ -66,7 +66,7 @@ export class PaymentsService {
       const paymentUrl = await this.paymentUrlBreaker.fire({
         orderId: existingPayment.orderId,
         amount: Number(existingPayment.amount),
-        orderDescription: `Thanh toán đơn hàng ${existingPayment.orderId}`,
+        orderDescription: `Thanh toan don hang ${existingPayment.orderId}`,
         ipAddress,
         idempotencyKey: existingPayment.idempotencyKey,
       });

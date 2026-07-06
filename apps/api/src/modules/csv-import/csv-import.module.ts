@@ -8,9 +8,12 @@ import { CsvImportController } from './csv-import.controller';
 import { CsvImportService } from './csv-import.service';
 import { CsvImportRepository } from './csv-import.repository';
 import { CsvImportProcessor } from './processors/csv-import.processor';
+import { VipGuestSyncScheduler } from './schedulers/vip-guest-sync.scheduler';
 import { TicketsModule } from '../tickets/tickets.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { StorageModule } from '../storage/storage.module';
+import { DatabaseModule } from '../../database/database.module';
+import { Concert } from '../concerts/entities/concert.entity';
 
 /**
  * CsvImportModule — VIP guest import pipeline.
@@ -23,15 +26,20 @@ import { StorageModule } from '../storage/storage.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([CsvImportJob, CsvImportRow, VipGuest]),
+    DatabaseModule,
+    TypeOrmModule.forFeature([CsvImportJob, CsvImportRow, VipGuest, Concert]),
     BullModule.registerQueue({ name: 'csv-import' }),
     TicketsModule,
     NotificationsModule,
     StorageModule,
   ],
   controllers: [CsvImportController],
-  providers: [CsvImportService, CsvImportRepository, CsvImportProcessor],
+  providers: [
+    CsvImportService,
+    CsvImportRepository,
+    CsvImportProcessor,
+    VipGuestSyncScheduler,
+  ],
   exports: [CsvImportService],
 })
 export class CsvImportModule {}
-

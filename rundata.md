@@ -4,14 +4,14 @@ Vui lòng làm theo các bước sau:
 
 ### 1. Chuẩn bị Database (PostgreSQL)
 Đảm bảo bạn đã cài đặt PostgreSQL trên máy hoặc chạy qua Docker.
-* Tạo database tên là: `ticketbox_dev`
+* Tạo database tên là: `ticketbox`
 * Cấu hình thông tin kết nối trong file `.env` tại thư mục `apps/api/`:
     ```env
     DB_HOST=localhost
     DB_PORT=5432
     DB_USERNAME=postgres
     DB_PASSWORD=your_password
-    DB_DATABASE=ticketbox_dev
+    DB_DATABASE=ticketbox
     ```
 
 ### 2. Cài đặt Dependencies

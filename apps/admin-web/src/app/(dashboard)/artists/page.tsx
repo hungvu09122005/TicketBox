@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Eye, MusicNotes, Notebook, PencilSimple, SpinnerGap, UserCircle } from '@phosphor-icons/react';
+import { ArrowRight, Eye, MusicNotes, Notebook, PencilSimple, Plus, SpinnerGap, UserCircle } from '@phosphor-icons/react';
 import { artistService } from '@/lib/services/artist.service';
 import { Artist } from '@/lib/types';
 import { hasStoredAdminSession } from '@/lib/auth-store';
@@ -59,7 +59,7 @@ function ArtistCard({
             <div>
               <h3 className="text-base font-semibold text-primary">{artist.name}</h3>
               <p className="mt-1 text-sm leading-6 text-muted">
-                {artist.shortBio?.trim() || 'Chưa có bio công khai.'}
+                {artist.shortBio?.trim() || 'No public bio yet.'}
               </p>
             </div>
             <ArrowRight size={16} className="mt-1 shrink-0 text-muted" />
@@ -70,10 +70,10 @@ function ArtistCard({
               ID: {artist.id.slice(0, 8)}
             </span>
             <span className="rounded-full border border-border bg-background px-3 py-1">
-              Bio: {artist.shortBio?.trim() ? 'Có' : 'Chưa có'}
+              Bio: {artist.shortBio?.trim() ? 'Yes' : 'No'}
             </span>
             <span className="rounded-full border border-border bg-background px-3 py-1">
-              Ảnh: {artist.avatarUrl ? 'Có' : 'Chưa có'}
+              Image: {artist.avatarUrl ? 'Yes' : 'No'}
             </span>
           </div>
         </div>
@@ -122,7 +122,7 @@ export default function ArtistsPage() {
         setSelectedArtistId((current) => current ?? data[0]?.id ?? null);
       } catch (error) {
         console.error('Failed to load artists', error);
-        setErrorMessage('Không thể tải danh sách nghệ sĩ. Vui lòng thử lại.');
+        setErrorMessage('Could not load the artist list. Please try again.');
       } finally {
         setIsLoading(false);
       }
@@ -138,31 +138,25 @@ export default function ArtistsPage() {
   return (
     <div className="space-y-6">
       <div className="rounded-[32px] border border-border bg-surface p-6 shadow-sm">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Artist catalog</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Artists</h1>
             <p className="mt-3 text-sm leading-6 text-muted">
-              Danh sách nghệ sĩ để bạn chọn nhanh, xem chi tiết và chỉnh hồ sơ khi cần.
+              Artist list for quick selection, detail viewing, and profile edits when needed.
+            </p>
+            <p className="mt-3 text-sm font-medium text-primary">
+              {artists.length} artists in catalog
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-border bg-background px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Artists</p>
-              <p className="mt-1 text-lg font-semibold text-primary">{artists.length}</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-background px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Selected</p>
-              <p className="mt-1 text-lg font-semibold text-primary">{selectedArtist?.name || '--'}</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-background px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Bio</p>
-              <p className="mt-1 text-lg font-semibold text-primary">
-                {selectedArtist?.shortBio?.trim() ? 'Có' : 'Chưa có'}
-              </p>
-            </div>
-          </div>
+          <Link
+            href="/artists/create"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-primary px-4 py-3 text-sm font-medium text-surface transition-transform hover:-translate-y-[1px] active:translate-y-0"
+          >
+            <Plus size={16} />
+            Create artist
+          </Link>
         </div>
       </div>
 
@@ -179,9 +173,9 @@ export default function ArtistsPage() {
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-background">
             <MusicNotes size={28} className="text-muted" />
           </div>
-          <h2 className="mt-4 text-xl font-semibold text-primary">Chưa có artist nào</h2>
+          <h2 className="mt-4 text-xl font-semibold text-primary">No artists yet</h2>
           <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted">
-            Khi có nghệ sĩ, danh sách và bio công khai sẽ hiện ở đây.
+            When artists exist, the list and public bio will appear here.
           </p>
         </div>
       ) : null}
@@ -202,7 +196,7 @@ export default function ArtistsPage() {
           <aside className="rounded-[32px] border border-border bg-surface p-6 shadow-sm">
             <p className="text-[11px] uppercase tracking-[0.22em] text-muted">Artist bio</p>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-primary">
-              {selectedArtist?.name || 'Chọn một nghệ sĩ'}
+              {selectedArtist?.name || 'Select an artist'}
             </h2>
 
             {selectedArtist ? (
@@ -231,7 +225,7 @@ export default function ArtistsPage() {
                     <div className="rounded-[24px] border border-border bg-background p-4">
                       <p className="text-[11px] uppercase tracking-[0.18em] text-muted">Short bio</p>
                       <p className="mt-2 text-sm leading-7 text-primary">
-                        {selectedArtist.shortBio?.trim() || 'Nghệ sĩ này chưa có bio công khai.'}
+                        {selectedArtist.shortBio?.trim() || 'This artist has no public bio yet.'}
                       </p>
                     </div>
 
@@ -255,14 +249,14 @@ export default function ArtistsPage() {
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-primary">Bio public</p>
-                      <p className="text-xs text-muted">Thông tin công khai của nghệ sĩ.</p>
+                      <p className="text-xs text-muted">Public artist information.</p>
                     </div>
                   </div>
 
                   <div className="mt-4 rounded-[24px] border border-dashed border-border bg-surface/80 p-4 text-sm leading-7 text-muted">
                     {selectedArtist.avatarObjectKey
-                      ? `Ảnh gốc: ${selectedArtist.avatarObjectKey}`
-                      : 'Chưa có ảnh đại diện, phần xem ảnh sẽ hiển thị khung tạm.'}
+                      ? `Original image: ${selectedArtist.avatarObjectKey}`
+                      : 'No avatar yet, the image preview area will show a placeholder.'}
                   </div>
                 </div>
 
@@ -292,7 +286,7 @@ export default function ArtistsPage() {
               </>
             ) : (
               <div className="mt-5 rounded-[28px] border border-dashed border-border bg-background p-6 text-sm text-muted">
-                Chọn một nghệ sĩ để xem bio công khai.
+                Select an artist to view the public bio.
               </div>
             )}
           </aside>

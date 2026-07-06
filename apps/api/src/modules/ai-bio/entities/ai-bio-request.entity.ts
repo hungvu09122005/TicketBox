@@ -2,10 +2,13 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 
 export enum AiBioStatus { PENDING = 'PENDING', PROCESSING = 'PROCESSING', DRAFT = 'DRAFT', PUBLISHED = 'PUBLISHED', FAILED = 'FAILED' }
 
+export enum AiBioTargetType { ARTIST = 'ARTIST', CONCERT = 'CONCERT' }
+
 @Entity('ai_bio_requests')
 export class AiBioRequest {
   @PrimaryGeneratedColumn('uuid') id!: string;
-  @Column({ name: 'artist_id' }) @Index() artistId!: string;
+  @Column({ name: 'target_type', type: 'enum', enum: AiBioTargetType, default: AiBioTargetType.ARTIST }) targetType!: AiBioTargetType;
+  @Column({ name: 'target_id' }) @Index() targetId!: string;
   @Column({ name: 'requested_by' }) requestedBy!: string;
   @Column({ name: 'pdf_object_key', nullable: true }) pdfObjectKey?: string;
   @Column({ type: 'enum', enum: AiBioStatus, default: AiBioStatus.PENDING }) status!: AiBioStatus;

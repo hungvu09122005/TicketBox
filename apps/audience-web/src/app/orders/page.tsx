@@ -117,14 +117,14 @@ function OrderCard({
               className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <CurrencyDollar size={16} />
-              {isOpeningPayment ? 'Opening payment...' : 'Open sandbox payment'}
+              {isOpeningPayment ? 'Đang mở thanh toán...' : 'Mở thanh toán'}
             </button>
             <Link
               href={`/payments/return?orderId=${encodeURIComponent(order.id)}&status=pending`}
               className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
             >
               <CurrencyDollar size={16} />
-              Check payment result
+              Kiểm tra thanh toán
             </Link>
           </>
         )}
@@ -133,7 +133,7 @@ function OrderCard({
           className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
         >
           <Ticket size={16} />
-          Return to concert
+          Quay lại sự kiện
         </Link>
       </div>
 
@@ -212,13 +212,13 @@ export default function OrdersPage() {
           >
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium uppercase tracking-[0.22em] text-white/75 backdrop-blur-md">
               <Receipt size={14} />
-              My Orders
+              Đơn hàng của tôi
             </div>
             <h1 className="mt-5 text-4xl font-semibold tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">
-              Lịch sử order thật từ backend.
+              Lịch sử đơn hàng của bạn
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-white/72 sm:text-lg">
-              Trang này chỉ hiển thị dữ liệu thuộc tài khoản hiện tại qua `GET /orders/me`. Không có dữ liệu seed giả trong frontend.
+              Theo dõi các đơn hàng đang chờ thanh toán, đã thanh toán hoặc đã hết hạn trong cùng một nơi.
             </p>
           </motion.div>
 
@@ -248,7 +248,7 @@ export default function OrdersPage() {
               <Timer size={32} className="mx-auto text-white/65" />
               <h2 className="mt-5 text-2xl font-semibold text-white">Chưa có order nào</h2>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/68">
-                Khi bạn tạo checkout thật từ concert detail, order sẽ xuất hiện ở đây với trạng thái PENDING_PAYMENT, PAID hoặc EXPIRED.
+                Khi bạn đặt vé, đơn hàng sẽ xuất hiện ở đây để bạn tiện theo dõi trạng thái thanh toán.
               </p>
               <Link
                 href="/concerts"
@@ -265,12 +265,12 @@ export default function OrdersPage() {
               <div className="rounded-[32px] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Summary</p>
-                    <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">Owned orders only</h2>
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Tổng quan</p>
+                    <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">Đơn hàng hiện có</h2>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                      <p className="text-xs uppercase tracking-[0.18em] text-white/55">Pending orders</p>
+                      <p className="text-xs uppercase tracking-[0.18em] text-white/55">Chờ thanh toán</p>
                       <p className="mt-1 text-xl font-semibold text-white">{activeOrders.length}</p>
                     </div>
                     <button
@@ -279,7 +279,7 @@ export default function OrdersPage() {
                       className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
                     >
                       <ArrowClockwise size={16} />
-                      Refresh
+                      Làm mới
                     </button>
                   </div>
                 </div>

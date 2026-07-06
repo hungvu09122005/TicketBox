@@ -1,4 +1,5 @@
-/* eslint-disable @next/next/no-img-element */"use client";
+/* eslint-disable @next/next/no-img-element */
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -63,10 +64,6 @@ function ConcertCard({ concert, index }: Readonly<{ concert: PublicConcert; inde
         </div>
 
         <div className="absolute inset-x-0 bottom-0 p-5">
-          <p className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-white/70">
-            <CalendarBlank size={14} />
-            {formatSchedule(concert)}
-          </p>
           <h3 className="line-clamp-2 text-2xl font-semibold tracking-tight text-white">
             {concert.name}
           </h3>
@@ -74,19 +71,13 @@ function ConcertCard({ concert, index }: Readonly<{ concert: PublicConcert; inde
       </div>
 
       <div className="space-y-4 p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-white">{concert.artist.name}</p>
-            <p className="mt-1 line-clamp-2 text-sm leading-6 text-white/65">
-              {concert.description || "Đang cập nhật mô tả chương trình."}
-            </p>
-          </div>
-          <div className="min-w-[138px] rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-center">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Thời lượng</p>
-            <p className="mt-1 text-sm font-semibold leading-6 text-white">
-              {timeFormatter.format(new Date(concert.startsAt))} - {timeFormatter.format(new Date(concert.endsAt))}
-            </p>
-          </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-white">
+            {concert.artists?.map((artist) => artist.name).filter(Boolean).join(", ") || "Nghệ sĩ đang cập nhật"}
+          </p>
+          <p className="mt-1 line-clamp-2 text-sm leading-6 text-white/65">
+            {concert.description || "Đang cập nhật mô tả chương trình."}
+          </p>
         </div>
 
         <div className="grid gap-3 text-sm text-white/72">
@@ -95,17 +86,23 @@ function ConcertCard({ concert, index }: Readonly<{ concert: PublicConcert; inde
             <span className="line-clamp-1">{concert.venue || "Địa điểm đang cập nhật"}</span>
           </div>
           <div className="flex items-center gap-2">
+            <CalendarBlank size={16} className="shrink-0 text-white/65" />
+            <span>{formatSchedule(concert)}</span>
+          </div>
+          <div className="flex items-center gap-2">
             <Ticket size={16} className="shrink-0 text-sky-300" />
             <span>{concert.saleStartsAt ? `Mở bán từ ${formatSchedule({ ...concert, startsAt: concert.saleStartsAt, endsAt: concert.saleEndsAt ?? concert.saleStartsAt })}` : "Đang mở bán"}</span>
           </div>
         </div>
 
-        <Link
-          href={`/concerts/${concert.id}`}
-          className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 hover:bg-white/10"
-        >
-          Xem chi tiết
-        </Link>
+        <div className="flex justify-end">
+          <Link
+            href={`/concerts/${concert.id}`}
+            className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 hover:bg-white/10"
+          >
+            Mua vé
+          </Link>
+        </div>
       </div>
     </motion.article>
   );

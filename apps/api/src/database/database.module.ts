@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { join } from 'path';
 import { BootstrapService } from './bootstrap.service';
 //import { UsersModule } from '../modules/users/users.module';
 
@@ -32,9 +33,22 @@ import { BootstrapService } from './bootstrap.service';
       },
 
       synchronize: false,
+      migrationsRun: config.get<string>('app.nodeEnv') !== 'production',
+      migrations: [
+        join(process.cwd(), 'src', 'database', 'migrations', '1781899060208-InitialSchemaMigration.{ts,js}'),
+        join(process.cwd(), 'src', 'migrations', '1781900000000-CreateCheckinDevice.{ts,js}'),
+        join(process.cwd(), 'src', 'migrations', '1782244000000-FixOrdersUserIdType.{ts,js}'),
+        join(process.cwd(), 'src', 'migrations', '1782444000000-AddFailureReasonToCsvAndNotifications.{ts,js}'),
+        join(process.cwd(), 'src', 'migrations', '1782450000000-AddConcertMetadata.{ts,js}'),
+        join(process.cwd(), 'src', 'migrations', '1782460000000-AddManualCodeToTickets.{ts,js}'),
+        join(process.cwd(), 'src', 'migrations', '1782470000000-AddTargetTypeToAiBioRequests.{ts,js}'),
+        join(process.cwd(), 'src', 'migrations', '1782480000000-DropLegacyArtistIdFromAiBioRequests.{ts,js}'),
+      ],
       logging: config.get<string>('app.nodeEnv') === 'development',
       autoLoadEntities: true,
-      migrationsTableName: 'typeorm_migrations',
+      // Keep the runtime migration history aligned with src/database/seed.ts,
+      // which uses TypeORM's default `migrations` table.
+      migrationsTableName: 'migrations',
     }),
   }),
 

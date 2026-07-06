@@ -23,6 +23,11 @@ export interface CreateUserData {
   name: string;
   passwordHash: string;
   roles?: string[];
+  isActive?: boolean;
+}
+
+export interface UpdateOwnProfileData {
+  name?: string;
 }
 
 /**
@@ -97,6 +102,7 @@ export class UsersRepository {
       email: data.email,
       name: data.name,
       passwordHash: data.passwordHash,
+      isActive: data.isActive ?? false,
       roles: roleEntities,
     });
 
@@ -139,6 +145,23 @@ export class UsersRepository {
     }
 
     user.isActive = isActive;
+    return this.repo.save(user);
+  }
+
+  async updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
+    await this.repo.update({ id: userId }, { passwordHash });
+  }
+
+  async updateOwnProfile(userId: string, data: UpdateOwnProfileData): Promise<User | null> {
+    const user = await this.repo.findOne({ where: { id: userId } });
+    if (!user) {
+      return null;
+    }
+
+    if (typeof data.name === 'string') {
+      user.name = data.name.trim();
+    }
+
     return this.repo.save(user);
   }
 }

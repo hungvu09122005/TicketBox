@@ -1,14 +1,15 @@
-FROM node:20-alpine
+FROM node:20-bookworm-slim
 
 WORKDIR /app
 
 COPY . .
 
-RUN npm install -g pnpm
+RUN corepack enable
+RUN corepack prepare pnpm@10.24.0 --activate
 RUN pnpm install --frozen-lockfile
-
-RUN pnpm --filter @ticketbox/api build
 
 WORKDIR /app/apps/api
 
-CMD ["node", "dist/main.js"]
+EXPOSE 3001
+
+CMD ["pnpm", "exec", "ts-node", "-r", "tsconfig-paths/register", "--transpile-only", "src/main.ts"]

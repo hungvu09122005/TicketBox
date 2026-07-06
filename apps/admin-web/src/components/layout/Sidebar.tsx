@@ -5,7 +5,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { 
   MusicNotes, 
   Users, 
-  MapPin, 
   ChartLineUp,
   ArrowRight,
   ShieldCheck,
@@ -19,16 +18,19 @@ import { Permission } from '@/lib/permissions';
 const navigation = [
   { name: 'Concerts', href: '/concerts', icon: MusicNotes, permissions: [Permission.CONCERT_READ_PUBLIC] },
   { name: 'Artists', href: '/artists', icon: Users, permissions: [Permission.ARTIST_READ] },
-  { name: 'Venues', href: '/venues', icon: MapPin, permissions: [Permission.VENUE_READ] },
   { name: 'Operations', href: '/operations', icon: ChartLineUp, permissions: [Permission.REPORT_VIEW] },
   { name: 'Access Control', href: '/rbac', icon: ShieldCheck, permissions: [Permission.RBAC_MANAGE] },
 ];
 
 const operationsShortcuts = [
   { name: 'Order & payment', href: '/operations/orders' },
-  { name: 'Failed jobs', href: '/operations/notifications' },
   { name: 'Reports', href: '/operations/reports' },
   { name: 'Job monitor', href: '/operations/jobs' },
+];
+
+const accessControlShortcuts = [
+  { name: 'Roles & permissions', href: '/rbac' },
+  { name: 'Users', href: '/rbac/users' },
 ];
 
 export function Sidebar({ onClose }: Readonly<{ onClose?: () => void }>) {
@@ -56,6 +58,7 @@ export function Sidebar({ onClose }: Readonly<{ onClose?: () => void }>) {
             const isActive = pathname.startsWith(item.href);
             const Icon = item.icon;
             const isOperations = item.href === '/operations';
+            const isAccessControl = item.href === '/rbac';
             return (
               <div key={item.name} className="space-y-1">
                 <Link
@@ -96,13 +99,36 @@ export function Sidebar({ onClose }: Readonly<{ onClose?: () => void }>) {
                     })}
                   </div>
                 ) : null}
+
+                {isAccessControl && pathname.startsWith('/rbac') && canAccess([Permission.RBAC_MANAGE]) ? (
+                  <div className="ml-9 space-y-1 border-l border-border pl-3">
+                    {accessControlShortcuts.map((shortcut) => {
+                      const isShortcutActive = pathname === shortcut.href;
+                      return (
+                        <Link
+                          key={shortcut.href}
+                          href={shortcut.href}
+                          onClick={onClose}
+                          className={`flex items-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                            isShortcutActive
+                              ? 'bg-primary text-surface'
+                              : 'text-muted hover:bg-primary/5 hover:text-primary'
+                          }`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+                          {shortcut.name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
             );
           })}
         </nav>
         {navigation.filter((item) => canAccess(item.permissions)).length === 0 && (
           <div className="mt-6 rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted">
-            Bạn hiện chưa có quyền truy cập menu nào.
+            You currently do not have access to any menu items.
           </div>
         )}
       </div>

@@ -38,6 +38,10 @@ export default registerAs('app', () => ({
     accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? '15m',
     refreshSecret: process.env.JWT_REFRESH_SECRET ?? '',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
+    passwordResetSecret: process.env.JWT_PASSWORD_RESET_SECRET ?? process.env.JWT_ACCESS_SECRET ?? '',
+    passwordResetExpiresIn: process.env.JWT_PASSWORD_RESET_EXPIRES_IN ?? '1h',
+    activationSecret: process.env.JWT_ACTIVATION_SECRET ?? process.env.JWT_ACCESS_SECRET ?? '',
+    activationExpiresIn: process.env.JWT_ACTIVATION_EXPIRES_IN ?? '24h',
   },
 
   qr: {
@@ -49,14 +53,20 @@ export default registerAs('app', () => ({
       tmnCode: process.env.VNPAY_TMN_CODE ?? '',
       hashSecret: process.env.VNPAY_HASH_SECRET ?? '',
       sandboxUrl: process.env.VNPAY_SANDBOX_URL ?? 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html',
-      returnUrl: process.env.VNPAY_RETURN_URL ?? 'http://localhost:3000/payment/result',
+      returnUrl: process.env.VNPAY_RETURN_URL ?? 'http://localhost:3000/payments/return',
       ipnUrl: process.env.VNPAY_IPN_URL ?? 'http://localhost:3001/api/v1/payments/callback/vnpay',
     },
   },
 
   ai: {
-    openaiApiKey: process.env.OPENAI_API_KEY ?? '',
-    openaiModel: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
+    provider: 'grok',
+    grokApiKey: process.env.GROK_API_KEY ?? '',
+    grokModel: process.env.GROK_MODEL ?? 'grok-4.3',
+    grokBaseUrl: process.env.GROK_BASE_URL ?? 'https://api.x.ai/v1',
+    timeoutMs: parseInt(process.env.GROK_TIMEOUT_MS ?? process.env.OPENAI_TIMEOUT_MS ?? '15000', 10),
+    maxTokens: parseInt(process.env.GROK_MAX_OUTPUT_TOKENS ?? process.env.OPENAI_MAX_OUTPUT_TOKENS ?? '1000', 10),
+    temperature: parseFloat(process.env.GROK_TEMPERATURE ?? process.env.OPENAI_TEMPERATURE ?? '0.7'),
+    quotaPerMinute: parseInt(process.env.GROK_QUOTA_PER_MINUTE ?? process.env.OPENAI_QUOTA_PER_MINUTE ?? '10', 10),
     textMaxChars: parseInt(process.env.AI_TEXT_MAX_CHARS ?? '8000', 10),
   },
 

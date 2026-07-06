@@ -40,7 +40,7 @@ function statusTone(status: OrderDetails['status']) {
 
 const queueDashboardHref = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-  return apiUrl.replace(/\/api\/v1\/?$/, '') + '/admin/queues';
+  return `${apiUrl.replace(/\/$/, '')}/admin/queues`;
 })();
 
 export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
@@ -72,7 +72,7 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
         setResolvedOrderId(id);
       } catch (error) {
         if (!isActive) return;
-        setErrorMessage(error instanceof Error ? error.message : 'Không thể tải chi tiết đơn hàng.');
+        setErrorMessage(error instanceof Error ? error.message : 'Could not load the order details.');
       } finally {
         if (isActive) {
           setIsLoading(false);
@@ -149,7 +149,7 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
             <div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary">Order detail</h1>
               <p className="mt-3 text-sm leading-6 text-muted">
-                A focused view for a single order so organizers can inspect the payment state, expiry, and callback audit from the backend API.
+                View order details, payment status, and callback history.
               </p>
             </div>
           </div>
@@ -168,7 +168,7 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
             </div>
             <div>
               <h2 className="text-lg font-semibold text-primary">Order summary</h2>
-              <p className="text-sm text-muted">Live data from `GET /orders/:id`.</p>
+              <p className="text-sm text-muted">Current order information.</p>
             </div>
           </div>
 
@@ -227,7 +227,7 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
           <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-primary">Payment context</h2>
             <p className="mt-2 text-sm leading-6 text-muted">
-              The backend exposes payment initiation, callback handling, and callback audit for support.
+              Initiate payment when the order is still pending payment, then check the callback audit below.
             </p>
             {order?.status === 'PENDING_PAYMENT' ? (
               <button
@@ -244,51 +244,6 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
               </div>
             )}
 
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
-              <table className="min-w-full text-left text-sm">
-                <tbody className="divide-y divide-border">
-                  <tr>
-                    <th className="w-44 px-4 py-3 font-medium text-primary">Initiate endpoint</th>
-                    <td className="px-4 py-3 text-muted">POST /payments/:orderId/initiate</td>
-                  </tr>
-                  <tr>
-                    <th className="w-44 px-4 py-3 font-medium text-primary">Callback endpoint</th>
-                    <td className="px-4 py-3 text-muted">GET /payments/callback/vnpay</td>
-                  </tr>
-                  <tr>
-                    <th className="w-44 px-4 py-3 font-medium text-primary">Audit focus</th>
-                    <td className="px-4 py-3 text-muted">Expired, failed, and callback reconciliation</td>
-                  </tr>
-                  <tr>
-                    <th className="w-44 px-4 py-3 font-medium text-primary">Manual edit</th>
-                    <td className="px-4 py-3 text-muted">No manual success override in the frontend</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
-              <div className="border-b border-border px-4 py-3">
-                <h3 className="text-sm font-semibold text-primary">Payment lifecycle</h3>
-                <p className="mt-1 text-xs text-muted">How this order moves through the payment flow.</p>
-              </div>
-              <table className="min-w-full text-left text-sm">
-                <tbody className="divide-y divide-border">
-                  {[
-                    ['Pending payment', 'Order is waiting for provider initiation'],
-                    ['Provider initiated', 'Backend returned a payment URL / record'],
-                    ['Callback received', 'VNPay callback reconciles provider state'],
-                    ['Expired / failed', 'Order history stays visible for audit and support'],
-                  ].map(([stage, meaning]) => (
-                    <tr key={stage}>
-                      <th className="w-44 px-4 py-3 font-medium text-primary">{stage}</th>
-                      <td className="px-4 py-3 text-muted">{meaning}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
             {paymentMessage ? <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{paymentMessage}</div> : null}
             {paymentError ? <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{paymentError}</div> : null}
             {paymentUrl ? (
@@ -304,18 +259,11 @@ export default function OrderDetailPage({ params }: Readonly<{ params: Promise<{
             ) : null}
           </div>
 
-          <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-primary">Backend note</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              {resolvedOrderId ? `Loaded order ${resolvedOrderId}.` : 'No order loaded yet.'} The view shows real callback audit data and avoids inventing callback history.
-            </p>
-          </div>
-
           {canViewPaymentHistory ? (
             <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
               <h2 className="text-lg font-semibold text-primary">Callback audit</h2>
               <p className="mt-2 text-sm leading-6 text-muted">
-                The backend audit endpoint exposes reconciliation data, provider transaction ids, and raw callback payloads for support and review.
+                Track callback history and payment reconciliation for the order.
               </p>
               <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background">
                 <div className="overflow-x-auto">

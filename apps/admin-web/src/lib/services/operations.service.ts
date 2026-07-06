@@ -31,6 +31,25 @@ export interface OrderDetails {
   }>;
 }
 
+export interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface OrderListResponse {
+  data: OrderDetails[];
+  meta: PaginationMeta;
+}
+
+export interface OrderListQuery {
+  page?: number;
+  limit?: number;
+  status?: OrderDetails['status'];
+  concertId?: string;
+}
+
 export interface ReportResponse {
   message?: string;
   [key: string]: unknown;
@@ -64,6 +83,29 @@ export interface CsvImportJobStatus {
   createdAt?: string;
   message?: string;
   [key: string]: unknown;
+}
+
+export interface CsvErrorReportResponse {
+  jobId?: string;
+  filename?: string;
+  rowCount?: number;
+  csv?: string;
+}
+
+export interface CsvImportTemplateResponse {
+  filename?: string;
+  delimiter?: string;
+  encoding?: string;
+  csv?: string;
+  requiredColumns?: string[];
+  optionalColumns?: string[];
+  columns?: Array<{
+    name: string;
+    required?: boolean;
+    description?: string;
+  }>;
+  exampleRows?: Array<Record<string, string>>;
+  notes?: string[];
 }
 
 export interface NotificationProbePayload {
@@ -125,7 +167,10 @@ export interface PaymentInitiationResult {
 
 export interface AiBioRequestResult {
   id?: string;
+  job_id?: string;
   artistId?: string;
+  targetId?: string;
+  targetType?: 'ARTIST' | 'CONCERT';
   requestedBy?: string;
   pdfObjectKey?: string;
   status?: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'DRAFT' | 'PUBLISHED' | 'FAILED';
@@ -135,10 +180,55 @@ export interface AiBioRequestResult {
   updatedAt?: string;
 }
 
+export interface DemoBootstrapStatus {
+  jobId?: string;
+  status?: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  progress?: number;
+  message?: string;
+  created?: {
+    adminUserId?: string | null;
+    organizerUserId?: string | null;
+    staffUserId?: string | null;
+    audienceUserId?: string | null;
+    artistId?: string | null;
+    concertId?: string | null;
+    ticketTypeIds?: string[];
+    csvJobId?: string | null;
+    aiBioRequestId?: string | null;
+  };
+}
+
+export interface StartDemoBootstrapResponse {
+  jobId: string;
+  status?: string;
+  message?: string;
+}
+
+function normalizeAiBioResult(payload: AiBioRequestResult): AiBioRequestResult {
+  return {
+    ...payload,
+    id: payload.id ?? payload.job_id,
+    targetId: payload.targetId ?? payload.artistId,
+    artistId: payload.artistId ?? payload.targetId,
+  };
+}
+
 export const operationsService = {
-  getOrders: async (): Promise<OrderDetails[]> => {
-    const response = await apiClient.get('/orders');
-    return extractListData<OrderDetails>(response.data.data ?? response.data);
+  getOrders: async (query?: OrderListQuery): Promise<OrderListResponse> => {
+    const response = await apiClient.get('/orders', {
+      params: query,
+    });
+    const payload = response.data.data ?? response.data;
+
+    return {
+      data: extractListData<OrderDetails>(payload),
+      meta: (payload?.meta ?? {
+        total: 0,
+        page: query?.page ?? 1,
+        limit: query?.limit ?? 10,
+        totalPages: 1,
+      }) as PaginationMeta,
+    };
   },
 
   getRevenueReport: async (): Promise<ReportResponse> => {
@@ -212,6 +302,32 @@ export const operationsService = {
     return response.data.data ?? response.data;
   },
 
+  createCsvImportJob: async (csvFile: File, concertId: string): Promise<CsvImportJobStatus> => {
+    const formData = new FormData();
+    formData.append('file', csvFile);
+    formData.append('concertId', concertId);
+
+    const response = await apiClient.post('/imports/csv', formData);
+    const payload = response.data.data ?? response.data;
+    return {
+      ...payload,
+      id: payload.id ?? payload.job_id,
+      objectKey: payload.objectKey ?? payload.object_key,
+      concertId: payload.concertId ?? payload.concert_id,
+      createdAt: payload.createdAt ?? payload.created_at,
+    };
+  },
+
+  getCsvImportTemplate: async (): Promise<CsvImportTemplateResponse> => {
+    const response = await apiClient.get('/imports/template');
+    return response.data.data ?? response.data;
+  },
+
+  downloadCsvErrorReport: async (jobId: string): Promise<CsvErrorReportResponse> => {
+    const response = await apiClient.get(`/imports/${jobId}/error-report`);
+    return response.data.data ?? response.data;
+  },
+
   sendNotificationProbe: async (payload: NotificationProbePayload): Promise<NotificationProbeResponse> => {
     const response = await apiClient.post('/notifications/test-confirmation', payload);
     return response.data.data ?? response.data;
@@ -239,13 +355,31 @@ export const operationsService = {
     return response.data.data ?? response.data;
   },
 
-  createAiBioRequest: async (pdfFile: File, artistId: string): Promise<AiBioRequestResult> => {
+  createAiBioRequest: async (
+    pdfFile: File,
+    targetId: string,
+    targetType: 'ARTIST' | 'CONCERT' = 'ARTIST',
+  ): Promise<AiBioRequestResult> => {
     const formData = new FormData();
     formData.append('pdf', pdfFile);
-    formData.append('artistId', artistId);
+    formData.append('targetId', targetId);
+    formData.append('targetType', targetType);
 
     const response = await apiClient.post('/api/artist-bio', formData);
-    return response.data.data ?? response.data;
+    return normalizeAiBioResult(response.data.data ?? response.data);
+  },
+
+  createManualAiBioDraft: async (
+    targetId: string,
+    bio: string,
+    targetType: 'ARTIST' | 'CONCERT' = 'ARTIST',
+  ): Promise<AiBioRequestResult> => {
+    const response = await apiClient.post('/api/artist-bio/manual', {
+      targetId,
+      targetType,
+      bio,
+    });
+    return normalizeAiBioResult(response.data.data ?? response.data);
   },
 
   listAiBioJobs: async (status?: AiBioRequestResult['status'] | 'SUCCESS'): Promise<AiBioRequestResult[]> => {
@@ -257,12 +391,22 @@ export const operationsService = {
 
   getAiBioJobStatus: async (jobId: string): Promise<AiBioRequestResult> => {
     const response = await apiClient.get(`/api/artist-bio/${jobId}/status`);
-    return response.data.data ?? response.data;
+    return normalizeAiBioResult(response.data.data ?? response.data);
   },
 
   retryAiBioJob: async (jobId: string): Promise<RetryResult> => {
     const response = await apiClient.patch(`/api/artist-bio/${jobId}/retry`);
     return response.data.data ?? response.data;
+  },
+
+  updateAiBioDraft: async (jobId: string, draftContent: string): Promise<AiBioRequestResult> => {
+    const response = await apiClient.patch(`/api/artist-bio/${jobId}`, { draftContent });
+    return normalizeAiBioResult(response.data.data ?? response.data);
+  },
+
+  publishAiBioDraft: async (jobId: string): Promise<AiBioRequestResult> => {
+    const response = await apiClient.patch(`/api/artist-bio/${jobId}/publish`);
+    return normalizeAiBioResult(response.data.data ?? response.data);
   },
 
   getPaymentHistory: async (orderId: string): Promise<PaymentHistoryRecord[]> => {
@@ -273,5 +417,15 @@ export const operationsService = {
   getPaymentAudit: async (orderId: string): Promise<PaymentAuditRecord[]> => {
     const response = await apiClient.get(`/payments/orders/${orderId}/audit`);
     return extractListData<PaymentAuditRecord>(response.data.data ?? response.data);
+  },
+
+  startDemoBootstrap: async (): Promise<StartDemoBootstrapResponse> => {
+    const response = await apiClient.post('/admin/demo/bootstrap', {});
+    return response.data.data ?? response.data;
+  },
+
+  getDemoBootstrapStatus: async (jobId: string): Promise<DemoBootstrapStatus> => {
+    const response = await apiClient.get(`/admin/demo/bootstrap/${jobId}`);
+    return response.data.data ?? response.data;
   },
 };

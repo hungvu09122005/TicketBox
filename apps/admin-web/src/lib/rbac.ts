@@ -13,10 +13,12 @@ export const roleOptions: RoleOption[] = [
   {
     code: 'AUDIENCE',
     label: 'Audience',
-    description: 'Xem concert, tạo order, xem vé cá nhân.',
+    description: 'View concerts, create orders, and see personal tickets.',
     permissions: [
       Permission.CONCERT_READ_PUBLIC,
       Permission.ORDER_CREATE,
+      Permission.USER_READ_OWN,
+      Permission.USER_UPDATE_OWN,
       Permission.ORDER_READ_OWN,
       Permission.TICKET_VIEW_OWN,
     ],
@@ -24,7 +26,7 @@ export const roleOptions: RoleOption[] = [
   {
     code: 'ORGANIZER',
     label: 'Organizer',
-    description: 'Quản lý concert, ticket types, báo cáo và import khách VIP.',
+    description: 'Manage concerts, ticket types, reports, and VIP imports.',
     permissions: [
       Permission.CONCERT_READ_PUBLIC,
       Permission.CONCERT_READ_OWN,
@@ -50,21 +52,25 @@ export const roleOptions: RoleOption[] = [
       Permission.AI_GENERATE_BIO,
       Permission.REPORT_VIEW,
       Permission.REPORT_EXPORT,
+      Permission.USER_READ_OWN,
+      Permission.USER_UPDATE_OWN,
     ],
   },
   {
     code: 'CHECKIN_STAFF',
     label: 'Check-in Staff',
-    description: 'Quét QR và đồng bộ check-in.',
+    description: 'Scan QR codes and sync check-ins.',
     permissions: [
       Permission.CONCERT_READ_PUBLIC,
+      Permission.USER_READ_OWN,
+      Permission.USER_UPDATE_OWN,
       Permission.TICKET_VALIDATE,
     ],
   },
   {
     code: 'SYSTEM_ADMIN',
     label: 'System Admin',
-    description: 'Quản lý user, role, permission và toàn bộ quyền hệ thống.',
+    description: 'Manage users, roles, permissions, and full system access.',
     permissions: [
       Permission.CONCERT_READ_PUBLIC,
       Permission.CONCERT_READ_OWN,
@@ -105,6 +111,8 @@ export const roleOptions: RoleOption[] = [
       Permission.PERMISSION_READ,
       Permission.PERMISSION_CREATE,
       Permission.RBAC_MANAGE,
+      Permission.USER_READ_OWN,
+      Permission.USER_UPDATE_OWN,
     ],
   },
 ];

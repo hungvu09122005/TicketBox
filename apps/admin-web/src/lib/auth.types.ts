@@ -5,4 +5,5 @@ export interface AdminProfile {
   roles: string[];
   permissionVersion: number;
   permissions: string[];
+  isActive: boolean;
 }

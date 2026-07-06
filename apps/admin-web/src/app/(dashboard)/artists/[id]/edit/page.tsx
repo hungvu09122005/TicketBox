@@ -1,13 +1,14 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { Suspense, use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowLeft, FloppyDisk, SpinnerGap, UploadSimple, UserCircle } from '@phosphor-icons/react';
+import { ArrowLeft, FloppyDisk, Sparkle, SpinnerGap, UploadSimple, UserCircle } from '@phosphor-icons/react';
 import { artistService } from '@/lib/services/artist.service';
+import { operationsService } from '@/lib/services/operations.service';
 import { Artist } from '@/lib/types';
 import { extractApiMessages } from '@/lib/api-errors';
 import { hasStoredAdminSession } from '@/lib/auth-store';
@@ -28,8 +29,11 @@ function formatDateTime(value?: string) {
   }).format(new Date(value));
 }
 
-export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
+function EditArtistFormContent({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const bioJobId = searchParams.get('bioJobId');
+
   const { id } = use(params);
   const [artist, setArtist] = useState<Artist | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +42,7 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [avatarFileName, setAvatarFileName] = useState<string | null>(null);
   const [serverErrors, setServerErrors] = useState<string[] | null>(null);
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
 
   const {
     register,
@@ -67,22 +72,37 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
       try {
         const data = await artistService.getArtist(id);
         setArtist(data);
+
+        let initialShortBio = data.shortBio ?? '';
+
+        if (bioJobId) {
+          try {
+            const aiJob = await operationsService.getAiBioJobStatus(bioJobId);
+            if (aiJob?.draftContent) {
+              initialShortBio = aiJob.draftContent;
+              setAiNotice(`Auto-filled short bio from AI job (${bioJobId.slice(0, 8)}). Save changes to publish.`);
+            }
+          } catch (error) {
+            console.warn('Failed to load AI bio draft for pre-fill', error);
+          }
+        }
+
         reset({
           name: data.name ?? '',
-          shortBio: data.shortBio ?? '',
+          shortBio: initialShortBio,
           avatarObjectKey: data.avatarObjectKey ?? '',
         });
         setAvatarPreviewUrl(data.avatarUrl ?? null);
       } catch (error) {
         console.error('Failed to load artist edit data', error);
-        setServerErrors(['Không thể tải artist để chỉnh sửa.']);
+        setServerErrors(['Could not load the artist for editing.']);
       } finally {
         setIsLoading(false);
       }
     };
 
     void load();
-  }, [id, reset, router]);
+  }, [bioJobId, id, reset, router]);
 
   useEffect(() => {
     return () => {
@@ -113,7 +133,7 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
         shouldValidate: true,
       });
     } catch (error) {
-      setServerErrors(extractApiMessages(error, 'Không thể upload avatar.'));
+      setServerErrors(extractApiMessages(error, 'Could not upload the avatar.'));
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -131,7 +151,7 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
       });
       router.push(`/artists/${id}`);
     } catch (error) {
-      setServerErrors(extractApiMessages(error, 'Không thể lưu artist.'));
+      setServerErrors(extractApiMessages(error, 'Could not save the artist.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -167,7 +187,7 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
               {artist?.name || 'Artist'}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
-              Bạn có thể chọn ảnh mới ngay tại đây để cập nhật hồ sơ nghệ sĩ.
+              You can choose a new image here to update the artist profile.
             </p>
           </div>
 
@@ -177,6 +197,13 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
           </div>
         </div>
       </div>
+
+      {aiNotice ? (
+        <div className="flex items-center gap-2.5 rounded-[24px] border border-sky-200 bg-sky-50 p-4 text-sm font-medium text-sky-900">
+          <Sparkle size={18} className="shrink-0 text-sky-600" />
+          <span>{aiNotice}</span>
+        </div>
+      ) : null}
 
       {serverErrors ? (
         <div className="rounded-[28px] border border-red-200 bg-red-50 p-5 text-sm text-red-800">
@@ -214,7 +241,7 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
           </div>
 
           <div>
-            <label htmlFor="avatarObjectKey" className="mb-1.5 block text-sm font-medium text-primary">Đường dẫn ảnh</label>
+            <label htmlFor="avatarObjectKey" className="mb-1.5 block text-sm font-medium text-primary">Image path</label>
             <input
               id="avatarObjectKey"
               {...register('avatarObjectKey')}
@@ -222,12 +249,12 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
               placeholder="artists/the-neon-waves/avatar.png"
             />
             <p className="mt-1.5 text-xs leading-5 text-muted">
-              Ảnh mới sẽ tự cập nhật đường dẫn ở đây.
+              The new image path will update here automatically.
             </p>
           </div>
 
           <div>
-            <label htmlFor="avatarFile" className="mb-1.5 block text-sm font-medium text-primary">Chọn ảnh đại diện</label>
+            <label htmlFor="avatarFile" className="mb-1.5 block text-sm font-medium text-primary">Choose an avatar image</label>
             <div className="rounded-[24px] border border-dashed border-border bg-background p-4">
               <input
                 id="avatarFile"
@@ -245,7 +272,7 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
                   <img src={avatarPreviewUrl} alt="Avatar preview" className="h-56 w-full object-cover" />
                 ) : (
                   <div className="flex h-56 items-center justify-center px-4 text-center text-sm text-muted">
-                    Chưa có ảnh xem trước.
+                    No preview image yet.
                   </div>
                 )}
               </div>
@@ -254,17 +281,17 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
                 {isUploadingAvatar ? (
                   <>
                     <SpinnerGap size={14} className="animate-spin" />
-                    <span>Đang tải ảnh...</span>
+                    <span>Loading image...</span>
                   </>
                 ) : avatarFileName ? (
                   <>
                     <UploadSimple size={14} />
-                    <span>Đã chọn ảnh: {avatarFileName}</span>
+                    <span>Selected image: {avatarFileName}</span>
                   </>
                 ) : (
                   <>
                     <UploadSimple size={14} />
-                    <span>Chọn ảnh để cập nhật hồ sơ nghệ sĩ.</span>
+                    <span>Choose an image to update the artist profile.</span>
                   </>
                 )}
               </div>
@@ -289,7 +316,7 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
           </div>
 
           <div className="rounded-[24px] border border-border bg-background p-4 text-sm text-muted">
-            <p className="text-[11px] uppercase tracking-[0.18em]">Ảnh hiện tại</p>
+            <p className="text-[11px] uppercase tracking-[0.18em]">Current image</p>
             <p className="mt-2 break-all font-medium text-primary">{artist?.avatarObjectKey || '--'}</p>
           </div>
 
@@ -304,5 +331,22 @@ export default function EditArtistPage({ params }: Readonly<{ params: Promise<{ 
         </aside>
       </form>
     </div>
+  );
+}
+
+export default function EditArtistPage(props: Readonly<{ params: Promise<{ id: string }> }>) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <div className="flex items-center gap-3 text-sm text-muted">
+            <SpinnerGap size={18} className="animate-spin" />
+            Loading artist edit form...
+          </div>
+        </div>
+      }
+    >
+      <EditArtistFormContent params={props.params} />
+    </Suspense>
   );
 }

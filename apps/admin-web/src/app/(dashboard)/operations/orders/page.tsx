@@ -2,12 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowSquareOut, MagnifyingGlass, ShieldCheck, SpinnerGap, Ticket, Funnel } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowSquareOut, MagnifyingGlass, SpinnerGap, Ticket, Funnel } from '@phosphor-icons/react';
 import { useAuthStore } from '@/lib/auth-store';
 import { concertService } from '@/lib/services/concert.service';
-import { operationsService, type OrderDetails } from '@/lib/services/operations.service';
+import { operationsService, type OrderDetails, type PaginationMeta } from '@/lib/services/operations.service';
 import type { Concert } from '@/lib/types';
-import { Permission } from '@/lib/permissions';
 
 function formatCurrency(value?: number) {
   if (typeof value !== 'number' || Number.isNaN(value)) return '--';
@@ -42,21 +41,21 @@ function statusClasses(status: OrderDetails['status']) {
 
 const queueDashboardHref = (() => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-  return apiUrl.replace(/\/api\/v1\/?$/, '') + '/admin/queues';
+  return `${apiUrl.replace(/\/$/, '')}/admin/queues`;
 })();
 
 export default function OrdersOperationsPage() {
   const admin = useAuthStore((state) => state.admin);
-  const permissions = useAuthStore((state) => state.permissions);
-  const canViewOrders = permissions.includes(Permission.ORDER_READ_ALL) || permissions.includes(Permission.ORDER_READ_OWN);
-
   const [orders, setOrders] = useState<OrderDetails[]>([]);
+  const [paginationMeta, setPaginationMeta] = useState<PaginationMeta | null>(null);
   const [concerts, setConcerts] = useState<Concert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | OrderDetails['status']>('all');
   const [concertFilter, setConcertFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
 
   useEffect(() => {
     let isActive = true;
@@ -67,17 +66,23 @@ export default function OrdersOperationsPage() {
 
       try {
         const [orderData, concertData] = await Promise.all([
-          operationsService.getOrders(),
+          operationsService.getOrders({
+            page,
+            limit,
+            status: statusFilter === 'all' ? undefined : statusFilter,
+            concertId: concertFilter === 'all' ? undefined : concertFilter,
+          }),
           concertService.getConcerts(admin),
         ]);
 
         if (!isActive) return;
 
-        setOrders(orderData);
+        setOrders(orderData.data);
+        setPaginationMeta(orderData.meta);
         setConcerts(concertData);
       } catch (error) {
         if (!isActive) return;
-        setErrorMessage(error instanceof Error ? error.message : 'Không thể tải danh sách đơn hàng.');
+        setErrorMessage(error instanceof Error ? error.message : 'Could not load the order list.');
       } finally {
         if (isActive) {
           setIsLoading(false);
@@ -90,7 +95,7 @@ export default function OrdersOperationsPage() {
     return () => {
       isActive = false;
     };
-  }, [admin]);
+  }, [admin, concertFilter, limit, page, statusFilter]);
 
   const filteredOrders = useMemo(() => {
     const orderList = Array.isArray(orders) ? orders : [];
@@ -122,10 +127,12 @@ export default function OrdersOperationsPage() {
     [admin?.roles, concerts],
   );
 
+  const totalPages = Math.max(1, paginationMeta?.totalPages ?? 1);
+
   return (
     <div className="space-y-6">
       <div className="rounded-[32px] border border-border bg-surface p-6 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="max-w-2xl space-y-3">
             <Link href="/operations" className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-primary">
               <ArrowLeft size={16} />
@@ -138,14 +145,12 @@ export default function OrdersOperationsPage() {
               </p>
             </div>
           </div>
-          <div className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-background px-4 text-sm font-medium text-muted whitespace-nowrap">
-            <ShieldCheck size={16} />
-            {canViewOrders ? 'Access granted' : 'Access restricted'}
+          <div className="flex items-start justify-end">
+            <a href={queueDashboardHref} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-surface">
+              <ArrowSquareOut size={16} />
+              Open queue board
+            </a>
           </div>
-          <a href={queueDashboardHref} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-surface">
-            <ArrowSquareOut size={16} />
-            Open queue board
-          </a>
         </div>
       </div>
 
@@ -169,7 +174,10 @@ export default function OrdersOperationsPage() {
             <Funnel size={16} className="text-muted" />
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as 'all' | OrderDetails['status'])}
+              onChange={(event) => {
+                setPage(1);
+                setStatusFilter(event.target.value as 'all' | OrderDetails['status']);
+              }}
               className="w-full bg-transparent text-sm text-primary outline-none"
             >
               <option value="all">All statuses</option>
@@ -187,7 +195,10 @@ export default function OrdersOperationsPage() {
             <Funnel size={16} className="text-muted" />
             <select
               value={concertFilter}
-              onChange={(event) => setConcertFilter(event.target.value)}
+              onChange={(event) => {
+                setPage(1);
+                setConcertFilter(event.target.value);
+              }}
               className="w-full bg-transparent text-sm text-primary outline-none"
             >
               <option value="all">All concerts</option>
@@ -203,9 +214,26 @@ export default function OrdersOperationsPage() {
 
       <div className="rounded-[32px] border border-border bg-surface shadow-sm">
         <div className="border-b border-border px-6 py-4">
-          <div className="flex items-center gap-2 text-sm text-muted">
-            <Ticket size={16} />
-            Live order list from `GET /orders`
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted">
+              <Ticket size={16} />
+              Order list
+            </div>
+            <label className="flex items-center gap-3 text-sm text-muted">
+              <span>Page size</span>
+              <select
+                value={limit}
+                onChange={(event) => {
+                  setPage(1);
+                  setLimit(Number(event.target.value));
+                }}
+                className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-primary outline-none"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </label>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -239,7 +267,7 @@ export default function OrdersOperationsPage() {
               ) : filteredOrders.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-14 text-center text-muted">
-                    No orders matched the current filters. The UI is ready for the backend list when it starts returning data.
+                    No orders matched the current filters.
                   </td>
                 </tr>
               ) : (
@@ -272,29 +300,33 @@ export default function OrdersOperationsPage() {
             </tbody>
           </table>
         </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-primary">Payment contract</h2>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            The backend exposes create, callback, and callback-audit endpoints. A manual success editor is intentionally absent.
-          </p>
-          <div className="mt-4 rounded-2xl border border-border bg-background p-4 text-sm text-muted">
-            <p>POST /payments/:orderId/initiate</p>
-            <p className="mt-1">GET /payments/callback/vnpay</p>
-            <p className="mt-1">GET /payments/orders/:orderId/history</p>
-            <p className="mt-1">GET /payments/orders/:orderId/audit</p>
+        <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-4 text-sm text-muted">
+          <span>
+            Page {paginationMeta?.page ?? page} of {totalPages}
+            {' · '}
+            Total {paginationMeta?.total ?? 0} orders
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={page <= 1 || isLoading}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-primary disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              disabled={page >= totalPages || isLoading}
+              onClick={() => setPage((current) => current + 1)}
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-primary disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+            </button>
           </div>
         </div>
-
-        <div className="rounded-[28px] border border-border bg-surface p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-primary">Current limitation</h2>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            `GET /orders` now returns live data, so the page reflects the current backend result set instead of pretending the list is empty.
-          </p>
-        </div>
       </div>
+
     </div>
   );
 }
