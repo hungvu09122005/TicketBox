@@ -32,6 +32,12 @@ export class CheckinController {
     return await this.checkinService.validateOnline(dto, user);
   }
 
+  @Get('concerts')
+  @RequirePermissions(Permission.TICKET_VALIDATE)
+  async findCheckinConcerts() {
+    return await this.checkinService.findCheckinConcerts();
+  }
+
   @Post('devices/register')
   @RequirePermissions(Permission.TICKET_VALIDATE)
   @UseGuards(JwtAuthGuard, RbacGuard)
