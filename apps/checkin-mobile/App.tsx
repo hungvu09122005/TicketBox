@@ -1,4 +1,4 @@
-﻿import { StatusBar } from 'expo-status-bar';
+import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
 ActivityIndicator,
@@ -40,7 +40,7 @@ import {
   verifyOfflineQrToken,
 } from './services/offlineQr';
 const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.100.60:3001/api/v1';
+  process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.1.17:3001/api/v1';
 const CameraView = ExpoCameraView as any;
 const SCAN_COOLDOWN_SECONDS = 10;
 
@@ -986,11 +986,17 @@ setResultType('idle');
 }
       />
 
+      {!deviceId && (
+        <Text style={{ color: '#ef4444', fontWeight: 'bold', marginTop: 10, textAlign: 'center' }}>
+          ⚠️ Bạn chưa đăng ký thiết bị! Hãy vào tab "Trang chủ" để đăng ký trước khi quét.
+        </Text>
+      )}
+
       {scanCooldownSeconds > 0 && (
-  <Text style={styles.cooldownText}>
-    Vui lòng đợi {scanCooldownSeconds}s trước khi quét mã tiếp theo.
-  </Text>
-  )}
+        <Text style={styles.cooldownText}>
+          Vui lòng đợi {scanCooldownSeconds}s trước khi quét mã tiếp theo.
+        </Text>
+      )}
 
       <Pressable
   style={styles.secondaryButton}

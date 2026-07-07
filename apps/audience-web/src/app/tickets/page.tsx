@@ -62,17 +62,16 @@ function buildMatrix(token: string, size = 21) {
 }
 
 function QrPreview({ token }: Readonly<{ token: string }>) {
-  const matrix = useMemo(() => buildMatrix(token), [token]);
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(token)}`;
 
   return (
-    <div className="rounded-[28px] border border-white/10 bg-zinc-950 p-4">
-      <div className="mx-auto grid aspect-square max-w-[280px] gap-[2px]" style={{ gridTemplateColumns: 'repeat(21, minmax(0, 1fr))' }}>
-        {matrix.map((filled, index) => (
-          <span
-            key={`${token}-${String(index)}`}
-            className={`aspect-square rounded-[1px] ${filled ? 'bg-white' : 'bg-white/10'}`}
-          />
-        ))}
+    <div className="rounded-[28px] border border-white/10 bg-zinc-950 p-5 flex flex-col items-center justify-center">
+      <div className="mx-auto aspect-square w-full max-w-[220px] overflow-hidden rounded-2xl bg-white p-3 shadow-md flex items-center justify-center">
+        <img
+          src={qrUrl}
+          alt="Mã QR vé điện tử"
+          className="h-full w-full object-contain"
+        />
       </div>
       <p className="mt-4 text-center text-xs uppercase tracking-[0.22em] text-white/55">
         Mã QR vé điện tử
