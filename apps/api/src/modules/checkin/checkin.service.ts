@@ -192,6 +192,34 @@ export class CheckinService {
     return results;
   }
 
+
+    /**
+   * List concerts available for check-in staff.
+   * This is an internal check-in list, so it can include draft/local test concerts.
+   */
+  async findCheckinConcerts() {
+    return await this.dataSource.query(`
+      SELECT
+        id,
+        name,
+        venue,
+        status,
+        starts_at AS "startsAt",
+        ends_at AS "endsAt",
+        sale_starts_at AS "saleStartsAt",
+        sale_ends_at AS "saleEndsAt"
+      FROM concerts
+      ORDER BY
+        CASE
+          WHEN status = 'PUBLISHED' THEN 0
+          WHEN status = 'DRAFT' THEN 1
+          ELSE 2
+        END,
+        starts_at ASC NULLS LAST,
+        name ASC
+    `);
+  }
+
   /**
    * Register a device for offline checkin
    */

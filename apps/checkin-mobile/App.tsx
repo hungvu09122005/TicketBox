@@ -1,5 +1,5 @@
 ﻿import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
 ActivityIndicator,
 Pressable,
@@ -39,11 +39,20 @@ import {
   getOfflineDatasetFreshness,
   verifyOfflineQrToken,
 } from './services/offlineQr';
-
-const API_BASE_URL = 'http://192.168.100.60:3001/api/v1';
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.100.60:3001/api/v1';
 const CameraView = ExpoCameraView as any;
+const SCAN_COOLDOWN_SECONDS = 10;
 
 type ResultType = 'idle' | 'accepted' | 'rejected' | 'already-used';
+
+type ConcertOption = {
+  id: string;
+  name: string;
+  venue?: string;
+  status?: string;
+  startsAt?: string;
+};
 
 function unwrapApiResponse<T = any>(responseData: any): T {
 return responseData?.data ?? responseData;
@@ -86,15 +95,26 @@ export default function App() {
 const [permission, requestPermission] = useCameraPermissions();
 
 const [accessToken, setAccessToken] = useState('');
+const [loginEmail, setLoginEmail] = useState('');
+const [loginPassword, setLoginPassword] = useState('');
+const [isLoggedIn, setIsLoggedIn] = useState(false);
+const [staffEmail, setStaffEmail] = useState<string | null>(null);
+
 const [deviceId, setDeviceId] = useState('');
 const [deviceToken, setDeviceToken] = useState('');
 const [deviceName, setDeviceName] = useState('Gate A Device');
 const [concertId, setConcertId] = useState('');
+const [selectedConcertName, setSelectedConcertName] = useState('');
+const [concerts, setConcerts] = useState<ConcertOption[]>([]);
+const [concertsLoading, setConcertsLoading] = useState(false);
 const [gate, setGate] = useState('A1');
+const [activeTab, setActiveTab] = useState<'home' | 'scan' | 'sync' | 'settings'>('home');
 
 const [manualCode, setManualCode] = useState('');
 const [loading, setLoading] = useState(false);
 const [scanned, setScanned] = useState(false);
+const [scanCooldownSeconds, setScanCooldownSeconds] = useState(0);
+const scanCooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 const [message, setMessage] = useState('');
 const [resultType, setResultType] = useState<ResultType>('idle');
 
@@ -107,10 +127,149 @@ const timeToExpire = useMemo(
 [syncMeta?.expiresAt],
 );
 
+const selectedConcert = concerts.find((concert) => concert.id === concertId);
+
 const authHeaders = () => ({
 'Content-Type': 'application/json',
 Authorization: `Bearer ${accessToken.trim()}`,
 });
+
+const parseConcerts = (responseData: any): ConcertOption[] => {
+  const data = unwrapApiResponse<any>(responseData);
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (Array.isArray(data?.items)) {
+    return data.items;
+  }
+
+  if (Array.isArray(data?.data)) {
+    return data.data;
+  }
+
+  return [];
+};
+
+const loadConcerts = async (token?: string) => {
+  setConcertsLoading(true);
+
+  try {
+      const response = await axios.get(
+  `${API_BASE_URL}/checkin/concerts`, {
+      headers: token
+        ? {
+            Authorization: `Bearer ${token}`,
+          }
+        : undefined,
+      timeout: 10000,
+    });
+
+    const list = parseConcerts(response.data);
+    setConcerts(list);
+
+    if (list.length > 0) {
+      const currentSelected = list.find((concert) => concert.id === concertId);
+
+      const nextConcert =
+        currentSelected ??
+        list.find((concert) => concert.status === 'PUBLISHED') ??
+        list[0];
+
+      setConcertId(nextConcert.id);
+      setSelectedConcertName(nextConcert.name);
+      setResultType('idle');
+      setMessage(`Đã tải ${list.length} sự kiện.`);
+    } else {
+      setSelectedConcertName('');
+      setResultType('rejected');
+      setMessage('API trả về danh sách sự kiện rỗng. Hãy kiểm tra seed dữ liệu concert.');
+    }
+  } catch (error: any) {
+    setConcerts([]);
+    setSelectedConcertName('');
+    setResultType('rejected');
+    setMessage(
+      `Không tải được danh sách sự kiện: ${
+        error?.response?.data?.message ?? error?.message ?? 'Unknown error'
+      }`,
+    );
+  } finally {
+    setConcertsLoading(false);
+  }
+};
+
+const login = async () => {
+  if (loading) return;
+
+  if (!loginEmail.trim() || !loginPassword.trim()) {
+    setResultType('rejected');
+    setMessage('Vui lòng nhập email và mật khẩu.');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await axios.post(
+  `${API_BASE_URL}/auth/login`,
+  {
+    email: loginEmail.trim(),
+    password: loginPassword,
+  },
+  {
+    timeout: 10000,
+  },
+);
+
+    const data = unwrapApiResponse<any>(response.data);
+
+    const token =
+      data?.accessToken ??
+      data?.token ??
+      data?.tokens?.accessToken;
+
+    if (!token) {
+      throw new Error('API không trả về accessToken.');
+    }
+
+    const staff = getStaffFromAccessToken(token);
+
+    setAccessToken(token);
+    setStaffEmail(staff.staffEmail ?? loginEmail.trim());
+    setIsLoggedIn(true);
+    setLoginPassword('');
+    setResultType('accepted');
+    setMessage('Đăng nhập thành công.');
+    await loadConcerts(token);
+    Vibration.vibrate(120);
+  } catch (error: any) {
+    setResultType('rejected');
+    setMessage(
+      `Đăng nhập thất bại: ${
+        error?.response?.data?.message ?? error?.message ?? 'Unknown error'
+      }`,
+    );
+    Vibration.vibrate([0, 300]);
+  } finally {
+    setLoading(false);
+  }
+};
+
+const logout = () => {
+  setAccessToken('');
+  setLoginPassword('');
+  setIsLoggedIn(false);
+  setStaffEmail(null);
+  setDeviceId('');
+  setDeviceToken('');
+  setConcertId('');
+  setSelectedConcertName('');
+  setConcerts([]);
+  setResultType('idle');
+  setMessage('Đã đăng xuất.');
+};
 
 const refreshLocalSummary = async () => {
 const summary = await loadLocalSyncSummary();
@@ -153,13 +312,13 @@ if (loading) return;
 
 if (!accessToken.trim()) {
   setResultType('rejected');
-      setMessage("Please paste a real accessToken from backend.");
+      setMessage("Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.");
   return;
 }
 
 if (!concertId.trim()) {
   setResultType('rejected');
-      setMessage("Please enter a real concertId.");
+      setMessage("Vui lòng chọn sự kiện trước khi đăng ký thiết bị.");
   return;
 }
 
@@ -189,7 +348,7 @@ try {
   setDeviceId(newDeviceId);
   setDeviceToken(newDeviceToken);
   setResultType('accepted');
-      setMessage("Device registered successfully. You can sync pre-event dataset now.");
+      setMessage("Đăng ký thiết bị thành công. Bạn có thể đồng bộ dữ liệu vé.");
   Vibration.vibrate(120);
 } catch (error: any) {
   setResultType('rejected');
@@ -470,7 +629,6 @@ const validateQrToken = async (qrToken: string) => {
     }
   } finally {
     setLoading(false);
-    setScanned(false);
   }
 };
 
@@ -530,9 +688,33 @@ try {
 
 };
 
-const handleBarcodeScanned = (result: BarcodeScanningResult) => {
-setScanned(true);
-validateQrToken(result.data);
+const handleBarcodeScanned = async (result: BarcodeScanningResult) => {
+  if (scanned || loading || scanCooldownSeconds > 0) return;
+
+  setScanned(true);
+  setScanCooldownSeconds(SCAN_COOLDOWN_SECONDS);
+
+  await validateQrToken(result.data);
+
+  if (scanCooldownIntervalRef.current) {
+    clearInterval(scanCooldownIntervalRef.current);
+  }
+
+  scanCooldownIntervalRef.current = setInterval(() => {
+    setScanCooldownSeconds((current) => {
+      if (current <= 1) {
+        if (scanCooldownIntervalRef.current) {
+          clearInterval(scanCooldownIntervalRef.current);
+          scanCooldownIntervalRef.current = null;
+        }
+
+        setScanned(false);
+        return 0;
+      }
+
+      return current - 1;
+    });
+  }, 1000);
 };
 
 const handleManualSubmit = () => {
@@ -546,6 +728,72 @@ setDeviceToken('');
     setMessage("Device id was cleared. You can register this device again.");
 setResultType('idle');
 };
+
+
+  if (!isLoggedIn) {
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="light" />
+
+      <View style={styles.header}>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>TicketBox</Text>
+        </View>
+
+        <Text style={styles.headerTitle}>Đăng nhập Check-in</Text>
+        <Text style={styles.headerSubtitle}>
+          Dành cho nhân viên soát vé tại cổng sự kiện.
+        </Text>
+      </View>
+
+      <View style={styles.loginContainer}>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Tài khoản nhân viên</Text>
+
+          <TextInput
+            style={styles.input}
+            value={loginEmail}
+            onChangeText={setLoginEmail}
+            placeholder="Email"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+          />
+
+          <TextInput
+            style={styles.input}
+            value={loginPassword}
+            onChangeText={setLoginPassword}
+            placeholder="Mật khẩu"
+            secureTextEntry
+          />
+
+          <Pressable
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={login}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+            </Text>
+          </Pressable>
+        </View>
+
+        {!!message && (
+          <View
+            style={[
+              styles.resultBox,
+              resultType === 'accepted' && styles.acceptedBox,
+              resultType === 'rejected' && styles.rejectedBox,
+            ]}
+          >
+            <Text style={styles.resultText}>{message}</Text>
+          </View>
+        )}
+      </View>
+    </SafeAreaView>
+  );
+}
 
   if (!permission) {
     return (
@@ -586,164 +834,276 @@ setResultType('idle');
           <Text style={styles.badgeText}>TicketBox</Text>
         </View>
 
-        <Text style={styles.headerTitle}>Check-in Mobile</Text>
+        <Text style={styles.headerTitle}>TicketBox Check-in</Text>
         <Text style={styles.headerSubtitle}>
-          Pre-event sync, online/offline QR scan, and local logs.
+          Xin chào, {staffEmail ?? 'Nhân viên soát vé'}
         </Text>
+        <View style={styles.bottomNav}>
+        {[
+          ['home', 'Trang chủ'],
+          ['scan', 'Quét QR'],
+          ['sync', 'Đồng bộ'],
+          ['settings', 'Cài đặt'],
+        ].map(([key, label]) => (
+          <Pressable
+            key={key}
+            style={[styles.navItem, activeTab === key && styles.navItemActive]}
+            onPress={() => setActiveTab(key as any)}
+          >
+            <Text
+              style={[
+                styles.navText,
+                activeTab === key && styles.navTextActive,
+              ]}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
       </View>
 
-      <CameraView
-        style={styles.camera}
-        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-        onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-      />
-
       <ScrollView style={styles.panel} keyboardShouldPersistTaps="handled">
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Backend connection</Text>
+  {activeTab === 'home' && (
+    <>
+      <View style={styles.heroCard}>
+        <Text style={styles.heroLabel}>Sự kiện đang chọn</Text>
+        <Text style={styles.heroTitle}>
+          {selectedConcertName || selectedConcert?.name || 'Chưa chọn sự kiện'}
+        </Text>
+        <Text style={styles.heroMeta}>
+          {selectedConcert?.venue ?? 'Chưa có địa điểm'}
+        </Text>
+        <Text style={styles.statusBadge}>
+          {selectedConcert?.status ?? 'N/A'}
+        </Text>
 
-          <TextInput
-            style={styles.input}
-            value={accessToken}
-            onChangeText={setAccessToken}
-            placeholder="Paste accessToken from Swagger"
-            autoCapitalize="none"
-            autoCorrect={false}
-            multiline
-          />
+        <Pressable
+          style={styles.primaryAction}
+          onPress={() => setActiveTab('scan')}
+        >
+          <Text style={styles.primaryActionText}>Quét QR</Text>
+        </Pressable>
+      </View>
 
-          <TextInput
-            style={styles.input}
-            value={deviceName}
-            onChangeText={setDeviceName}
-            placeholder="Device name"
-          />
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Thiết bị check-in</Text>
+        <Text style={styles.metaText}>Nhân viên: {staffEmail ?? 'N/A'}</Text>
 
-          <TextInput
-            style={styles.input}
-            value={concertId}
-            onChangeText={setConcertId}
-            placeholder="Real concertId"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+        <TextInput
+          style={styles.input}
+          value={deviceName}
+          onChangeText={setDeviceName}
+          placeholder="Tên thiết bị"
+        />
 
-          <TextInput
-            style={styles.input}
-            value={gate}
-            onChangeText={setGate}
-            placeholder="Gate"
-          />
+        <Text style={styles.fieldLabel}>Chọn sự kiện</Text>
 
-          {!deviceId ? (
+        {concerts.map((concert) => {
+          const selected = concert.id === concertId;
+
+          return (
             <Pressable
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={registerDevice}
-              disabled={loading}
+              key={concert.id}
+              style={[
+                styles.concertOption,
+                selected && styles.concertOptionSelected,
+              ]}
+              onPress={() => {
+                setConcertId(concert.id);
+                setSelectedConcertName(concert.name);
+                setResultType('idle');
+                setMessage(`Đã chọn sự kiện: ${concert.name}`);
+              }}
             >
-              <Text style={styles.buttonText}>
-                {loading ? 'Registering...' : 'Register device'}
+              <Text style={styles.concertName}>
+                {selected ? '✓ ' : ''}
+                {concert.name}
+              </Text>
+              <Text style={styles.concertMeta}>
+                📍 {concert.venue ?? 'Chưa có địa điểm'}
+              </Text>
+              <Text style={styles.concertMeta}>
+                Trạng thái: {concert.status ?? 'N/A'}
               </Text>
             </Pressable>
-          ) : (
-            <>
-              <Text style={styles.deviceText}>Device: {deviceId}</Text>
-              <Text style={styles.deviceText}>
-                Concert: {concertId || syncMeta?.eventId || 'N/A'}
+          );
+        })}
+
+        <TextInput
+          style={styles.input}
+          value={gate}
+          onChangeText={setGate}
+          placeholder="Cổng check-in"
+        />
+
+        {!deviceId ? (
+          <Pressable
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={registerDevice}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? 'Đang đăng ký...' : 'Đăng ký thiết bị'}
+            </Text>
+          </Pressable>
+        ) : (
+          <>
+            <Text style={styles.deviceText}>Thiết bị: {deviceId}</Text>
+            <Text style={styles.deviceText}>
+              Sự kiện: {selectedConcertName || concertId || 'N/A'}
+            </Text>
+
+            <Pressable
+              style={[styles.secondaryButton, loading && styles.buttonDisabled]}
+              onPress={resetDevice}
+              disabled={loading}
+            >
+              <Text style={styles.secondaryButtonText}>
+                Đăng ký thiết bị khác
               </Text>
-
-              <Pressable
-                style={[styles.secondaryButton, loading && styles.buttonDisabled]}
-                onPress={resetDevice}
-                disabled={loading}
-              >
-                <Text style={styles.secondaryButtonText}>Register another device</Text>
-              </Pressable>
-            </>
-          )}
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Pre-event SQLite sync</Text>
-
-          <Text style={styles.metaText}>
-            Last sync:{' '}
-            {syncMeta?.lastSyncAt
-              ? new Date(syncMeta.lastSyncAt).toLocaleString()
-              : 'Not synced yet'}
-          </Text>
-
-          <Text style={styles.metaText}>
-            Expires:{' '}
-            {syncMeta?.expiresAt
-              ? new Date(syncMeta.expiresAt).toLocaleString()
-              : 'N/A'}
-          </Text>
-
-          <Text style={styles.metaText}>Time-to-expire: {timeToExpire}</Text>
-          <Text style={styles.metaText}>Local tickets: {localTicketCount}</Text>
-          <Text style={styles.metaText}>Unsynced logs: {unsyncedLogCount}</Text>
-
-          <Pressable
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={syncPreEvent}
-            disabled={loading}
-          >
-            <Text style={styles.buttonText}>
-              {loading ? 'Syncing...' : 'Sync pre-event dataset'}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.secondaryButton, loading && styles.buttonDisabled]}
-            onPress={syncOfflineLogs}
-            disabled={loading}
-          >
-            <Text style={styles.secondaryButtonText}>Push offline logs to backend</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Manual check-in</Text>
-
-          <TextInput
-            style={styles.input}
-            value={manualCode}
-            onChangeText={setManualCode}
-            placeholder="Paste or type qr_token"
-            autoCapitalize="none"
-            autoCorrect={false}
-            multiline
-          />
-
-          <Pressable
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleManualSubmit}
-            disabled={loading}
-          >
-            <Text style={styles.buttonText}>
-              {loading ? 'Checking...' : 'Check-in manually'}
-            </Text>
-          </Pressable>
-
-          <Pressable style={styles.secondaryButton} onPress={() => setScanned(false)}>
-            <Text style={styles.secondaryButtonText}>Allow QR scan again</Text>
-          </Pressable>
-        </View>
-
-        {!!message && (
-          <View
-            style={[
-              styles.resultBox,
-              resultType === 'accepted' && styles.acceptedBox,
-              resultType === 'rejected' && styles.rejectedBox,
-              resultType === 'already-used' && styles.alreadyUsedBox,
-            ]}
-          >
-            <Text style={styles.resultText}>{message}</Text>
-          </View>
+            </Pressable>
+          </>
         )}
-      </ScrollView>
+      </View>
+    </>
+  )}
+
+  {activeTab === 'scan' && (
+    <View style={styles.card}>
+      <Text style={styles.sectionTitle}>Quét mã QR</Text>
+      <Text style={styles.metaText}>
+        Đưa mã QR vé vào khung camera để kiểm tra.
+      </Text>
+
+      <CameraView
+        style={styles.scanCamera}
+        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+        onBarcodeScanned={
+  !deviceId || scanned || scanCooldownSeconds > 0
+    ? undefined
+    : handleBarcodeScanned
+}
+      />
+
+      {scanCooldownSeconds > 0 && (
+  <Text style={styles.cooldownText}>
+    Vui lòng đợi {scanCooldownSeconds}s trước khi quét mã tiếp theo.
+  </Text>
+  )}
+
+      <Pressable
+  style={styles.secondaryButton}
+  onPress={() => {
+    if (scanCooldownIntervalRef.current) {
+      clearInterval(scanCooldownIntervalRef.current);
+      scanCooldownIntervalRef.current = null;
+    }
+
+    setScanCooldownSeconds(0);
+    setScanned(false);
+  }}
+>
+  <Text style={styles.secondaryButtonText}>Quét mã khác</Text>
+</Pressable>
+    </View>
+  )}
+
+  {activeTab === 'sync' && (
+    <View style={styles.card}>
+      <Text style={styles.sectionTitle}>Đồng bộ dữ liệu</Text>
+
+      <Text style={styles.metaText}>
+        Lần đồng bộ cuối:{' '}
+        {syncMeta?.lastSyncAt
+          ? new Date(syncMeta.lastSyncAt).toLocaleString()
+          : 'Chưa đồng bộ'}
+      </Text>
+
+      <Text style={styles.metaText}>
+        Hết hạn:{' '}
+        {syncMeta?.expiresAt
+          ? new Date(syncMeta.expiresAt).toLocaleString()
+          : 'N/A'}
+      </Text>
+
+      <Text style={styles.metaText}>Thời hạn dữ liệu: {timeToExpire}</Text>
+      <Text style={styles.metaText}>Vé local: {localTicketCount}</Text>
+      <Text style={styles.metaText}>Log chưa đồng bộ: {unsyncedLogCount}</Text>
+
+      <Pressable
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={syncPreEvent}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? 'Đang đồng bộ...' : 'Đồng bộ dữ liệu vé'}
+        </Text>
+      </Pressable>
+
+      <Pressable
+        style={[styles.secondaryButton, loading && styles.buttonDisabled]}
+        onPress={syncOfflineLogs}
+        disabled={loading}
+      >
+        <Text style={styles.secondaryButtonText}>Đồng bộ log offline</Text>
+      </Pressable>
+    </View>
+  )}
+
+  {activeTab === 'settings' && (
+    <>
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Kiểm tra thủ công</Text>
+
+        <TextInput
+          style={styles.input}
+          value={manualCode}
+          onChangeText={setManualCode}
+          placeholder="Nhập hoặc dán QR Token"
+          autoCapitalize="none"
+          autoCorrect={false}
+          multiline
+        />
+
+        <Pressable
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={handleManualSubmit}
+          disabled={loading}
+        >
+          <Text style={styles.buttonText}>
+            {loading ? 'Đang kiểm tra...' : 'Xác nhận vé'}
+          </Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Tài khoản</Text>
+        <Text style={styles.metaText}>Nhân viên: {staffEmail ?? 'N/A'}</Text>
+
+        <Pressable style={styles.secondaryButton} onPress={logout}>
+          <Text style={styles.secondaryButtonText}>Đăng xuất</Text>
+        </Pressable>
+      </View>
+    </>
+  )}
+
+  {!!message && (
+    <View
+      style={[
+        styles.resultBox,
+        resultType === 'accepted' && styles.acceptedBox,
+        resultType === 'rejected' && styles.rejectedBox,
+        resultType === 'already-used' && styles.alreadyUsedBox,
+      ]}
+    >
+      <Text style={styles.resultText}>{message}</Text>
+    </View>
+  )}
+</ScrollView>
+
+    
+
     </SafeAreaView>
   );
 }
@@ -760,6 +1120,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#f8fafc',
   },
+
+  loginContainer: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#f8fafc',
+    justifyContent: 'center',
+  },
+
   permissionTitle: {
     fontSize: 22,
     fontWeight: '800',
@@ -889,6 +1257,132 @@ const styles = StyleSheet.create({
     backgroundColor: '#fecaca',
   },
   alreadyUsedBox: {
-    backgroundColor: '#fde68a',
-  },
+  backgroundColor: '#fde68a',
+},
+fieldLabel: {
+  fontSize: 14,
+  fontWeight: '800',
+  color: '#334155',
+  marginBottom: 8,
+},
+inlineLoading: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 8,
+  marginBottom: 10,
+},
+concertList: {
+  gap: 10,
+  marginBottom: 10,
+},
+concertOption: {
+  borderWidth: 1,
+  borderColor: '#cbd5e1',
+  borderRadius: 12,
+  padding: 12,
+  backgroundColor: '#f8fafc',
+},
+concertOptionSelected: {
+  borderColor: '#0ea5e9',
+  backgroundColor: '#e0f2fe',
+},
+concertName: {
+  fontSize: 15,
+  fontWeight: '900',
+  color: '#0f172a',
+  marginBottom: 4,
+},
+concertMeta: {
+  color: '#475569',
+  fontSize: 13,
+  marginTop: 2,
+},
+selectedText: {
+  color: '#0369a1',
+  fontWeight: '800',
+  marginBottom: 10,
+},
+bottomNav: {
+  flexDirection: 'row',
+  backgroundColor: 'white',
+  borderTopWidth: 1,
+  borderTopColor: '#e2e8f0',
+  paddingVertical: 8,
+  paddingHorizontal: 8,
+},
+navItem: {
+  flex: 1,
+  paddingVertical: 10,
+  borderRadius: 12,
+  alignItems: 'center',
+},
+navItemActive: {
+  backgroundColor: '#e0f2fe',
+},
+navText: {
+  fontSize: 12,
+  fontWeight: '700',
+  color: '#64748b',
+},
+navTextActive: {
+  color: '#0284c7',
+},
+
+heroCard: {
+  backgroundColor: '#0f172a',
+  borderRadius: 20,
+  padding: 18,
+  marginBottom: 14,
+},
+heroLabel: {
+  color: '#93c5fd',
+  fontWeight: '800',
+  marginBottom: 6,
+},
+heroTitle: {
+  color: 'white',
+  fontSize: 22,
+  fontWeight: '900',
+  marginBottom: 6,
+},
+heroMeta: {
+  color: '#cbd5e1',
+  marginBottom: 10,
+},
+statusBadge: {
+  alignSelf: 'flex-start',
+  backgroundColor: '#fef3c7',
+  color: '#92400e',
+  fontWeight: '900',
+  paddingHorizontal: 10,
+  paddingVertical: 4,
+  borderRadius: 999,
+  marginBottom: 14,
+},
+primaryAction: {
+  backgroundColor: '#0ea5e9',
+  borderRadius: 14,
+  paddingVertical: 14,
+  alignItems: 'center',
+},
+primaryActionText: {
+  color: 'white',
+  fontWeight: '900',
+  fontSize: 16,
+},
+scanCamera: {
+  height: 420,
+  borderRadius: 18,
+  overflow: 'hidden',
+  backgroundColor: '#111827',
+  marginTop: 12,
+},
+
+cooldownText: {
+  marginTop: 10,
+  color: '#92400e',
+  fontWeight: '800',
+  textAlign: 'center',
+},
+
 });
