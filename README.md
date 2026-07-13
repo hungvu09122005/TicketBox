@@ -141,6 +141,10 @@ Sau đó chỉnh sửa file `.env`, điền đầy đủ các giá trị bắt b
 # PostgreSQL — phải khớp với docker-compose.yml
 DATABASE_PASSWORD=ticketbox_dev
 
+# MinIO / Object Storage — bắt buộc để kết nối MinIO trên Docker
+MINIO_ACCESS_KEY=ticketbox_minio
+MINIO_SECRET_KEY=ticketbox_minio_dev
+
 # JWT — bắt buộc phải có giá trị, tạo bằng:
 # openssl rand -hex 64
 JWT_ACCESS_SECRET=<secret>
@@ -150,7 +154,9 @@ JWT_REFRESH_SECRET=<secret>
 QR_TOKEN_SECRET=<secret>
 ```
 
-> **Lưu ý:** `DATABASE_PASSWORD` phải là `ticketbox_dev` (khớp với `POSTGRES_PASSWORD` trong `docker-compose.yml`). Nếu để trống sẽ gây lỗi `client password must be a string` khi kết nối PostgreSQL.
+> **Lưu ý:** 
+> * `DATABASE_PASSWORD` phải là `ticketbox_dev` (khớp với `POSTGRES_PASSWORD` trong `docker-compose.yml`). Nếu để trống sẽ gây lỗi `client password must be a string` khi kết nối PostgreSQL.
+> * `MINIO_ACCESS_KEY` và `MINIO_SECRET_KEY` phải khớp với cấu hình trong `docker-compose.yml` (`ticketbox_minio` và `ticketbox_minio_dev`) để API có thể tạo/đọc bucket chứa file upload.
 
 ---
 
@@ -163,10 +169,16 @@ QR_TOKEN_SECRET=<secret>
 
 ### 🇦 Lựa chọn 1 — Full Docker (mọi thứ chạy trong container)
 
-Khởi động toàn bộ stack (backend, frontend, hạ tầng) bằng một lệnh duy nhất:
+**Bước 1:** Khởi động toàn bộ stack (backend, frontend, hạ tầng):
 
 ```bash
 pnpm run infra:up
+```
+
+**Bước 2:** Nạp dữ liệu mẫu và đồng bộ DB (chỉ cần chạy một lần duy nhất khi khởi tạo DB):
+
+```bash
+docker exec -it ticketbox-api pnpm run seed:run
 ```
 
 Sau khi chạy, các service sẽ sẵn sàng tại:
@@ -190,7 +202,13 @@ Sau khi chạy, các service sẽ sẵn sàng tại:
 pnpm run infra:services
 ```
 
-**Bước 2:** Chạy từng app ở các terminal riêng
+**Bước 2:** Chạy migrations và nạp dữ liệu mẫu (chỉ cần chạy một lần khi khởi tạo DB)
+
+```bash
+pnpm run seed:run
+```
+
+**Bước 3:** Chạy từng app ở các terminal riêng
 
 ```bash
 # Terminal 1 — Backend API (NestJS)
@@ -218,16 +236,11 @@ pnpm run infra:down
 
 ## 🗄 Database — Schema & Seed
 
-### Cơ chế tự động (Docker)
+### Cơ chế khởi tạo
 
-File `infra/db/seed.sql` được mount vào container Postgres tại `/docker-entrypoint-initdb.d/seed.sql`.  
-**PostgreSQL tự động thực thi file này khi volume DB được tạo lần đầu tiên** — nghĩa là bạn không cần chạy lệnh nào thêm sau `pnpm run infra:up` hoặc `pnpm run infra:services`.
+Để tránh xung đột schema giữa file SQL tĩnh và các migrations của TypeORM, database của dự án sẽ khởi tạo trống và chạy migrations tự động khi container API khởi chạy. Sau đó, dữ liệu mẫu sẽ được nạp thông qua **Seed runner (TypeScript)**.
 
-File `seed.sql` bao gồm:
-1. **Schema đầy đủ** — Tạo tất cả ENUMs, bảng và foreign key constraints
-2. **RBAC** — Permissions (39 quyền), Roles (`AUDIENCE`, `ORGANIZER`, `CHECKIN_STAFF`, `SYSTEM_ADMIN`), ánh xạ role-permissions
-3. **Users mẫu** — 4 tài khoản tương ứng với 4 role (xem bảng bên dưới)
-4. **Dữ liệu demo** — 2 artist, 4 concert (3 PUBLISHED + 1 DRAFT), ticket types, orders, payments, tickets, checkin logs, v.v.
+File SQL `seed.sql` hiện tại đã được tắt mount tự động và chỉ đóng vai trò tham chiếu cấu trúc bảng ban đầu.
 
 #### Tài khoản mẫu sau khi seed
 
@@ -238,17 +251,14 @@ File `seed.sql` bao gồm:
 | `CHECKIN_STAFF` | `staff@ticketbox.local` | `Staff@123456` |
 | `AUDIENCE` | `audience@ticketbox.local` | `Audience@123456` |
 
-> ⚠️ **Quan trọng:** Script chỉ chạy tự động khi volume Postgres **chưa tồn tại**. Nếu DB đã được khởi tạo trước đó, bạn cần chạy thủ công (xem bên dưới).
+> ⚠️ **Quan trọng:** Không chạy trực tiếp file `seed.sql` lên cơ sở dữ liệu đã có bảng, vì có thể gây lỗi bất đồng bộ kiểu dữ liệu (mismatch types) với các cột đã thay đổi trong migrations. Hãy dùng lệnh `seed:run` để đồng bộ an toàn.
 
 ---
 
-### Chạy seed thủ công (khi DB đã tồn tại)
+### Chạy seed thủ công (chỉ dùng khi DB trống)
 
 ```bash
-# Yêu cầu: Postgres đang chạy và psql đã được cài đặt
-psql -h localhost -U ticketbox -d ticketbox -f infra/db/seed.sql
-
-# Hoặc qua Docker exec
+# Qua Docker exec (chỉ khuyên dùng khi database hoàn toàn trống)
 docker exec -i ticketbox-postgres psql -U ticketbox -d ticketbox < infra/db/seed.sql
 ```
 
@@ -268,10 +278,11 @@ cd apps/api
 npx typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts src/database/migrations/<TenMigration>
 ```
 
-### Seed runner (TypeScript)
+### Seed runner (TypeScript - KHUYÊN DÙNG)
+
+Lệnh này sẽ tự động chạy tất cả các migrations TypeORM chưa thực thi để đồng bộ schema mới nhất, sau đó tự động làm sạch bảng và nạp **toàn bộ dữ liệu mẫu đầy đủ** (bao gồm RBAC, 4 users, các nghệ sĩ, 4 concert, seat maps, orders, tickets, check-in logs,...):
 
 ```bash
-# Seed qua NestJS seed runner (RBAC + Ticket mẫu)
 pnpm run seed:run
 ```
 

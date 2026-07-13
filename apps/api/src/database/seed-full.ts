@@ -408,6 +408,7 @@ export async function seedFullData(dataSource: DataSource) {
     concertId: concertOne.id,
     qrToken: 'qr-token-ticket-001',
     status: TicketStatus.ACTIVE,
+    manualCode: 'MC-SEED-001',
   });
 
   const ticketTwo = await saveEntity(ticketRepo, {
@@ -418,6 +419,7 @@ export async function seedFullData(dataSource: DataSource) {
     concertId: concertOne.id,
     qrToken: 'qr-token-ticket-002',
     status: TicketStatus.USED,
+    manualCode: 'MC-SEED-002',
   });
 
   const ticketThree = await saveEntity(ticketRepo, {
@@ -428,6 +430,7 @@ export async function seedFullData(dataSource: DataSource) {
     concertId: concertTwo.id,
     qrToken: 'qr-token-ticket-003',
     status: TicketStatus.ACTIVE,
+    manualCode: 'MC-SEED-003',
   });
 
   await saveEntity(notificationRepo, {

@@ -1,6 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 DO $$
 BEGIN
@@ -87,18 +88,18 @@ EXCEPTION
 END $$;
 
 CREATE TABLE IF NOT EXISTS permissions (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   name text NOT NULL UNIQUE,
   code text NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS roles (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   name text NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS users (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   email text NOT NULL UNIQUE,
   name text NOT NULL,
   password_hash text NOT NULL,
@@ -121,7 +122,7 @@ CREATE TABLE IF NOT EXISTS user_roles (
 );
 
 CREATE TABLE IF NOT EXISTS artists (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   name text NOT NULL,
   "shortBio" text,
   avatar_object_key text,
@@ -130,7 +131,7 @@ CREATE TABLE IF NOT EXISTS artists (
 );
 
 CREATE TABLE IF NOT EXISTS concerts (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   name text NOT NULL,
   organizer_id uuid NOT NULL,
   status concerts_status_enum NOT NULL DEFAULT 'DRAFT',
@@ -152,7 +153,7 @@ CREATE TABLE IF NOT EXISTS concert_artists (
 );
 
 CREATE TABLE IF NOT EXISTS ticket_types (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   concert_id uuid NOT NULL,
   name text NOT NULL,
   price numeric(15,2) NOT NULL,
@@ -167,7 +168,7 @@ CREATE TABLE IF NOT EXISTS ticket_types (
 );
 
 CREATE TABLE IF NOT EXISTS seat_zones (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   concert_id uuid NOT NULL,
   name text NOT NULL,
   svg_path text,
@@ -177,7 +178,7 @@ CREATE TABLE IF NOT EXISTS seat_zones (
 );
 
 CREATE TABLE IF NOT EXISTS orders (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   concert_id uuid NOT NULL,
   ticket_type_id uuid NOT NULL,
@@ -190,7 +191,7 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 
 CREATE TABLE IF NOT EXISTS order_items (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   order_id uuid NOT NULL,
   ticket_type_id uuid NOT NULL,
   quantity integer NOT NULL DEFAULT 1,
@@ -198,7 +199,7 @@ CREATE TABLE IF NOT EXISTS order_items (
 );
 
 CREATE TABLE IF NOT EXISTS payments (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   order_id uuid NOT NULL,
   idempotency_key text NOT NULL UNIQUE,
   provider_tx_id text UNIQUE,
@@ -211,7 +212,7 @@ CREATE TABLE IF NOT EXISTS payments (
 );
 
 CREATE TABLE IF NOT EXISTS tickets (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   order_id uuid NOT NULL,
   ticket_type_id uuid NOT NULL,
   user_id uuid NOT NULL,
@@ -224,7 +225,7 @@ CREATE TABLE IF NOT EXISTS tickets (
 );
 
 CREATE TABLE IF NOT EXISTS notification_logs (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   ticket_id uuid NOT NULL,
   user_id uuid NOT NULL,
   type notification_logs_type_enum NOT NULL,
@@ -237,7 +238,7 @@ CREATE TABLE IF NOT EXISTS notification_logs (
 );
 
 CREATE TABLE IF NOT EXISTS checkin_logs (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   ticket_id uuid NOT NULL,
   staff_id uuid,
   device_id text NOT NULL,
@@ -252,7 +253,7 @@ CREATE TABLE IF NOT EXISTS checkin_logs (
 );
 
 CREATE TABLE IF NOT EXISTS csv_import_jobs (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   concert_id uuid NOT NULL,
   triggered_by uuid NOT NULL,
   object_key text NOT NULL,
@@ -265,7 +266,7 @@ CREATE TABLE IF NOT EXISTS csv_import_jobs (
 );
 
 CREATE TABLE IF NOT EXISTS csv_import_rows (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_id uuid NOT NULL,
   row_number integer NOT NULL,
   status csv_import_rows_status_enum NOT NULL,
@@ -273,7 +274,7 @@ CREATE TABLE IF NOT EXISTS csv_import_rows (
 );
 
 CREATE TABLE IF NOT EXISTS vip_guests (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   concert_id uuid NOT NULL,
   ticket_type_id uuid NOT NULL,
   csv_import_job_id uuid NOT NULL,
@@ -287,7 +288,7 @@ CREATE TABLE IF NOT EXISTS vip_guests (
 );
 
 CREATE TABLE IF NOT EXISTS ai_bio_requests (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   artist_id uuid NOT NULL,
   requested_by uuid NOT NULL,
   pdf_object_key text,
@@ -1254,5 +1255,22 @@ SET
   draft_content = EXCLUDED.draft_content,
   failure_reason = EXCLUDED.failure_reason,
   updated_at = NOW();
+
+CREATE TABLE IF NOT EXISTS migrations (
+  id SERIAL PRIMARY KEY,
+  timestamp bigint NOT NULL,
+  name varchar NOT NULL
+);
+
+INSERT INTO migrations (timestamp, name) VALUES
+  (1781899060208, 'InitialSchemaMigration1781899060208'),
+  (1781900000000, 'CreateCheckinDevice1781900000000'),
+  (1782244000000, 'FixOrdersUserIdType1782244000000'),
+  (1782444000000, 'AddFailureReasonToCsvAndNotifications1782444000000'),
+  (1782450000000, 'AddConcertMetadata1782450000000'),
+  (1782460000000, 'AddManualCodeToTickets1782460000000'),
+  (1782470000000, 'AddTargetTypeToAiBioRequests1782470000000'),
+  (1782480000000, 'DropLegacyArtistIdFromAiBioRequests1782480000000')
+ON CONFLICT DO NOTHING;
 
 COMMIT;

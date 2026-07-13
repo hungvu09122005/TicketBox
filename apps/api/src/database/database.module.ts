@@ -33,7 +33,7 @@ import { BootstrapService } from './bootstrap.service';
       },
 
       synchronize: false,
-      migrationsRun: config.get<string>('app.nodeEnv') !== 'production',
+      migrationsRun: true,
       migrations: [
         join(process.cwd(), 'src', 'database', 'migrations', '1781899060208-InitialSchemaMigration.{ts,js}'),
         join(process.cwd(), 'src', 'migrations', '1781900000000-CreateCheckinDevice.{ts,js}'),
