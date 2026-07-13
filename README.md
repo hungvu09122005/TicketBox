@@ -10,13 +10,13 @@
 - [Cấu trúc thư mục](#-cấu-trúc-thư-mục)
 - [Yêu cầu hệ thống](#-yêu-cầu-hệ-thống)
 - [Cài đặt & Cấu hình](#-cài-đặt--cấu-hình)
-- [Khởi chạy Infrastructure](#-khởi-chạy-infrastructure)
-- [Chạy ứng dụng](#-chạy-ứng-dụng)
-- [Database Migrations & Seeding](#-database-migrations--seeding)
+- [Khởi chạy ứng dụng](#-khởi-chạy-ứng-dụng)
+- [Database — Schema & Seed](#-database--schema--seed)
 - [Các module API](#-các-module-api)
 - [Biến môi trường](#-biến-môi-trường)
 - [Scripts tổng hợp](#-scripts-tổng-hợp)
 - [Swagger / API Docs](#-swagger--api-docs)
+- [Troubleshooting](#-troubleshooting)
 
 ---
 
@@ -64,10 +64,10 @@
 ```
 TicketBox/
 ├── apps/
-│   ├── api/               # NestJS backend
+│   ├── api/                   # NestJS backend
 │   │   ├── src/
 │   │   │   ├── config/        # Cấu hình ứng dụng & load-env
-│   │   │   ├── database/      # TypeORM DataSource, migrations, seed
+│   │   │   ├── database/      # TypeORM DataSource, migrations, seed runner
 │   │   │   ├── modules/       # Các domain module
 │   │   │   │   ├── auth/
 │   │   │   │   ├── users/
@@ -87,22 +87,25 @@ TicketBox/
 │   │   │   │   ├── health/
 │   │   │   │   └── queue/
 │   │   │   └── main.ts
+│   │   ├── migrations/        # Knex migration files
 │   │   ├── knexfile.js
-│   │   ├── seed.sql
 │   │   └── package.json
-│   ├── audience-web/      # Next.js — giao diện khán giả
-│   ├── admin-web/         # Next.js — giao diện quản trị
-│   ├── checkin-mobile/    # Expo — app check-in tại cổng
-│   └── worker/            # (reserved)
+│   ├── audience-web/          # Next.js — giao diện khán giả
+│   ├── admin-web/             # Next.js — giao diện quản trị
+│   └── checkin-mobile/        # Expo — app check-in tại cổng
 ├── infra/
+│   ├── db/
+│   │   └── seed.sql           # ← Schema + seed data (tự động chạy khi khởi tạo DB)
 │   └── docker-compose.yml
-├── packages/
-│   └── shared-types/
-├── .env                   # ← KHÔNG commit file này
+├── docs/                      # Tài liệu bổ sung
+├── blueprint/                 # Thiết kế & sơ đồ hệ thống
+├── .env                       # ← KHÔNG commit file này
 ├── .env.example
 ├── pnpm-workspace.yaml
 └── package.json
 ```
+
+> **Về `infra/db/seed.sql`:** File này chứa toàn bộ schema (CREATE TABLE, ENUMs, indexes) cùng dữ liệu seed (RBAC, users mẫu, concert demo). Được mount vào `/docker-entrypoint-initdb.d/` của container Postgres — PostgreSQL sẽ tự động thực thi file này khi volume DB được khởi tạo lần đầu tiên.
 
 ---
 
@@ -151,9 +154,9 @@ QR_TOKEN_SECRET=<secret>
 
 ---
 
-## 🐳 Khởi chạy & Chạy ứng dụng
+## 🐳 Khởi chạy ứng dụng
 
-> `docker-compose.yml` định nghĩa **đầy đủ** các service gồm `postgres`, `redis`, `minio`, `api`, `audience-web`, `admin-web`.  
+> `infra/docker-compose.yml` định nghĩa **đầy đủ** các service gồm `postgres`, `redis`, `minio`, `api`, `audience-web`, `admin-web`.  
 > Bạn có **2 cách** để chạy dự án:
 
 ---
@@ -211,47 +214,65 @@ pnpm run dev:mobile
 pnpm run infra:down
 ```
 
+---
 
-## 🗄 Database Migrations & Seeding
+## 🗄 Database — Schema & Seed
 
-### Chạy migrations
+### Cơ chế tự động (Docker)
+
+File `infra/db/seed.sql` được mount vào container Postgres tại `/docker-entrypoint-initdb.d/seed.sql`.  
+**PostgreSQL tự động thực thi file này khi volume DB được tạo lần đầu tiên** — nghĩa là bạn không cần chạy lệnh nào thêm sau `pnpm run infra:up` hoặc `pnpm run infra:services`.
+
+File `seed.sql` bao gồm:
+1. **Schema đầy đủ** — Tạo tất cả ENUMs, bảng và foreign key constraints
+2. **RBAC** — Permissions (39 quyền), Roles (`AUDIENCE`, `ORGANIZER`, `CHECKIN_STAFF`, `SYSTEM_ADMIN`), ánh xạ role-permissions
+3. **Users mẫu** — 4 tài khoản tương ứng với 4 role (xem bảng bên dưới)
+4. **Dữ liệu demo** — 2 artist, 4 concert (3 PUBLISHED + 1 DRAFT), ticket types, orders, payments, tickets, checkin logs, v.v.
+
+#### Tài khoản mẫu sau khi seed
+
+| Role | Email | Mật khẩu |
+|---|---|---|
+| `SYSTEM_ADMIN` | `admin@ticketbox.local` | `Admin@123456` |
+| `ORGANIZER` | `organizer@ticketbox.local` | `Organizer@123456` |
+| `CHECKIN_STAFF` | `staff@ticketbox.local` | `Staff@123456` |
+| `AUDIENCE` | `audience@ticketbox.local` | `Audience@123456` |
+
+> ⚠️ **Quan trọng:** Script chỉ chạy tự động khi volume Postgres **chưa tồn tại**. Nếu DB đã được khởi tạo trước đó, bạn cần chạy thủ công (xem bên dưới).
+
+---
+
+### Chạy seed thủ công (khi DB đã tồn tại)
 
 ```bash
-# Từ thư mục gốc
+# Yêu cầu: Postgres đang chạy và psql đã được cài đặt
+psql -h localhost -U ticketbox -d ticketbox -f infra/db/seed.sql
+
+# Hoặc qua Docker exec
+docker exec -i ticketbox-postgres psql -U ticketbox -d ticketbox < infra/db/seed.sql
+```
+
+---
+
+### Migrations (TypeORM)
+
+```bash
+# Chạy tất cả migrations
 pnpm run migration:run
 
-# Hoặc từ apps/api
-cd apps/api
-npx typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts
-```
-
-### Revert migration gần nhất
-
-```bash
+# Revert migration gần nhất
 pnpm run migration:revert
+
+# Tạo migration mới (từ apps/api)
+cd apps/api
+npx typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts src/database/migrations/<TenMigration>
 ```
 
-### Seed dữ liệu mẫu
-
-> **Yêu cầu trước khi chạy seed:**
-> - Infrastructure đang chạy (`pnpm run infra:up` hoặc `pnpm run infra:services`)
-> - Migrations đã được chạy (`pnpm run migration:run`)
-> - File `.env` đã điền đầy đủ (`DATABASE_PASSWORD`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`)
-
-Chạy từ **thư mục gốc**:
+### Seed runner (TypeScript)
 
 ```bash
+# Seed qua NestJS seed runner (RBAC + Ticket mẫu)
 pnpm run seed:run
-```
-
-Script seed sẽ:
-1. Khởi tạo RBAC — tạo các Permissions (`TICKET_CREATE`, `TICKET_VALIDATE`, `CONCERT_MANAGE`, `USER_BAN`) và Roles (`ADMIN`, `STAFF`, `AUDIENCE`).
-2. Tạo một bản ghi `Ticket` mẫu với trạng thái `ACTIVE`.
-
-#### Seed SQL thủ công (tuỳ chọn)
-
-```bash
-psql -U ticketbox -d ticketbox -f apps/api/seed.sql
 ```
 
 ---
@@ -323,9 +344,9 @@ pnpm run dev:admin-web     # Chạy admin Next.js (:3002)
 pnpm run dev:mobile        # Chạy Expo mobile
 
 # Database
-pnpm run migration:run     # Chạy tất cả migrations
+pnpm run migration:run     # Chạy tất cả migrations (TypeORM)
 pnpm run migration:revert  # Revert migration gần nhất
-pnpm run seed:run          # Seed dữ liệu mẫu (RBAC + Ticket mẫu)
+pnpm run seed:run          # Chạy seed runner TypeScript
 
 # Quality
 pnpm run build             # Build tất cả packages
@@ -361,3 +382,15 @@ openssl rand -hex 64
 
 ### Migrations không chạy
 → Đảm bảo infrastructure đã khởi động (`pnpm run infra:up`) và `DATABASE_URL` trong `.env` đã được cấu hình đúng.
+
+### DB không có dữ liệu sau khi `infra:up`
+→ `infra/db/seed.sql` chỉ chạy tự động khi volume Postgres **chưa tồn tại**. Nếu đã có volume từ lần chạy trước, chạy thủ công:
+```bash
+docker exec -i ticketbox-postgres psql -U ticketbox -d ticketbox < infra/db/seed.sql
+```
+Hoặc xoá volume cũ và khởi động lại:
+```bash
+pnpm run infra:down
+docker volume rm ticketbox_postgres_data
+pnpm run infra:up
+```
