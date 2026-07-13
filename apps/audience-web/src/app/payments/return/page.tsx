@@ -87,11 +87,13 @@ function PaymentOrderSummary({ order }: Readonly<{ order: AudienceOrder }>) {
 function PaymentReturnPageContent() {
   const searchParams = useSearchParams();
   const paymentStatus = normalizeStatus(searchParams.get('status') ?? searchParams.get('paymentStatus') ?? searchParams.get('orderStatus'));
-  const orderId = searchParams.get('orderId') ?? searchParams.get('order_id') ?? '';
+  const vnpTxnRef = searchParams.get('vnp_TxnRef');
+  const orderId = searchParams.get('orderId') ?? searchParams.get('order_id') ?? vnpTxnRef ?? '';
   const paymentId = searchParams.get('paymentId') ?? searchParams.get('payment_id') ?? '';
   const message = searchParams.get('message') ?? searchParams.get('error') ?? '';
   const [order, setOrder] = useState<AudienceOrder | null>(null);
   const [isLoading, setIsLoading] = useState(Boolean(orderId));
+  const [isProcessingCallback, setIsProcessingCallback] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isOpeningPayment, setIsOpeningPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -114,14 +116,44 @@ function PaymentReturnPageContent() {
   }, [orderId]);
 
   useEffect(() => {
-    if (orderId) {
-      const timer = window.setTimeout(() => {
-        void loadOrder();
-      }, 0);
+    let active = true;
 
-      return () => window.clearTimeout(timer);
-    }
-  }, [loadOrder, orderId]);
+    const init = async () => {
+      if (!orderId) return;
+
+      setIsLoading(true);
+      setErrorMessage(null);
+
+      try {
+        if (vnpTxnRef) {
+          setIsProcessingCallback(true);
+          const queryString = window.location.search.substring(1);
+          await paymentsService.handleVnpayCallback(queryString);
+        }
+        
+        const data = await ordersService.getOrderById(orderId);
+        if (active) {
+          setOrder(data);
+        }
+      } catch (error: unknown) {
+        if (active) {
+          setErrorMessage(extractApiMessages(error, 'Không thể xử lý thông tin đơn hàng.').join(' '));
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false);
+          setIsProcessingCallback(false);
+        }
+      }
+    };
+
+    void init();
+
+    return () => {
+      active = false;
+    };
+  }, [orderId, vnpTxnRef]);
+
 
   const derivedStatus = useMemo<PaymentReturnStatus>(() => {
     if (order?.status === 'PAID') return 'success';
@@ -247,6 +279,13 @@ function PaymentReturnPageContent() {
                   </p>
                 )}
               </div>
+
+              {isProcessingCallback && (
+                <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100 flex items-center gap-3">
+                  <ArrowClockwise className="animate-spin" size={18} />
+                  <span>Đang xác thực giao dịch và xử lý kết quả thanh toán từ VNPay...</span>
+                </div>
+              )}
 
               {errorMessage && (
                 <div className="mt-5 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm leading-6 text-rose-50">
