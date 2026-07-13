@@ -10,4 +10,10 @@ export const paymentsService = {
     });
     return response.data.data ?? response.data;
   },
+
+  handleVnpayCallback: async (queryString: string): Promise<any> => {
+    const response = await apiClient.get(`/payments/callback/vnpay?${queryString}`);
+    return response.data;
+  },
 };
+
