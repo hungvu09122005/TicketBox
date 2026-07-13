@@ -33,11 +33,21 @@ const seedIds = {
   artistTwo: 'd9b13f28-66d4-4f7d-9d8d-1c0a12ccf502',
   concertOne: '8a4c2d40-3a12-4b7d-b851-3b6e5de4c601',
   concertTwo: 'f4d8b3c9-1f39-4c1d-ae18-9b0d2ff8c602',
+  concertThree: '8a4c2d40-3a12-4b7d-b851-3b6e5de4c603',
+  concertFour: '8a4c2d40-3a12-4b7d-b851-3b6e5de4c604',
   ticketTypeVip: '6d6f0f4a-6d1d-42a4-9ac2-3bb74f0ac701',
   ticketTypeStandard: '8d6f0f4a-6d1d-42a4-9ac2-3bb74f0ac702',
   ticketTypeBackstage: '9d6f0f4a-6d1d-42a4-9ac2-3bb74f0ac703',
+  ticketTypeThreeVip: '6d6f0f4a-6d1d-42a4-9ac2-3bb74f0ac703',
+  ticketTypeThreeStd: '8d6f0f4a-6d1d-42a4-9ac2-3bb74f0ac704',
+  ticketTypeFourVip: '6d6f0f4a-6d1d-42a4-9ac2-3bb74f0ac705',
+  ticketTypeFourStd: '8d6f0f4a-6d1d-42a4-9ac2-3bb74f0ac706',
   seatZoneA: '1b6b64d0-6f5f-4f7a-9f4f-21db06bbd801',
   seatZoneB: '1b6b64d0-6f5f-4f7a-9f4f-21db06bbd802',
+  seatZoneThreeA: '1b6b64d0-6f5f-4f7a-9f4f-21db06bbd803',
+  seatZoneThreeB: '1b6b64d0-6f5f-4f7a-9f4f-21db06bbd804',
+  seatZoneFourA: '1b6b64d0-6f5f-4f7a-9f4f-21db06bbd805',
+  seatZoneFourB: '1b6b64d0-6f5f-4f7a-9f4f-21db06bbd806',
   orderPaid: 'aa8fa3b1-7fcb-4f1e-8f25-65fcbde5e901',
   orderPending: 'aa8fa3b1-7fcb-4f1e-8f25-65fcbde5e902',
   orderItemPaid: 'bb8fa3b1-7fcb-4f1e-8f25-65fcbde5ea01',
@@ -161,6 +171,36 @@ export async function seedFullData(dataSource: DataSource) {
     bannerObjectKey: 'concerts/acoustic-night-session/banner.jpg',
   });
 
+  const concertThree = await saveEntity(concertRepo, {
+    id: seedIds.concertThree,
+    name: 'Rock Arena 2026',
+    artists: [artistOne],
+    organizerId: organizer.id,
+    status: ConcertStatus.PUBLISHED,
+    startsAt: new Date('2026-09-05T18:00:00.000Z'),
+    endsAt: new Date('2026-09-05T21:00:00.000Z'),
+    saleStartsAt: new Date('2026-07-01T00:00:00.000Z'),
+    saleEndsAt: new Date('2026-09-01T23:59:59.000Z'),
+    venue: 'Hanoi Stadium',
+    description: 'Rock Arena concert for tests.',
+    bannerObjectKey: 'concerts/rock-arena-2026/banner.jpg',
+  });
+
+  const concertFour = await saveEntity(concertRepo, {
+    id: seedIds.concertFour,
+    name: 'Pop Deluxe Fest 2026',
+    artists: [artistTwo],
+    organizerId: organizer.id,
+    status: ConcertStatus.PUBLISHED,
+    startsAt: new Date('2026-09-25T19:00:00.000Z'),
+    endsAt: new Date('2026-09-25T22:00:00.000Z'),
+    saleStartsAt: new Date('2026-07-01T00:00:00.000Z'),
+    saleEndsAt: new Date('2026-09-20T23:59:59.000Z'),
+    venue: 'Da Nang Center',
+    description: 'Pop Deluxe concert for tests.',
+    bannerObjectKey: 'concerts/pop-deluxe-fest-2026/banner.jpg',
+  });
+
   const ticketTypeVip = await saveEntity(ticketTypeRepo, {
     id: seedIds.ticketTypeVip,
     concertId: concertOne.id,
@@ -200,6 +240,58 @@ export async function seedFullData(dataSource: DataSource) {
     saleEndsAt: new Date('2026-10-15T23:59:59.000Z'),
   });
 
+  const ticketTypeThreeVip = await saveEntity(ticketTypeRepo, {
+    id: seedIds.ticketTypeThreeVip,
+    concertId: concertThree.id,
+    name: 'VIP',
+    price: 2000000,
+    totalQuantity: 100,
+    soldQuantity: 0,
+    heldQuantity: 0,
+    maxPerUser: 4,
+    saleStartsAt: new Date('2026-07-01T00:00:00.000Z'),
+    saleEndsAt: new Date('2026-09-01T23:59:59.000Z'),
+  });
+
+  const ticketTypeThreeStd = await saveEntity(ticketTypeRepo, {
+    id: seedIds.ticketTypeThreeStd,
+    concertId: concertThree.id,
+    name: 'Standard',
+    price: 800000,
+    totalQuantity: 300,
+    soldQuantity: 0,
+    heldQuantity: 0,
+    maxPerUser: 6,
+    saleStartsAt: new Date('2026-07-01T00:00:00.000Z'),
+    saleEndsAt: new Date('2026-09-01T23:59:59.000Z'),
+  });
+
+  const ticketTypeFourVip = await saveEntity(ticketTypeRepo, {
+    id: seedIds.ticketTypeFourVip,
+    concertId: concertFour.id,
+    name: 'VIP',
+    price: 2500000,
+    totalQuantity: 80,
+    soldQuantity: 0,
+    heldQuantity: 0,
+    maxPerUser: 4,
+    saleStartsAt: new Date('2026-07-01T00:00:00.000Z'),
+    saleEndsAt: new Date('2026-09-20T23:59:59.000Z'),
+  });
+
+  const ticketTypeFourStd = await saveEntity(ticketTypeRepo, {
+    id: seedIds.ticketTypeFourStd,
+    concertId: concertFour.id,
+    name: 'Standard',
+    price: 900000,
+    totalQuantity: 250,
+    soldQuantity: 0,
+    heldQuantity: 0,
+    maxPerUser: 6,
+    saleStartsAt: new Date('2026-07-01T00:00:00.000Z'),
+    saleEndsAt: new Date('2026-09-20T23:59:59.000Z'),
+  });
+
   await saveEntity(seatZoneRepo, {
     id: seedIds.seatZoneA,
     concertId: concertOne.id,
@@ -214,6 +306,38 @@ export async function seedFullData(dataSource: DataSource) {
     name: 'Zone B',
     svgObjectKey: 'seat-maps/summer-pulse-live-2026/zone-b.svg',
     ticketTypeId: ticketTypeStandard.id,
+  });
+
+  await saveEntity(seatZoneRepo, {
+    id: seedIds.seatZoneThreeA,
+    concertId: concertThree.id,
+    name: 'Zone A',
+    svgObjectKey: 'seat-maps/rock-arena-2026/zone-a.svg',
+    ticketTypeId: ticketTypeThreeVip.id,
+  });
+
+  await saveEntity(seatZoneRepo, {
+    id: seedIds.seatZoneThreeB,
+    concertId: concertThree.id,
+    name: 'Zone B',
+    svgObjectKey: 'seat-maps/rock-arena-2026/zone-b.svg',
+    ticketTypeId: ticketTypeThreeStd.id,
+  });
+
+  await saveEntity(seatZoneRepo, {
+    id: seedIds.seatZoneFourA,
+    concertId: concertFour.id,
+    name: 'Zone A',
+    svgObjectKey: 'seat-maps/pop-deluxe-fest-2026/zone-a.svg',
+    ticketTypeId: ticketTypeFourVip.id,
+  });
+
+  await saveEntity(seatZoneRepo, {
+    id: seedIds.seatZoneFourB,
+    concertId: concertFour.id,
+    name: 'Zone B',
+    svgObjectKey: 'seat-maps/pop-deluxe-fest-2026/zone-b.svg',
+    ticketTypeId: ticketTypeFourStd.id,
   });
 
   const paidOrder = await saveEntity(orderRepo, {

@@ -218,7 +218,7 @@ function PaymentReturnPageContent() {
             </div>
           </motion.div>
 
-          <div className="mt-6 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+          <div className="mt-6">
             <div className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -265,63 +265,6 @@ function PaymentReturnPageContent() {
                   Đang tải thông tin đơn hàng...
                 </div>
               )}
-            </div>
-
-            <div className="space-y-6">
-              <div className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Tiếp theo</p>
-                <div className="mt-4 space-y-3 text-sm leading-6 text-white/70">
-                  <p>• Nếu trạng thái đang chờ, vui lòng đợi thêm trong giây lát.</p>
-                  <p>• Nếu thanh toán thành công, vé sẽ sớm được phát hành vào tài khoản của bạn.</p>
-                  <p>• Nếu giao dịch thất bại hoặc hết hạn, bạn có thể quay lại sự kiện để đặt lại.</p>
-                </div>
-                <div className="mt-5 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => void loadOrder()}
-                    disabled={!orderId || isLoading}
-                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <ArrowClockwise size={16} />
-                    {isLoading ? 'Đang cập nhật...' : 'Kiểm tra lại'}
-                  </button>
-                  {orderId ? (
-                    <Link
-                      href="/orders"
-                      className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-                    >
-                      Mở đơn hàng
-                    </Link>
-                  ) : null}
-                  {orderId && derivedStatus === 'pending' ? (
-                    <button
-                      type="button"
-                      onClick={() => void handleOpenSandboxPayment()}
-                      disabled={isOpeningPayment}
-                      className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isOpeningPayment ? 'Đang mở thanh toán...' : 'Mở lại thanh toán'}
-                    </button>
-                  ) : null}
-                </div>
-                {paymentError ? (
-                  <div className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm leading-6 text-rose-50">
-                    {paymentError}
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">Liên kết nhanh</p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <Link href="/concerts" className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5">
-                    Về danh sách sự kiện
-                  </Link>
-                  <Link href="/tickets" className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10">
-                    Vé của tôi
-                  </Link>
-                </div>
-              </div>
             </div>
           </div>
 

@@ -4,7 +4,9 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
 import { BullModule, Processor } from '@nestjs/bull';
 import { CacheModule } from '@nestjs/cache-manager';
-import * as redisStore from 'cache-manager-ioredis';
+import { Keyv } from 'keyv';
+import { KeyvAdapter } from 'cache-manager';
+import { redisStore } from 'cache-manager-redis-yet';
 import { LoggerModule } from 'nestjs-pino';
 import configuration from './config/configuration';
 import { DatabaseModule } from './database/database.module';
@@ -73,13 +75,23 @@ import { BootstrapService } from '@database/bootstrap.service';
 
     CacheModule.registerAsync({
       isGlobal: true,
-      useFactory: () => ({
-        
-        store: redisStore,
-        host: process.env.REDIS_HOST ?? 'localhost',
-        port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
-        ttl: 60,
-      }),
+      useFactory: async () => {
+        const store = await redisStore({
+          socket: {
+            host: process.env.REDIS_HOST ?? 'localhost',
+            port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+          },
+          password: process.env.REDIS_PASSWORD || undefined,
+          ttl: 60 * 1000,
+        });
+        return {
+          stores: [
+            new Keyv({
+              store: new KeyvAdapter(store),
+            }),
+          ],
+        };
+      },
     }),
 
     RedisModule,
