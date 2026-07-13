@@ -15,10 +15,12 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "infra:up": "docker compose -f infra/docker-compose.yml up -d --build",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d",
+    "infra:services": "docker compose -f infra/docker-compose.yml up -d postgres redis minio",
     "infra:down": "docker compose -f infra/docker-compose.yml down",
     "migration:run": "pnpm --filter @ticketbox/api migration:run",
-    "migration:revert": "pnpm --filter @ticketbox/api migration:revert"
+    "migration:revert": "pnpm --filter @ticketbox/api migration:revert",
+    "seed:run": "pnpm --filter @ticketbox/api seed:run"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

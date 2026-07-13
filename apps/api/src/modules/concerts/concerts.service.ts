@@ -58,8 +58,12 @@ export class ConcertsService {
   ): Promise<PublicConcertDto[]> {
     const cacheKey = `concerts:published:list:${page}:${limit}:${timeFilter || 'all'}`;
     const cached = await this.cache.get<PublicConcertDto[]>(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      this.logger.log(`[Cache Hit] Key: ${cacheKey}`);
+      return cached;
+    }
 
+    this.logger.log(`[Cache Miss] Key: ${cacheKey}`);
     const concerts = await this.concertsRepository.findPublished(page, limit, timeFilter);
     const ttl = this.config.get<number>('app.cache.concertListTtl', 60) * 1000;
     const payload = await this.mapConcertsToPublicDtos(concerts, 'published');
@@ -71,9 +75,13 @@ export class ConcertsService {
     const cacheKey = `concerts:detail:${id}`;
     if (this.cache) {
       const cached = await this.cache.get<PublicConcertDto>(cacheKey);
-      if (cached) return cached;
+      if (cached) {
+        this.logger.log(`[Cache Hit] Key: ${cacheKey}`);
+        return cached;
+      }
     }
 
+    this.logger.log(`[Cache Miss] Key: ${cacheKey}`);
     const concert = await this.concertsRepository.findById(id);
     if (!concert) throw new NotFoundException(`Concert ${id} not found.`);
 

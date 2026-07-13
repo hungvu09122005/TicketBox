@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
+// import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -31,6 +31,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as qs from 'qs';
 import * as path from 'path';
+const projectRoot = path.resolve(__dirname, '..');
 import * as dotenv from 'dotenv';
 import { URL } from 'url';
 import { workspaceRoot } from '../src/config/load-env';
@@ -313,7 +314,9 @@ describe('TicketBox Integration Tests (Real Database)', () => {
       }
     }
 
-    const signData = qs.stringify(sorted, { encode: false });
+    const signData = Object.entries(sorted)
+      .map(([key, val]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(val)).replace(/%20/g, '+')}`)
+      .join('&');
     const hmac = crypto.createHmac('sha512', hashSecret);
     const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
 
@@ -588,12 +591,15 @@ describe('TicketBox Integration Tests (Real Database)', () => {
 
       try {
         const res1 = await fetch(`http://127.0.0.1:${port}/api/v1/payments/callback/vnpay?${queryStr}`);
+        const body1 = await res1.json();
+        console.log('--- RES1 BODY ---', body1);
         expect(res1.status).toBe(200);
 
         const res2 = await fetch(`http://127.0.0.1:${port}/api/v1/payments/callback/vnpay?${queryStr}`);
+        const body2 = await res2.json();
+        console.log('--- RES2 BODY ---', body2);
         expect(res2.status).toBe(200);
 
-        const body2 = await res2.json();
         expect(body2.success).toBe(true);
         expect(body2.message).toBe('Already processed');
 
