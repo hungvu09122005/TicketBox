@@ -8,6 +8,8 @@ import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-
 import { Permission } from '../../common/constants/permissions.enum';
 import { CsvImportService } from './csv-import.service';
 import { CsvImportJobStatus } from './entities/csv-import-job.entity';
+import { RateLimitPolicy } from '../../common/decorators/rate-limit.decorator';
+import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 
 @ApiTags('csv-import')
 @ApiBearerAuth()
@@ -17,6 +19,8 @@ export class CsvImportController {
   constructor(private readonly csvImportService: CsvImportService) {}
 
   @Post('csv')
+  @RateLimitPolicy('admin')
+  @UseGuards(JwtAuthGuard, RbacGuard, RateLimitGuard)
   @RequirePermissions(Permission.VIP_IMPORT)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
@@ -35,6 +39,8 @@ export class CsvImportController {
   }
 
   @Post('csv/storage-sync')
+  @RateLimitPolicy('admin')
+  @UseGuards(JwtAuthGuard, RbacGuard, RateLimitGuard)
   @RequirePermissions(Permission.VIP_IMPORT)
   async enqueueStoredCsv(
     @CurrentUser() user: AuthenticatedUser,

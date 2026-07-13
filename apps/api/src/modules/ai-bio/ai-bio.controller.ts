@@ -8,6 +8,8 @@ import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-
 import { Permission } from '../../common/constants/permissions.enum';
 import { AiBioService } from './ai-bio.service';
 import { AiBioTargetType } from './entities/ai-bio-request.entity';
+import { RateLimitPolicy } from '../../common/decorators/rate-limit.decorator';
+import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 
 @ApiTags('ai-bio')
 @ApiBearerAuth()
@@ -17,6 +19,8 @@ export class AiBioController {
   constructor(private readonly aiBioService: AiBioService) {}
 
   @Post()
+  @RateLimitPolicy('admin')
+  @UseGuards(JwtAuthGuard, RbacGuard, RateLimitGuard)
   @RequirePermissions(Permission.AI_GENERATE_BIO)
   @UseInterceptors(FileInterceptor('pdf'))
   @ApiConsumes('multipart/form-data')

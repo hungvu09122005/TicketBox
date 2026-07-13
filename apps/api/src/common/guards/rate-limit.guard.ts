@@ -9,12 +9,12 @@ interface RateLimitConfig {
 }
 
 const POLICIES: Record<RateLimitPolicyName, RateLimitConfig> = {
-  public: { limit: 100, windowSeconds: 60 },
-  order: { limit: 5, windowSeconds: 60 },
-  payment: { limit: 5, windowSeconds: 60 },
-  checkin: { limit: 60, windowSeconds: 60 },
-  sync: { limit: 5, windowSeconds: 60 },
-  admin: { limit: 30, windowSeconds: 60 },
+  public:  { limit: 100, windowSeconds: 60 },   // Blueprint §07 mục 1.2: 100 req/min theo IP
+  order:   { limit: 5,   windowSeconds: 60 },   // Blueprint §07 mục 1.2: 5 req/min theo User ID
+  payment: { limit: 5,   windowSeconds: 60 },   // Blueprint §07 mục 1.2: 5 req/min theo User ID
+  checkin: { limit: 60,  windowSeconds: 60 },   // Blueprint §07 mục 1.2: 60 req/min theo Device+Staff
+  sync:    { limit: 10,  windowSeconds: 60 },   // Blueprint §07 mục 1.2: 10 req/min theo Device+Staff
+  admin:   { limit: 3,   windowSeconds: 60 },   // Blueprint §07 mục 1.2: 3 req/min theo Staff ID
 };
 
 @Injectable()
