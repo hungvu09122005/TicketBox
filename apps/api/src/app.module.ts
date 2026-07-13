@@ -84,6 +84,9 @@ import { BootstrapService } from '@database/bootstrap.service';
           password: process.env.REDIS_PASSWORD || undefined,
           ttl: 60 * 1000,
         });
+        store.client.on('error', (err) => {
+          console.error('Redis Cache Client Socket Error:', err);
+        });
         return {
           stores: [
             new Keyv({

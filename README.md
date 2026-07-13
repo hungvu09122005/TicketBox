@@ -24,7 +24,9 @@ cd TicketBox
 *Lưu ý: Tất cả các lệnh tiếp theo trong tài liệu này đều phải được thực thi từ thư mục gốc của dự án (`TicketBox`).*
 
 ### Bước 2.2: Khởi động Hạ tầng Docker
-Chạy lệnh sau từ thư mục `TicketBox` để khởi động các container cơ sở dữ liệu:
+*Lưu ý: Hãy chắc chắn rằng ứng dụng **Docker Desktop** (hoặc Docker Daemon) đã được mở và đang hoạt động trên máy tính của bạn trước khi chạy lệnh dưới đây.*
+
+Chạy lệnh sau từ thư mục `TicketBox` để khởi động các container cơ sở dữ liệu (PostgreSQL, Redis, MinIO) chạy dưới nền:
 ```bash
 docker compose -f infra/docker-compose.yml up -d postgres redis minio
 ```
@@ -39,8 +41,8 @@ cp .env.example .env
 ### Bước 2.3: Seed Dữ liệu mẫu (Database Seeding)
 Chạy lệnh sau để tạo cấu trúc bảng và nạp đầy đủ **4 concert mẫu**, loại vé, giá, phân quyền RBAC và sơ đồ chỗ ngồi:
 ```bash
-# Nạp từ script seed full của backend
-pnpm --filter @ticketbox/api seed
+# Nạp dữ liệu từ custom script seed của backend
+pnpm --filter @ticketbox/api run seed
 ```
 Hoặc nếu bạn khởi chạy cơ sở dữ liệu bằng SQL script thủ công:
 ```bash
