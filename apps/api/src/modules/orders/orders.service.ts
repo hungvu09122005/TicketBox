@@ -4,7 +4,7 @@ import { Cache } from 'cache-manager';
 import { Logger } from 'nestjs-pino';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, EntityManager } from 'typeorm';
 import { InjectDataSource,InjectRepository } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
 import { ConcertsService } from '../concerts/concerts.service';
@@ -183,14 +183,9 @@ export class OrdersService {
     return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
-  /**
-   * Được gọi khi Payment Gateway báo thanh toán thành công
-   */
-  async markPaid(orderId: string, paymentId: string): Promise<Order> {
-    let order: Order | null = null; // Khai báo order bên ngoài để dùng sau transaction
-
-    await this.dataSource.transaction(async (manager) => {
-      order = await manager
+  async markPaid(orderId: string, paymentId: string, manager?: EntityManager): Promise<Order> {
+    const run = async (m: EntityManager) => {
+      const order = await m
         .createQueryBuilder(Order, 'o')
         .leftJoinAndSelect('o.user', 'u')
         .where('o.id::text = :id', { id: orderId })
@@ -203,29 +198,19 @@ export class OrdersService {
       }
 
       order.status = OrderStatus.PAID;
-      await manager.save(order);
-      await this.ticketTypesService.confirmInventory(order.ticketTypeId, order.quantity, manager);
+      await m.save(order);
+      await this.ticketTypesService.confirmInventory(order.ticketTypeId, order.quantity, m);
       await this.cache.del(`concert:${order.concertId}:availability`);
-    });
+      return order;
+    };
 
-    // GỬI MAIL SAU KHI TRANSACTION XONG
-    //if (order && (order as Order).user?.email) {
-      //const userEmail = (order as Order).user.email;
-      //this.mailService.sendEmail({
-      //to: userEmail,
-      //subject: '[TicketBox] Payment confirmed',
-   //html: `
-      //<h2>TicketBox Payment Confirmed</h2>
-      //<p>Thanh toán của bạn đã được xác nhận.</p>
-      //<p>Order ID: ${orderId}</p>
-    //`,
-    //text: `TicketBox Payment Confirmed\nOrder ID: ${orderId}`,
- // }).catch((err: Error) => {
-   // this.logger.error(`Gửi mail thất bại cho đơn ${orderId}: ${err.message}`);
- // });
-  //  }
-    
-    return order!;
+    if (manager) {
+      return await run(manager);
+    } else {
+      return await this.dataSource.transaction(async (m) => {
+        return await run(m);
+      });
+    }
   }
 
   /**
@@ -249,20 +234,27 @@ export class OrdersService {
   /**
    * Xử lý khi payment thất bại
    */
-  async markPaymentFailed(orderId: string): Promise<void> {
-    await this.dataSource.transaction(async (manager) => {
-      const order = await manager
+  async markPaymentFailed(orderId: string, manager?: EntityManager): Promise<void> {
+    const run = async (m: EntityManager) => {
+      const order = await m
         .createQueryBuilder(Order, 'o')
         .where('o.id::text = :id', { id: orderId })
         .getOne();
       if (order && order.status === OrderStatus.PENDING_PAYMENT) {
         order.status = OrderStatus.PAYMENT_FAILED;
-        await manager.save(order);
-        await this.ticketTypesService.releaseInventory(order.ticketTypeId, order.quantity, manager);
+        await m.save(order);
+        await this.ticketTypesService.releaseInventory(order.ticketTypeId, order.quantity, m);
         await this.cache.del(`concert:${order.concertId}:availability`);
         this.logger.log({ msg: 'Audit: Payment failed', orderId: order.id });
       }
-    });
+    };
+
+    if (manager) {
+      await run(manager);
+    } else {
+      await this.dataSource.transaction(async (m) => {
+        await run(m);
+      });
+    }
   }
-  
 }

@@ -2,6 +2,7 @@ import { Injectable, Inject, Logger, NotFoundException, ForbiddenException, BadR
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
+import { RedisService } from '../redis/redis.service';
 import { ConcertsRepository } from './concerts.repository';
 import { SeatZoneRepository } from './seat-zone.repository';
 import { Concert, ConcertStatus } from './entities/concert.entity';
@@ -28,6 +29,7 @@ export class ConcertsService {
     @Inject(OBJECT_STORAGE_PORT) private readonly storage: ObjectStoragePort,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
     private readonly config: ConfigService,
+    private readonly redisService: RedisService,
   ) { }
 
   // Thêm vào class ConcertsService
@@ -191,28 +193,34 @@ export class ConcertsService {
   }
 
   async invalidateCacheFor(concertId: string): Promise<void> {
-    const cacheAny = this.cache as any;
-    const store = cacheAny.store || (cacheAny.stores && cacheAny.stores[0]);
+    const redis = this.redisService.getClient();
     try {
-      if (store && store.client && typeof store.client.keys === 'function') {
-        const keys = await store.client.keys('concerts:published:list:*');
-        if (keys && keys.length > 0) {
-          await store.client.del(...keys);
-        }
-      } else if (store && typeof store.keys === 'function') {
-        const keys = await store.keys('concerts:published:list:*');
-        for (const key of keys) {
-          await this.cache.del(key);
-        }
-      } else {
-        await this.cache.del('concerts:published:list'); // Fallback
+      // Keyv prefix-namespaces cache keys with 'keyv:' by default
+      const keys = await redis.keys('*concerts:published:list:*');
+      if (keys && keys.length > 0) {
+        await redis.del(...keys);
       }
     } catch (error) {
-      // Ignore cache clear errors
+      this.logger.error(`Failed to invalidate list cache: ${error.message}`);
     }
-    
-    await this.cache.del(`concerts:detail:${concertId}`);
-    await this.cache.del(`concert:${concertId}:banner`);
+
+    try {
+      const detailKeys = await redis.keys(`*concerts:detail:${concertId}*`);
+      if (detailKeys && detailKeys.length > 0) {
+        await redis.del(...detailKeys);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to invalidate detail cache: ${error.message}`);
+    }
+
+    try {
+      const availKeys = await redis.keys(`*concert:${concertId}:availability*`);
+      if (availKeys && availKeys.length > 0) {
+        await redis.del(...availKeys);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to invalidate availability cache: ${error.message}`);
+    }
   }
 
   async checkOwnership(concertId: string, userId: string, isAdmin: boolean): Promise<Concert> {
