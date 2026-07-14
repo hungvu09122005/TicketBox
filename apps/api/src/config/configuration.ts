@@ -24,13 +24,14 @@ export default registerAs('app', () => ({
     url: process.env.REDIS_URL ?? 'redis://localhost:6379',
   },
 
-  minio: {
-    endpoint: process.env.MINIO_ENDPOINT ?? 'localhost',
-    port: parseInt(process.env.MINIO_PORT ?? '9000', 10),
-    useSsl: process.env.MINIO_USE_SSL === 'true',
-    accessKey: process.env.MINIO_ACCESS_KEY ?? '',
-    secretKey: process.env.MINIO_SECRET_KEY ?? '',
-    bucketName: process.env.MINIO_BUCKET_NAME ?? 'ticketbox',
+  s3: {
+    endpoint: process.env.S3_ENDPOINT ?? 'localhost',
+    port: parseInt(process.env.S3_PORT ?? '9000', 10),
+    useSsl: process.env.S3_USE_SSL === 'true',
+    accessKey: process.env.S3_ACCESS_KEY ?? '',
+    secretKey: process.env.S3_SECRET_KEY ?? '',
+    bucketName: process.env.S3_BUCKET_NAME ?? 'ticketbox',
+    region: process.env.S3_REGION ?? 'us-east-1',
   },
 
   jwt: {

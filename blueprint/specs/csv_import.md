@@ -7,7 +7,7 @@ Cho phép Ban tổ chức (Organizer) tải lên tệp tin CSV chứa danh sách
 
 ## 2. Luồng chính (Main Flow)
 1. Organizer chọn concert và tải lên file CSV từ Admin Web App.
-2. Backend API nhận file, thực hiện validate định dạng cột (Header). Nếu hợp lệ, lưu file vào Object Storage (MinIO/S3).
+2. Backend API nhận file, thực hiện validate định dạng cột (Header). Nếu hợp lệ, lưu file vào Object Storage (Supabase Storage/S3).
 3. Backend tạo bản ghi `csv_import_jobs` với `status = PENDING`.
 4. Enqueue job vào BullMQ và phản hồi ngay `jobId` cho Admin Web App (HTTP 201).
 5. Queue Worker nhận job, thực hiện tải file từ Object Storage và đọc file theo dạng luồng (Stream) chia thành từng khối (Chunk).

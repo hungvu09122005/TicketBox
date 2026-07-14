@@ -10,7 +10,7 @@ Hệ thống phân rã dữ liệu thành các kho lưu trữ chuyên biệt tù
 
 * **PostgreSQL:** Đóng vai trò là trung tâm dữ liệu ACID, chịu trách nhiệm lưu trữ các giao dịch tài chính, thông tin phân quyền RBAC, dữ liệu vé và thông tin người dùng.
 * **Redis:** Dùng cho Cache-aside (giảm tải đọc concert), Rate Limiting, waiting room, idempotency tạm thời và short-lived coordination ở tầng ứng dụng. Redis không lưu dữ liệu quyết định như `sold_quantity` và không quyết định cuối cùng việc còn vé hay không. Khi tạo order, Backend luôn kiểm tra lại tồn vé trong PostgreSQL transaction bằng pessimistic row-level lock trước khi commit.
-* **Object Storage (MinIO/S3):** Lưu trữ các tệp tin phi cấu trúc có dung lượng lớn như file SVG sơ đồ ghế (Seat map), file CSV danh sách khách VIP và file PDF Press Kit của nghệ sĩ.
+* **Object Storage (Supabase Storage/S3):** Lưu trữ các tệp tin phi cấu trúc có dung lượng lớn như file SVG sơ đồ ghế (Seat map), file CSV danh sách khách VIP và file PDF Press Kit của nghệ sĩ.
 * **Mobile Local Storage (SQLite):** Cơ sở dữ liệu nhúng tại thiết bị của nhân sự soát vé, phục vụ lưu kho vé offline và ghi nhận log check-in cục bộ trước khi đồng bộ.
 
 ```mermaid
@@ -32,7 +32,7 @@ flowchart TB
     subgraph Phân_Lớp_Lưu_Trữ_Dữ_Liệu ["Hạ Tầng Lưu Trữ & Cache"]
         DB[(PostgreSQL\nSource of Truth)]:::storage
         REDIS[(Redis\nCache / Rate Limit / Waiting Room\nShort-lived Coordination)]:::storage
-        STORAGE[(Object Storage\nS3 / MinIO)]:::storage
+        STORAGE[(Object Storage\nS3 / Supabase Storage)]:::storage
     end
 
     %% Đi dây luồng dữ liệu
@@ -206,7 +206,7 @@ Schema bên dưới phản ánh trực tiếp từ TypeORM entity trong codebase
 | `sale_ends_at` | TIMESTAMPTZ | NULLABLE | Đóng bán lúc |
 | `venue` | TEXT | NULLABLE | Địa điểm |
 | `description` | TEXT | NULLABLE | Mô tả |
-| `banner_object_key` | VARCHAR | NULLABLE | Key trong Object Storage (MinIO/S3) |
+| `banner_object_key` | VARCHAR | NULLABLE | Key trong Object Storage (Supabase Storage/S3) |
 | `created_at` | TIMESTAMPTZ | NOT NULL, AUTO | — |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, AUTO | — |
 

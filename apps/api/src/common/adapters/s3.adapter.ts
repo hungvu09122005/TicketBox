@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
@@ -15,23 +15,23 @@ import {
 import { Readable } from 'stream';
 
 @Injectable()
-export class MinioObjectStorageAdapter implements ObjectStoragePort {
+export class S3ObjectStorageAdapter implements ObjectStoragePort {
   private s3: S3Client;
-  private bucket = process.env.MINIO_BUCKET_NAME || 'ticketbox';
+  private bucket = process.env.S3_BUCKET_NAME || 'ticketbox';
 
   constructor() {
-    const rawEndpoint = process.env.MINIO_ENDPOINT || '127.0.0.1';
-    const port = process.env.MINIO_PORT || '9000';
+    const rawEndpoint = process.env.S3_ENDPOINT || '127.0.0.1';
+    const port = process.env.S3_PORT || '9000';
     const endpoint = /^https?:\/\//i.test(rawEndpoint)
       ? rawEndpoint
       : `http://${rawEndpoint}:${port}`;
 
     this.s3 = new S3Client({
       endpoint,
-      region: 'us-east-1',
+      region: process.env.S3_REGION || 'us-east-1',
       credentials: {
-        accessKeyId: process.env.MINIO_ACCESS_KEY!,
-        secretAccessKey: process.env.MINIO_SECRET_KEY!,
+        accessKeyId: process.env.S3_ACCESS_KEY!,
+        secretAccessKey: process.env.S3_SECRET_KEY!,
       },
       forcePathStyle: true,
     });

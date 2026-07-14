@@ -212,6 +212,7 @@ export class ConcertsService {
     }
     
     await this.cache.del(`concerts:detail:${concertId}`);
+    await this.cache.del(`concert:${concertId}:banner`);
   }
 
   async checkOwnership(concertId: string, userId: string, isAdmin: boolean): Promise<Concert> {
@@ -245,11 +246,13 @@ export class ConcertsService {
   }
 
   async update(id: string, organizerId: string, isAdmin: boolean, dto: UpdateConcertDto): Promise<Concert> {
+    console.log('DEBUG UPDATE CONCERT RECEIVED DTO:', JSON.stringify(dto));
     const concert = await this.checkOwnership(id, organizerId, isAdmin);
     const { artistIds, ...updateData } = dto;
     const scalarUpdates = Object.fromEntries(
       Object.entries(updateData).filter(([, value]) => value !== undefined),
     );
+    console.log('DEBUG UPDATE CONCERT SCALAR UPDATES:', JSON.stringify(scalarUpdates));
 
     Object.assign(concert, scalarUpdates);
 

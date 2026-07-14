@@ -65,7 +65,14 @@ export class OrdersService {
         .select('SUM(order.quantity)', 'total')
         .where('order.userId = :userId', { userId })
         .andWhere('order.ticketTypeId = :ticketTypeId', { ticketTypeId: dto.ticketTypeId })
-        .andWhere('order.status IN (:...statuses)', { statuses: [OrderStatus.PENDING_PAYMENT, OrderStatus.PAID] })
+        .andWhere(
+          '(order.status = :paidStatus OR (order.status = :pendingStatus AND order.expiresAt > :now))',
+          {
+            paidStatus: OrderStatus.PAID,
+            pendingStatus: OrderStatus.PENDING_PAYMENT,
+            now: new Date(),
+          }
+        )
         .getRawOne();
       console.log('TX STEP 6: after existingOrders query', existingOrders);
 
