@@ -1,0 +1,5 @@
+guest_external_id,full_name,email,phone,sponsor,ticket_type,gate,note
+ATVNCG-VIP-001,Hoang Gia Bao,gia.bao@example.com,+84902230001,Outdoor Sponsor,SVIP,VIP-1,Executive guest
+ATVNCG-VIP-002,Dang Minh Chau,minh.chau@example.com,+84902230002,Outdoor Sponsor,VIP,VIP-1,Partner guest
+ATVNCG-VIP-003,Vu Thanh Dat,thanh.dat@example.com,+84902230003,Media Partner,VIP,VIP-2,Press guest
+ATVNCG-VIP-004,Do Mai Phuong,mai.phuong@example.com,+84902230004,Media Partner,SVIP,VIP-1,Sponsor guest

@@ -1,0 +1,88 @@
+{
+  "version": "1.0",
+  "source": "TicketBox blueprint object-storage samples",
+  "concerts": [
+    {
+      "slug": "anh-trai-say-hi",
+      "name": "Anh Trai Say Hi",
+      "venue": "My Dinh National Stadium",
+      "seatMapObjectKey": "seat-maps/anh-trai-say-hi.svg",
+      "guestListObjectKey": "guest-lists/anh-trai-say-hi-vip-guests.csv",
+      "pressKitObjectKey": "press-kits/anh-trai-say-hi-press-kit.pdf",
+      "ticketTypes": [
+        { "name": "SVIP", "price": 5500000, "totalQuantity": 200, "maxPerUser": 2 },
+        { "name": "VIP", "price": 3500000, "totalQuantity": 1200, "maxPerUser": 2 },
+        { "name": "CAT1", "price": 2200000, "totalQuantity": 4500, "maxPerUser": 4 },
+        { "name": "CAT2", "price": 1500000, "totalQuantity": 8000, "maxPerUser": 4 },
+        { "name": "GA", "price": 900000, "totalQuantity": 12000, "maxPerUser": 4 }
+      ]
+    },
+    {
+      "slug": "anh-trai-vuot-ngan-chong-gai",
+      "name": "Anh Trai Vuot Ngan Chong Gai",
+      "venue": "Phu Tho Indoor Stadium",
+      "seatMapObjectKey": "seat-maps/anh-trai-vuot-ngan-chong-gai.svg",
+      "guestListObjectKey": "guest-lists/anh-trai-vuot-ngan-chong-gai-vip-guests.csv",
+      "pressKitObjectKey": "press-kits/anh-trai-vuot-ngan-chong-gai-press-kit.pdf",
+      "ticketTypes": [
+        { "name": "SVIP", "price": 4800000, "totalQuantity": 300, "maxPerUser": 2 },
+        { "name": "VIP", "price": 3200000, "totalQuantity": 1000, "maxPerUser": 2 },
+        { "name": "CAT1", "price": 2000000, "totalQuantity": 3600, "maxPerUser": 4 },
+        { "name": "CAT2", "price": 1300000, "totalQuantity": 5600, "maxPerUser": 4 },
+        { "name": "GA", "price": 800000, "totalQuantity": 7000, "maxPerUser": 4 }
+      ]
+    },
+    {
+      "slug": "em-xinh-say-hi",
+      "name": "Em Xinh Say Hi",
+      "venue": "Saigon Exhibition and Convention Center",
+      "seatMapObjectKey": "seat-maps/em-xinh-say-hi.svg",
+      "guestListObjectKey": "guest-lists/em-xinh-say-hi-vip-guests.csv",
+      "pressKitObjectKey": "press-kits/em-xinh-say-hi-press-kit.pdf",
+      "ticketTypes": [
+        { "name": "SVIP", "price": 5200000, "totalQuantity": 250, "maxPerUser": 2 },
+        { "name": "VIP", "price": 3400000, "totalQuantity": 1100, "maxPerUser": 2 },
+        { "name": "CAT1", "price": 2100000, "totalQuantity": 4000, "maxPerUser": 4 },
+        { "name": "CAT2", "price": 1400000, "totalQuantity": 6200, "maxPerUser": 4 },
+        { "name": "GA", "price": 850000, "totalQuantity": 9000, "maxPerUser": 4 }
+      ]
+    },
+    {
+      "slug": "chi-dep-dap-gio-re-song",
+      "name": "Chi Dep Dap Gio Re Song",
+      "venue": "Quan Khu 7 Stadium",
+      "seatMapObjectKey": "seat-maps/chi-dep-dap-gio-re-song.svg",
+      "guestListObjectKey": "guest-lists/chi-dep-dap-gio-re-song-vip-guests.csv",
+      "pressKitObjectKey": "press-kits/chi-dep-dap-gio-re-song-press-kit.pdf",
+      "ticketTypes": [
+        { "name": "SVIP", "price": 6000000, "totalQuantity": 220, "maxPerUser": 2 },
+        { "name": "VIP", "price": 3800000, "totalQuantity": 1400, "maxPerUser": 2 },
+        { "name": "CAT1", "price": 2400000, "totalQuantity": 5200, "maxPerUser": 4 },
+        { "name": "CAT2", "price": 1600000, "totalQuantity": 9000, "maxPerUser": 4 },
+        { "name": "GA", "price": 950000, "totalQuantity": 16000, "maxPerUser": 4 }
+      ]
+    }
+  ],
+  "csvColumns": [
+    "guest_external_id",
+    "full_name",
+    "email",
+    "phone",
+    "sponsor",
+    "ticket_type",
+    "gate",
+    "note"
+  ],
+  "aiBioTestFiles": [
+    {
+      "targetType": "ARTIST",
+      "objectKey": "press-kits/artist-ai-bio-test.pdf",
+      "note": "Sample PDF for testing artist biography generation."
+    },
+    {
+      "targetType": "CONCERT",
+      "objectKey": "press-kits/concert-ai-bio-test.pdf",
+      "note": "Sample PDF for testing concert introduction generation."
+    }
+  ]
+}
