@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" role="img" aria-labelledby="title desc">
+  <title id="title">Chi Dep Dap Gio Re Song seat map</title>
+  <desc id="desc">Stadium seat map with GA, SVIP, VIP, CAT1, and CAT2 zones.</desc>
+  <rect width="960" height="640" fill="#f8fafc"/>
+  <rect x="280" y="38" width="400" height="90" rx="8" fill="#111827"/>
+  <text x="480" y="94" text-anchor="middle" font-family="Arial" font-size="30" fill="#ffffff">STAGE</text>
+  <g id="zone-svip" data-zone="SVIP" data-ticket-type="SVIP" data-capacity="220">
+    <path d="M350 155 H610 L640 260 H320 Z" fill="#f97316" stroke="#9a3412" stroke-width="3"/>
+    <text x="480" y="220" text-anchor="middle" font-family="Arial" font-size="30" fill="#111827">SVIP</text>
+  </g>
+  <g id="zone-vip" data-zone="VIP" data-ticket-type="VIP" data-capacity="1400">
+    <path d="M250 282 H710 L750 390 H210 Z" fill="#facc15" stroke="#a16207" stroke-width="3"/>
+    <text x="480" y="348" text-anchor="middle" font-family="Arial" font-size="30" fill="#111827">VIP</text>
+  </g>
+  <g id="zone-cat1" data-zone="CAT1" data-ticket-type="CAT1" data-capacity="5200">
+    <path d="M70 145 H300 L190 405 H45 Z" fill="#22c55e" stroke="#166534" stroke-width="3"/>
+    <path d="M660 145 H890 L915 405 H770 Z" fill="#22c55e" stroke="#166534" stroke-width="3"/>
+    <text x="165" y="285" text-anchor="middle" font-family="Arial" font-size="28" fill="#052e16">CAT1</text>
+    <text x="795" y="285" text-anchor="middle" font-family="Arial" font-size="28" fill="#052e16">CAT1</text>
+  </g>
+  <g id="zone-cat2" data-zone="CAT2" data-ticket-type="CAT2" data-capacity="9000">
+    <path d="M70 430 H890 L830 535 H130 Z" fill="#38bdf8" stroke="#0369a1" stroke-width="3"/>
+    <text x="480" y="494" text-anchor="middle" font-family="Arial" font-size="30" fill="#082f49">CAT2</text>
+  </g>
+  <g id="zone-ga" data-zone="GA" data-ticket-type="GA" data-capacity="16000">
+    <path d="M130 555 H830 L805 608 H155 Z" fill="#a78bfa" stroke="#6d28d9" stroke-width="3"/>
+    <text x="480" y="591" text-anchor="middle" font-family="Arial" font-size="24" fill="#2e1065">GA</text>
+  </g>
+  <text x="480" y="629" text-anchor="middle" font-family="Arial" font-size="16" fill="#475569">Object key: seat-maps/chi-dep-dap-gio-re-song.svg</text>
+</svg>

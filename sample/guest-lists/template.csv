@@ -1,0 +1,4 @@
+guest_external_id,full_name,email,phone,sponsor,ticket_type,gate,note
+SPONSOR-001,Nguyen Minh Anh,minh.anh@example.com,+84901234567,Brand A,VIP,VIP-A,Use ticket type name from BTC not UUID
+SPONSOR-002,Tran Bao Ngoc,bao.ngoc@example.com,+84901234568,Brand A,VIP,VIP-A,One guest per row
+SPONSOR-003,Le Quoc Huy,quoc.huy@example.com,,Brand B,VIP,VIP-B,Phone is optional but email is required

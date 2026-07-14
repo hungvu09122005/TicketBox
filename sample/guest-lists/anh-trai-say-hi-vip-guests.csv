@@ -1,0 +1,5 @@
+guest_external_id,full_name,email,phone,sponsor,ticket_type,gate,note
+ATSH-VIP-001,Nguyen Minh Anh,minh.anh@example.com,+84901230001,Brand A,SVIP,VIP-A,Host guest
+ATSH-VIP-002,Tran Bao Long,bao.long@example.com,+84901230002,Brand A,VIP,VIP-A,Sponsor guest
+ATSH-VIP-003,Le Ha Linh,ha.linh@example.com,+84901230003,Brand B,VIP,VIP-B,Media partner
+ATSH-VIP-004,Pham Quoc Huy,quoc.huy@example.com,+84901230004,Brand B,SVIP,VIP-A,Artist family
