@@ -9,12 +9,12 @@ interface RateLimitConfig {
 }
 
 const POLICIES: Record<RateLimitPolicyName, RateLimitConfig> = {
-  public:  { limit: 100, windowSeconds: 60 },   // Blueprint §07 mục 1.2: 100 req/min theo IP
-  order:   { limit: 5,   windowSeconds: 60 },   // Blueprint §07 mục 1.2: 5 req/min theo User ID
-  payment: { limit: 5,   windowSeconds: 60 },   // Blueprint §07 mục 1.2: 5 req/min theo User ID
-  checkin: { limit: 60,  windowSeconds: 60 },   // Blueprint §07 mục 1.2: 60 req/min theo Device+Staff
-  sync:    { limit: 10,  windowSeconds: 60 },   // Blueprint §07 mục 1.2: 10 req/min theo Device+Staff
-  admin:   { limit: 3,   windowSeconds: 60 },   // Blueprint §07 mục 1.2: 3 req/min theo Staff ID
+  public:  { limit: parseInt(process.env.RATE_LIMIT_PUBLIC_READ_LIMIT || '100', 10), windowSeconds: 60 },   // Blueprint §07: 100 req/min
+  order:   { limit: parseInt(process.env.RATE_LIMIT_ORDER_LIMIT || '5', 10),   windowSeconds: 60 },        // Blueprint §07: 5 req/min
+  payment: { limit: 5,   windowSeconds: 60 },                                                               // Blueprint §07: 5 req/min
+  checkin: { limit: parseInt(process.env.RATE_LIMIT_CHECKIN_LIMIT || '60', 10),  windowSeconds: 60 },       // Blueprint §07: 60 req/min
+  sync:    { limit: 10,  windowSeconds: 60 },                                                               // Blueprint §07: 10 req/min
+  admin:   { limit: parseInt(process.env.RATE_LIMIT_ADMIN_LIMIT || '3', 10),   windowSeconds: 60 },        // Blueprint §07: 3 req/min
 };
 
 @Injectable()

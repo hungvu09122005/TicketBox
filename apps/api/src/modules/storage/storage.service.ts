@@ -65,6 +65,16 @@ export class StorageService implements OnModuleInit, ObjectStoragePort {
 
   async getPresignedUrl(objectKey: string, expiresInSeconds = 3600): Promise<string> {
     try {
+      const rawEndpoint = this.configService.get<string>('S3_ENDPOINT', 'localhost');
+      if (rawEndpoint.includes('supabase.co')) {
+        // Parse project reference from Supabase endpoint
+        const projectRef = rawEndpoint.match(/([a-z0-9]+)\.supabase\.co/i)?.[1];
+        if (projectRef) {
+          // Supabase public URL format: https://<project-ref>.supabase.co/storage/v1/object/public/<bucket>/<key>
+          return `https://${projectRef}.supabase.co/storage/v1/object/public/${this.defaultBucket}/${objectKey}`;
+        }
+      }
+
       const command = new GetObjectCommand({ Bucket: this.defaultBucket, Key: objectKey });
       return await getSignedUrl(this.s3, command, { expiresIn: expiresInSeconds });
     } catch (error: any) {

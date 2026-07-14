@@ -6,7 +6,7 @@ import * as z from "zod";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { Ticket, ArrowRight } from "@phosphor-icons/react/dist/ssr";
+import { Ticket, ArrowRight, Eye, EyeSlash } from "@phosphor-icons/react/dist/ssr";
 import { motion } from "motion/react";
 import { authService } from "@/lib/services/auth.service";
 import { hasStoredSession, useAuthStore } from "@/lib/auth-store";
@@ -25,6 +25,7 @@ function LoginForm() {
   const login = useAuthStore((state) => state.login);
   const logout = useAuthStore((state) => state.logout);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const {
     register,
     handleSubmit,
@@ -140,14 +141,23 @@ function LoginForm() {
                     Quên mật khẩu?
                   </Link>
                 </div>
-                <input
-                  id="password"
-                  {...register("password")}
-                  type="password"
-                  placeholder="••••••••"
-                  className={`w-full h-12 px-4 rounded-xl bg-white border ${errors.password ? "border-red-500 focus:ring-red-500/20" : "border-zinc-200 focus:border-emerald-500 focus:ring-emerald-500/20"
-                    } text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-4 transition-all`}
-                />
+                <div className="relative">
+                  <input
+                    id="password"
+                    {...register("password")}
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    className={`w-full h-12 px-4 pr-10 rounded-xl bg-white border ${errors.password ? "border-red-500 focus:ring-red-500/20" : "border-zinc-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      } text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-4 transition-all`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors flex items-center"
+                  >
+                    {showPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
                 {errors.password && (
                   <p className="text-sm text-red-500">{errors.password.message}</p>
                 )}
