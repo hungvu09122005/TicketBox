@@ -35,7 +35,7 @@
 │  Check-in · CSV Import · AI Bio · Notifications · Reporting  │
 └────┬──────────────┬───────────────────┬──────────────────────┘
      │              │                   │
-  PostgreSQL     Redis              MinIO / S3
+  PostgreSQL     Redis       Supabase Storage (S3)
   (TypeORM)   (Bull queues,       (avatar, PDF,
                cache, lock)        CSV storage)
 ```
@@ -141,9 +141,11 @@ Sau đó chỉnh sửa file `.env`, điền đầy đủ các giá trị bắt b
 # PostgreSQL — phải khớp với docker-compose.yml
 DATABASE_PASSWORD=ticketbox_dev
 
-# MinIO / Object Storage — bắt buộc để kết nối MinIO trên Docker
-MINIO_ACCESS_KEY=ticketbox_minio
-MINIO_SECRET_KEY=ticketbox_minio_dev
+# Supabase / S3 Object Storage — bắt buộc để kết nối Supabase Storage
+S3_ENDPOINT=uklzuokputhoqbtawmol.supabase.co
+S3_ACCESS_KEY=your_supabase_s3_access_key_id
+S3_SECRET_KEY=your_supabase_s3_secret_access_key
+S3_BUCKET_NAME=image_zone
 
 # JWT — bắt buộc phải có giá trị, tạo bằng:
 # openssl rand -hex 64
@@ -156,13 +158,13 @@ QR_TOKEN_SECRET=<secret>
 
 > **Lưu ý:** 
 > * `DATABASE_PASSWORD` phải là `ticketbox_dev` (khớp với `POSTGRES_PASSWORD` trong `docker-compose.yml`). Nếu để trống sẽ gây lỗi `client password must be a string` khi kết nối PostgreSQL.
-> * `MINIO_ACCESS_KEY` và `MINIO_SECRET_KEY` phải khớp với cấu hình trong `docker-compose.yml` (`ticketbox_minio` và `ticketbox_minio_dev`) để API có thể tạo/đọc bucket chứa file upload.
+> * `S3_ACCESS_KEY` và `S3_SECRET_KEY` phải khớp với thông tin trong trang cấu hình Storage của Supabase để API có thể tạo/đọc bucket chứa file upload.
 
 ---
 
 ## 🐳 Khởi chạy ứng dụng
 
-> `infra/docker-compose.yml` định nghĩa **đầy đủ** các service gồm `postgres`, `redis`, `minio`, `api`, `audience-web`, `admin-web`.  
+> `infra/docker-compose.yml` định nghĩa **đầy đủ** các service gồm `postgres`, `redis`, `api`, `audience-web`, `admin-web`.  
 > Bạn có **2 cách** để chạy dự án:
 
 ---
@@ -188,7 +190,7 @@ Sau khi chạy, các service sẽ sẵn sàng tại:
 | Audience Web | http://localhost:3000 |
 | API | http://localhost:3001 |
 | Admin Web | http://localhost:3002 |
-| MinIO Web Console | http://localhost:9001 |
+| Supabase Console | https://supabase.com/dashboard |
 
 > ⚠️ **Không** chạy thêm `pnpm dev:*` khi đã dùng lựa chọn này — sẽ xảy ra xung đột port.
 
@@ -196,8 +198,7 @@ Sau khi chạy, các service sẽ sẵn sàng tại:
 
 ### 🇧 Lựa chọn 2 — Dev Local (hạ tầng Docker + chạy code trực tiếp)
 
-**Bước 1:** Chỉ khởi động PostgreSQL, Redis, MinIO
-
+**Bước 1:** Chỉ khởi động PostgreSQL, Redis
 ```bash
 pnpm run infra:services
 ```
@@ -303,10 +304,10 @@ pnpm run seed:run
 | **Tickets** | Sinh QR token (HMAC-SHA256), mã thủ công 12 ký tự |
 | **Check-in** | Xác thực vé QR / mã thủ công, hỗ trợ offline/online, chống conflict |
 | **Notifications** | Gửi email qua SendGrid, queue-based (Bull), dedup log |
-| **CSV Import** | Import danh sách VIP guest từ file CSV lưu trên MinIO |
+| **CSV Import** | Import danh sách VIP guest từ file CSV lưu trên Supabase Storage |
 | **AI Bio** | Sinh bio nghệ sĩ tự động từ PDF qua Grok API (xAI) |
 | **Reporting** | Thống kê doanh thu, số vé đã bán, check-in rate |
-| **Storage** | Presigned URL upload/download MinIO |
+| **Storage** | Presigned URL upload/download Supabase Storage |
 | **Health** | Health check endpoint (`/health`) |
 | **Queue** | Bull queues cho orders, notifications, CSV, AI |
 
@@ -328,9 +329,10 @@ Xem file [`.env.example`](.env.example) để tham chiếu đầy đủ. Các bi
 | `JWT_ACCESS_SECRET` | Secret key cho Access Token | ✅ |
 | `JWT_REFRESH_SECRET` | Secret key cho Refresh Token | ✅ |
 | `QR_TOKEN_SECRET` | Secret HMAC-SHA256 ký QR token | ✅ |
-| `MINIO_ENDPOINT` | Host MinIO | ✅ |
-| `MINIO_ACCESS_KEY` | MinIO access key | ✅ |
-| `MINIO_SECRET_KEY` | MinIO secret key | ✅ |
+| `S3_ENDPOINT` | Host Supabase Storage / S3 | ✅ |
+| `S3_ACCESS_KEY` | S3 Access Key ID | ✅ |
+| `S3_SECRET_KEY` | S3 Secret Access Key | ✅ |
+| `S3_BUCKET_NAME` | Bucket name (ví dụ: image_zone) | ✅ |
 | `VNPAY_TMN_CODE` | Mã terminal VNPAY | Tùy chọn |
 | `VNPAY_HASH_SECRET` | Hash secret VNPAY | Tùy chọn |
 | `SENDGRID_API_KEY` | API key SendGrid | Tùy chọn |
@@ -345,7 +347,7 @@ Chạy từ thư mục **gốc** (`TicketBox/`):
 ```bash
 # Infrastructure
 pnpm run infra:up          # Khởi động toàn bộ stack qua Docker (kèm cả API & Web)
-pnpm run infra:services    # Chỉ khởi động PostgreSQL + Redis + MinIO (dùng khi dev local)
+pnpm run infra:services    # Chỉ khởi động PostgreSQL + Redis (dùng khi dev local)
 pnpm run infra:down        # Tắt tất cả Docker services
 
 # Dev (dùng sau khi đã chạy infra:services)

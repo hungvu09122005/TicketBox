@@ -40,7 +40,7 @@ Hệ thống phục vụ 4 nhóm đối tượng chính:
 - **Client Web Apps**: Giao diện Audience Web và Admin Web xây dựng bằng React/Next.js.
 - **Mobile Client**: Check-in Mobile App phát triển bằng React Native/Expo hỗ trợ local SQLite và sync batch.
 - **Backend API**: NestJS Modular Monolith, quản lý logic nghiệp vụ chính (Concert, Order, Payment, Ticket, Check-in, CSV, AI Bio, Notification).
-- **Hạ tầng lưu trữ**: PostgreSQL làm Source of Truth, Redis làm cache/waiting room/rate limit, Object Storage (MinIO/S3) chứa file phi cấu trúc, BullMQ cho tác vụ chạy nền.
+- **Hạ tầng lưu trữ**: PostgreSQL làm Source of Truth, Redis làm cache/waiting room/rate limit, Object Storage (Supabase Storage/S3) chứa file phi cấu trúc, BullMQ cho tác vụ chạy nền.
 - **Tích hợp bên ngoài (Sandbox)**: Tích hợp với VNPAY sandbox cho luồng thanh toán thực và Grok/OpenAI cho luồng AI Artist Bio.
 
 ### 4.2. Không thuộc phạm vi (Out-of-Scope)

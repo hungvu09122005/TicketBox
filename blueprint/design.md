@@ -23,7 +23,7 @@ Các Client (Audience Web, Admin Web, Check-in Mobile App) giao tiếp với Bac
 - **PostgreSQL**: Đóng vai trò là kho lưu trữ dữ liệu ACID duy nhất (Source of Truth) cho các thực thể quan trọng.
 - **Redis**: Dùng làm cache phân tán cho thông tin concert, availability tạm thời, rate limiting và waiting room.
 - **BullMQ**: Đẩy các tác vụ tốn thời gian (gửi mail, import CSV, sinh bio AI) vào hàng đợi để worker xử lý bất đồng bộ, giải phóng luồng xử lý HTTP request chính.
-- **Object Storage (MinIO/S3)**: Lưu trữ file nháp SVG seat map, PDF nghệ sĩ và CSV khách VIP.
+- **Object Storage (Supabase Storage/S3)**: Lưu trữ file nháp SVG seat map, PDF nghệ sĩ và CSV khách VIP.
 
 ---
 
@@ -83,7 +83,7 @@ C4Container
 
     ContainerDb(db_postgres, "PostgreSQL Database", "PostgreSQL", "Lưu trữ thông tin ACID (Source of Truth)")
     ContainerDb(cache_redis, "Redis Broker & Cache", "Redis", "Lưu trữ cache, rate limit states, BullMQ queue")
-    ContainerDb(obj_storage, "MinIO / S3 Object Storage", "MinIO", "Lưu trữ file PDF, CSV, SVG, hình ảnh")
+    ContainerDb(obj_storage, "Supabase Storage / S3 Object Storage", "Supabase", "Lưu trữ file PDF, CSV, SVG, hình ảnh")
 
     System_Ext(payment, "Payment Gateway (VNPAY)", "API Sandbox", "Xử lý giao dịch tài chính")
     System_Ext(ai_service, "AI Provider (Grok/OpenAI)", "External API", "Sinh bio nghệ sĩ")
@@ -133,7 +133,7 @@ flowchart TB
     subgraph Storage
         PG[(PostgreSQL\nACID DB)]
         RD[(Redis\nCache & Queue)]
-        S3[(MinIO\nObject Storage)]
+        S3[(Supabase Storage\nObject Storage)]
     end
 
     subgraph External
@@ -174,7 +174,7 @@ flowchart TB
 
 ## 4. Thiết kế cơ sở dữ liệu (Database Design)
 
-Hệ thống sử dụng **PostgreSQL** làm cơ sở dữ liệu quan hệ chính (ACID) kết hợp **Redis** cho bộ nhớ đệm và **MinIO/S3** cho dữ liệu tệp tin.
+Hệ thống sử dụng **PostgreSQL** làm cơ sở dữ liệu quan hệ chính (ACID) kết hợp **Redis** cho bộ nhớ đệm và **Supabase Storage/S3** cho dữ liệu tệp tin.
 
 ### 4.1. Thực thể chính và Schema
 Chi tiết cấu trúc bảng dữ liệu được cài đặt trong PostgreSQL:
@@ -324,7 +324,7 @@ Hệ thống TicketBox thống nhất thực hiện 13 quyết định kỹ thu�
 9. **ADR-09: Chọn Offline-first Check-in có Sync thay vì Online-only**  
    *Lý do*: Sân vận động chập chập sóng. Mobile App tải trước danh sách vé, kiểm tra trùng trên SQLite cục bộ, sau đó đồng bộ idempotent qua `client_event_id` khi có mạng.
 10. **ADR-10: Chọn Object Storage cho PDF/CSV/SVG**  
-    *Lý do*: Tránh lưu file binary lớn trong PostgreSQL làm chậm database. Lưu file trên S3/MinIO giúp backend scale ngang dễ dàng.
+    *Lý do*: Tránh lưu file binary lớn trong PostgreSQL làm chậm database. Lưu file trên Supabase Storage giúp backend scale ngang dễ dàng.
 11. **ADR-11: Chọn JWT + Backend RBAC Guard**  
     *Lý do*: JWT gọn nhẹ phù hợp cho cả Web và Mobile. Không nhét hết permissions vào JWT để tránh token bị phình to; thay vào đó, cache permissions trên Redis và invalidate theo `permission_version`.
 12. **ADR-12: Chọn Seat Map theo Zone/SVG**  

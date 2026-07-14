@@ -9,7 +9,7 @@ Mục tiêu là duy trì tính chân thực, dễ debug và sát với môi trư
 
 - **Cấm hard-code dữ liệu nghiệp vụ**: Không được hard-code danh sách concert, ticket, user, payment result, AI bio... trong source code (frontend lẫn backend).
 - **Dữ liệu demo**: Phải được tạo qua **Admin Web UI** hoặc script seeding chạy qua API thật (không seed trực tiếp trong code).
-- **External Services**: Phải dùng **Sandbox / Test Credentials thật** (VNPAY Sandbox, OpenAI test key, SendGrid sandbox, MinIO test bucket...).
+- **External Services**: Phải dùng **Sandbox / Test Credentials thật** (VNPAY Sandbox, OpenAI test key, SendGrid sandbox, Supabase Storage test bucket...).
 - **Biến môi trường**: Tất cả credential, URL, API key phải được lấy từ `.env` (không hard-code trong code).
 - **Mobile App**: Chỉ đọc/ghi dữ liệu qua API hoặc đồng bộ từ server. Local SQLite chỉ dùng để cache offline, không chứa dữ liệu seed mặc định.
 

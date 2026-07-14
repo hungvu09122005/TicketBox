@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client } from 'minio';
 import {
@@ -8,7 +8,7 @@ import {
 } from '../../../common/ports/object-storage.port';
 import { Readable } from 'stream';
 
-type MinioConfig = {
+type S3Config = {
   endpoint: string;
   port: number;
   useSsl: boolean;
@@ -18,24 +18,25 @@ type MinioConfig = {
 };
 
 @Injectable()
-export class MinioObjectStorageAdapter implements ObjectStoragePort {
+export class S3ObjectStorageAdapter implements ObjectStoragePort {
   private readonly client: Client;
   private readonly bucketName: string;
   private bucketReady = false;
 
   constructor(configService: ConfigService) {
-    const minio = configService.get<MinioConfig>('app.minio');
-    if (!minio) {
-      throw new Error('Missing MinIO configuration.');
+    const s3 = configService.get<S3Config>('app.s3');
+    if (!s3) {
+      throw new Error('Missing S3 configuration.');
     }
 
-    this.bucketName = minio.bucketName;
+    this.bucketName = s3.bucketName;
     this.client = new Client({
-      endPoint: minio.endpoint,
-      port: minio.port,
-      useSSL: minio.useSsl,
-      accessKey: minio.accessKey,
-      secretKey: minio.secretKey,
+      endPoint: s3.endpoint,
+      port: s3.port,
+      useSSL: s3.useSsl,
+      accessKey: s3.accessKey,
+      secretKey: s3.secretKey,
+      region: s3.region,
     });
   }
 
@@ -62,7 +63,7 @@ export class MinioObjectStorageAdapter implements ObjectStoragePort {
     return this.streamToBuffer(stream);
   }
 
-    async downloadStream(objectKey: string): Promise<Readable> {
+  async downloadStream(objectKey: string): Promise<Readable> {
     await this.ensureBucket();
     const stream = await this.client.getObject(this.bucketName, objectKey);
     return stream as Readable;

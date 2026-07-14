@@ -112,7 +112,7 @@ export class VnpayAdapter implements PaymentPort {
     const hmac = crypto.createHmac('sha512', hashSecret);
     const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
 
-    if (secureHash === signed) {
+    if (secureHash && secureHash.toLowerCase() === signed.toLowerCase()) {
       const amount = parseInt(vnp_Params['vnp_Amount'] as string, 10) / 100;
       const isSuccess = vnp_Params['vnp_ResponseCode'] === '00' && vnp_Params['vnp_TransactionStatus'] === '00';
       return {

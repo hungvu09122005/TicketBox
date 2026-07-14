@@ -1,6 +1,13 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as Minio from 'minio';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
   ObjectStoragePort,
   StoredObjectInfo,
@@ -8,47 +15,46 @@ import {
 } from '../../common/ports/object-storage.port';
 import { Readable } from 'stream';
 
-
 @Injectable()
 export class StorageService implements OnModuleInit, ObjectStoragePort {
   private readonly logger = new Logger(StorageService.name);
-  private minioClient: Minio.Client;
+  private s3: S3Client;
   private readonly defaultBucket: string;
 
   constructor(private configService: ConfigService) {
-    this.defaultBucket = this.configService.get<string>('MINIO_BUCKET_NAME', 'ticketbox');
-    this.minioClient = new Minio.Client({
-      endPoint: this.configService.get<string>('MINIO_ENDPOINT', 'localhost'),
-      port: parseInt(this.configService.get<string>('MINIO_PORT', '9000'), 10),
-      useSSL: this.configService.get<string>('MINIO_USE_SSL', 'false') === 'true',
-      accessKey: this.configService.get<string>('MINIO_ACCESS_KEY', 'ticketbox_minio'),
-      secretKey: this.configService.get<string>('MINIO_SECRET_KEY', 'ticketbox_minio_dev'),
+    this.defaultBucket = this.configService.get<string>('S3_BUCKET_NAME', 'ticketbox');
+    
+    const rawEndpoint = this.configService.get<string>('S3_ENDPOINT', 'localhost');
+    const port = this.configService.get<string>('S3_PORT', '9000');
+    
+    // If endpoint starts with http/https, use it directly (like Supabase), otherwise combine host:port
+    const endpoint = /^https?:\/\//i.test(rawEndpoint)
+      ? rawEndpoint
+      : `http://${rawEndpoint}:${port}`;
+
+    this.s3 = new S3Client({
+      endpoint,
+      region: this.configService.get<string>('S3_REGION', 'us-east-1'),
+      credentials: {
+        accessKeyId: this.configService.get<string>('S3_ACCESS_KEY', ''),
+        secretAccessKey: this.configService.get<string>('S3_SECRET_KEY', ''),
+      },
+      forcePathStyle: true,
     });
   }
 
   async onModuleInit() {
-    try {
-      const exists = await this.minioClient.bucketExists(this.defaultBucket);
-      if (!exists) {
-        await this.minioClient.makeBucket(this.defaultBucket, 'us-east-1');
-        this.logger.log(`Created default bucket: ${this.defaultBucket}`);
-      } else {
-        this.logger.log(`Bucket already exists: ${this.defaultBucket}`);
-      }
-    } catch (error: any) {
-      this.logger.error(`Error ensuring bucket exists: ${error.message}`);
-    }
+    this.logger.log(`Initialized S3 storage bucket: ${this.defaultBucket}`);
   }
 
   async upload(params: UploadParams): Promise<string> {
     try {
-      await this.minioClient.putObject(
-        this.defaultBucket,
-        params.objectKey,
-        params.buffer,
-        params.size,
-        { 'Content-Type': params.contentType }
-      );
+      await this.s3.send(new PutObjectCommand({
+        Bucket: this.defaultBucket,
+        Key: params.objectKey,
+        Body: params.buffer,
+        ContentType: params.contentType,
+      }));
       this.logger.log(`File uploaded successfully: ${params.objectKey} to bucket ${this.defaultBucket}`);
       return params.objectKey;
     } catch (error: any) {
@@ -57,9 +63,10 @@ export class StorageService implements OnModuleInit, ObjectStoragePort {
     }
   }
 
-  async getPresignedUrl(objectKey: string, expiresInSeconds: number = 3600): Promise<string> {
+  async getPresignedUrl(objectKey: string, expiresInSeconds = 3600): Promise<string> {
     try {
-      return await this.minioClient.presignedGetObject(this.defaultBucket, objectKey, expiresInSeconds);
+      const command = new GetObjectCommand({ Bucket: this.defaultBucket, Key: objectKey });
+      return await getSignedUrl(this.s3, command, { expiresIn: expiresInSeconds });
     } catch (error: any) {
       this.logger.error(`Failed to generate presigned URL for ${objectKey}: ${error.message}`);
       throw error;
@@ -68,13 +75,9 @@ export class StorageService implements OnModuleInit, ObjectStoragePort {
 
   async download(objectKey: string): Promise<Buffer> {
     try {
-      const stream = await this.minioClient.getObject(this.defaultBucket, objectKey);
-      return new Promise((resolve, reject) => {
-        const chunks: Buffer[] = [];
-        stream.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
-        stream.on('error', (err) => reject(err));
-        stream.on('end', () => resolve(Buffer.concat(chunks)));
-      });
+      const response = await this.s3.send(new GetObjectCommand({ Bucket: this.defaultBucket, Key: objectKey }));
+      const stream = await response.Body!.transformToByteArray();
+      return Buffer.from(stream);
     } catch (error: any) {
       this.logger.error(`Failed to download object ${objectKey}: ${error.message}`);
       throw error;
@@ -83,8 +86,33 @@ export class StorageService implements OnModuleInit, ObjectStoragePort {
 
   async downloadStream(objectKey: string): Promise<Readable> {
     try {
-      const stream = await this.minioClient.getObject(this.defaultBucket, objectKey);
-      return stream as Readable;
+      const response = await this.s3.send(
+        new GetObjectCommand({
+          Bucket: this.defaultBucket,
+          Key: objectKey,
+        }),
+      );
+
+      const body = response.Body;
+
+      if (!body) {
+        throw new Error(`Object ${objectKey} has empty body.`);
+      }
+
+      if (body instanceof Readable) {
+        return body;
+      }
+
+      if (typeof (body as any).transformToWebStream === 'function') {
+        return Readable.fromWeb((body as any).transformToWebStream());
+      }
+
+      if (typeof (body as any).transformToByteArray === 'function') {
+        const bytes = await (body as any).transformToByteArray();
+        return Readable.from(Buffer.from(bytes));
+      }
+
+      throw new Error(`Object ${objectKey} body is not a readable stream.`);
     } catch (error: any) {
       this.logger.error(`Failed to stream object ${objectKey}: ${error.message}`);
       throw error;
@@ -93,25 +121,18 @@ export class StorageService implements OnModuleInit, ObjectStoragePort {
 
   async listObjects(prefix: string): Promise<StoredObjectInfo[]> {
     try {
-      const stream = this.minioClient.listObjectsV2(this.defaultBucket, prefix, true);
+      const response = await this.s3.send(
+        new ListObjectsV2Command({
+          Bucket: this.defaultBucket,
+          Prefix: prefix,
+        }),
+      );
 
-      return await new Promise((resolve, reject) => {
-        const objects: StoredObjectInfo[] = [];
-
-        stream.on('data', (item) => {
-          if (!item?.name) {
-            return;
-          }
-
-          objects.push({
-            objectKey: item.name,
-            lastModified: item.lastModified,
-            size: item.size,
-          });
-        });
-        stream.on('error', (err) => reject(err));
-        stream.on('end', () => resolve(objects));
-      });
+      return (response.Contents ?? []).map((item) => ({
+        objectKey: item.Key ?? '',
+        lastModified: item.LastModified,
+        size: item.Size,
+      })).filter((item) => Boolean(item.objectKey));
     } catch (error: any) {
       this.logger.error(`Failed to list objects for prefix ${prefix}: ${error.message}`);
       throw error;
@@ -120,7 +141,7 @@ export class StorageService implements OnModuleInit, ObjectStoragePort {
 
   async delete(objectKey: string): Promise<void> {
     try {
-      await this.minioClient.removeObject(this.defaultBucket, objectKey);
+      await this.s3.send(new DeleteObjectCommand({ Bucket: this.defaultBucket, Key: objectKey }));
       this.logger.log(`File deleted successfully: ${objectKey}`);
     } catch (error: any) {
       this.logger.error(`Failed to delete object ${objectKey}: ${error.message}`);
