@@ -1,27 +1,46 @@
-import { DataSource } from 'typeorm';
-import { Role } from '../modules/users/entities/role.entity';
-import { Permission } from '../modules/users/entities/permission.entity';
+import { In, EntityManager } from 'typeorm';
+import { Role as RoleEntity } from '../modules/users/entities/role.entity';
+import { Permission as PermissionEntity } from '../modules/users/entities/permission.entity';
+import { Permission } from '../common/constants/permissions.enum';
+import { Role } from '../common/constants/roles.enum';
+import { ROLE_PERMISSIONS_MAPPING } from '../common/constants/role-permissions.mapping';
 
-export async function seedRbac(dataSource: DataSource) {
-  const roleRepo = dataSource.getRepository(Role);
-  const permRepo = dataSource.getRepository(Permission);
+export async function seedRbac(manager: EntityManager) {
+  console.log('🚀 Bắt đầu quá trình đồng bộ RBAC...');
 
-  const permissions = [
-    { name: 'TICKET_CREATE' },
-    { name: 'TICKET_VALIDATE' },
-    { name: 'CONCERT_MANAGE' },
-    { name: 'USER_BAN' }
-  ];
+  const roleRepo = manager.getRepository(RoleEntity);
+  const permRepo = manager.getRepository(PermissionEntity);
 
-  const savedPermissions = await permRepo.save(permissions);
-  console.log('✅ Permissions seeded:', savedPermissions.length);
+  // 1. Seed Permissions
+  const permissionCodes = Object.values(Permission);
+  await permRepo.upsert(
+    permissionCodes.map((code) => ({ name: code, code })),
+    ['code'],
+  );
 
-  const roles = [
-    { name: 'ADMIN', permissions: savedPermissions },
-    { name: 'STAFF', permissions: savedPermissions.filter(p => p.name === 'TICKET_VALIDATE') },
-    { name: 'AUDIENCE', permissions: [] }
-  ];
+  const savedPermissions = await permRepo.find();
+  const permissionByCode = new Map(savedPermissions.map((p) => [p.code, p]));
+  console.log(`✅ Đã đồng bộ ${savedPermissions.length} permissions.`);
 
-  await roleRepo.save(roles);
-  console.log('✅ Roles seeded successfully!');
+  // 2. Seed Roles
+  const roleNames = Object.values(Role);
+  await roleRepo.upsert(
+    roleNames.map((name) => ({ name })),
+    ['name'],
+  );
+
+  const savedRoles = await roleRepo.find({ relations: { permissions: true } });
+
+  // 3. Mapping Permissions vào Roles
+  for (const role of savedRoles) {
+    const targetPermissionCodes = ROLE_PERMISSIONS_MAPPING[role.name as Role] || [];
+    
+    role.permissions = targetPermissionCodes
+      .map((code) => permissionByCode.get(code))
+      .filter((p): p is PermissionEntity => !!p);
+      
+    await roleRepo.save(role);
+  }
+
+  console.log('✨ RBAC Seeding hoàn tất!');
 }

@@ -1,9 +1,7 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
-import * as dotenv from 'dotenv';
-import { join, resolve } from 'path';
-
-dotenv.config({ path: resolve(process.cwd(), '.env') });
+import { join } from 'path';
+import { apiRoot } from '../config/load-env';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -13,6 +11,15 @@ export const AppDataSource = new DataSource({
   password: process.env.DATABASE_PASSWORD,
   database: process.env.DATABASE_NAME,
   synchronize: false,
-  entities: [join(process.cwd(), 'src/**/*.entity{.ts,.js}')], // Trỏ thẳng vào file ts
-  migrations: [join(process.cwd(), 'src/database/migrations/**/*{.ts,.js}')],
+  entities: [join(apiRoot, 'src', '**', '*.entity.{ts,js}')],
+  migrations: [
+    join(apiRoot, 'src', 'database', 'migrations', '1781899060208-InitialSchemaMigration.{ts,js}'),
+    join(apiRoot, 'src', 'migrations', '1781900000000-CreateCheckinDevice.{ts,js}'),
+    join(apiRoot, 'src', 'migrations', '1782244000000-FixOrdersUserIdType.{ts,js}'),
+    join(apiRoot, 'src', 'migrations', '1782444000000-AddFailureReasonToCsvAndNotifications.{ts,js}'),
+    join(apiRoot, 'src', 'migrations', '1782450000000-AddConcertMetadata.{ts,js}'),
+    join(apiRoot, 'src', 'migrations', '1782460000000-AddManualCodeToTickets.{ts,js}'),
+    join(apiRoot, 'src', 'migrations', '1782470000000-AddTargetTypeToAiBioRequests.{ts,js}'),
+    join(apiRoot, 'src', 'migrations', '1782480000000-DropLegacyArtistIdFromAiBioRequests.{ts,js}'),
+  ],
 });

@@ -9,6 +9,9 @@ import { NotificationProcessor } from './processors/notification.processor';
 import { ReminderScheduler } from './schedulers/reminder.scheduler';
 import { SendgridAdapter } from './adapters/sendgrid.adapter';
 import { NOTIFICATION_PORT } from '../../common/ports/notification.port';
+import { MailModule } from '../../mail/mail.module';
+import { NotificationsController } from './notifications.controller';
+import { DatabaseModule } from '../../database/database.module';
 
 /**
  * NotificationsModule — email delivery + 24h reminder scheduler.
@@ -22,9 +25,14 @@ import { NOTIFICATION_PORT } from '../../common/ports/notification.port';
  */
 @Module({
   imports: [
+    DatabaseModule,
     TypeOrmModule.forFeature([NotificationLog]),
     BullModule.registerQueue({ name: 'notifications' }),
     ScheduleModule.forRoot(),
+    MailModule,
+  ],
+  controllers: [
+    NotificationsController,   
   ],
   providers: [
     NotificationsService,

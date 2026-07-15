@@ -2,7 +2,7 @@ import {
   Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn
 } from 'typeorm';
 import { Order } from '../../orders/entities/order.entity';
-import { TicketType } from '../../concerts/entities/ticket-type.entity';
+import { TicketType } from '../../ticket-types/entities/ticket-type.entity';
 
 export enum TicketStatus {
   ACTIVE = 'ACTIVE',
@@ -50,4 +50,12 @@ export class Ticket {
   @ManyToOne(() => TicketType)
   @JoinColumn({ name: 'ticket_type_id' })
   ticketType!: TicketType;
+
+  @Column({
+  name: 'manual_code',
+  unique: true,
+  length: 12,
+  })
+  @Index()
+  manualCode!: string;
 }

@@ -1,0 +1,165 @@
+"use client";
+
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Suspense, useEffect, useState } from "react";
+import { Logo } from "@/components/Logo";
+import { authService } from "@/lib/services/auth.service";
+import { hasStoredAdminSession, useAuthStore } from "@/lib/auth-store";
+import { setStoredAdminTokens } from "@/lib/auth-session";
+import { hasAdminAccess } from "@/lib/authz";
+import { Eye, EyeSlash } from "@phosphor-icons/react";
+
+const loginSchema = z.object({
+  email: z.string().email({ message: "Invalid email address" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+
+function AdminLoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const login = useAuthStore((state) => state.login);
+  const logout = useAuthStore((state) => state.logout);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+  });
+
+  useEffect(() => {
+    if (hasStoredAdminSession()) {
+      router.replace(searchParams.get("next") || "/concerts");
+    }
+  }, [router, searchParams]);
+
+  const onSubmit = async (data: LoginFormValues) => {
+    setSubmitError(null);
+    try {
+      const tokens = await authService.login(data);
+      setStoredAdminTokens(tokens.accessToken, tokens.refreshToken);
+      const profile = await authService.me();
+
+      if (!hasAdminAccess(profile)) {
+        logout();
+        setSubmitError("This account does not have admin access.");
+        router.replace("/forbidden");
+        return;
+      }
+
+      login(profile, tokens.accessToken, tokens.refreshToken);
+      const nextPath = searchParams.get("next") || "/concerts";
+      router.replace(nextPath);
+    } catch (error: unknown) {
+      logout();
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === "string"
+          ? (error as { response?: { data?: { message?: string } } }).response!.data!.message!
+          : "Login failed. Please try again.";
+      setSubmitError(message);
+    }
+  };
+
+  return (
+    <div className="absolute inset-0 bg-background z-50 flex items-center justify-center px-4 font-sans">
+      <div className="w-full max-w-md relative">
+        <div className="relative bg-surface border border-border rounded-2xl p-8 shadow-sm">
+          <div className="flex flex-col items-center text-center mb-8">
+            <Logo className="mb-2" />
+            <p className="text-muted text-sm mt-1">Sign in with an administrator account</p>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            {submitError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {submitError}
+              </div>
+            )}
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-primary mb-1.5">
+                Email
+              </label>
+              <input
+                id="email"
+                {...register("email")}
+                type="email"
+                placeholder="admin@ticketbox.com"
+                className={`w-full px-4 py-2.5 text-sm rounded-lg bg-surface border ${
+                  errors.email ? "border-red-500 focus:border-red-500" : "border-border focus:border-primary"
+                } text-primary placeholder-muted focus:outline-none focus:ring-1 focus:ring-primary transition-colors`}
+              />
+              {errors.email && (
+                <p className="mt-1.5 text-xs text-red-500">{errors.email.message}</p>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="password" className="block text-sm font-medium text-primary">
+                  Password
+                </label>
+                <Link href="/forgot-password" className="text-sm font-medium text-muted hover:text-primary transition-colors">
+                  Forgot password?
+                </Link>
+              </div>
+              <div className="relative">
+                <input
+                  id="password"
+                  {...register("password")}
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  className={`w-full px-4 pr-10 py-2.5 text-sm rounded-lg bg-surface border ${
+                    errors.password ? "border-red-500 focus:border-red-500" : "border-border focus:border-primary"
+                  } text-primary placeholder-muted focus:outline-none focus:ring-1 focus:ring-primary transition-colors`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary transition-colors flex items-center"
+                >
+                  {showPassword ? <EyeSlash size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="mt-1.5 text-xs text-red-500">{errors.password.message}</p>
+              )}
+            </div>
+
+            <div className="pt-2">
+              <button
+                 type="submit"
+                 disabled={isSubmitting}
+                 className="w-full py-2.5 px-4 bg-primary hover:opacity-90 text-surface rounded-lg text-sm font-medium shadow-sm transition-all flex justify-center items-center gap-2 disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <span className="w-4 h-4 border-2 border-surface/30 border-t-surface rounded-full animate-spin" />
+                ) : (
+                  "Sign in"
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={<div className="absolute inset-0 bg-background z-50 flex items-center justify-center text-white">Loading...</div>}>
+      <AdminLoginForm />
+    </Suspense>
+  );
+}

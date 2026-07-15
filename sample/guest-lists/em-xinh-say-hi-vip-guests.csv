@@ -1,0 +1,5 @@
+guest_external_id,full_name,email,phone,sponsor,ticket_type,gate,note
+EXSH-VIP-001,Nguyen Thao Nhi,thao.nhi@example.com,+84903330001,Fashion Sponsor,SVIP,VIP-E1,Designer guest
+EXSH-VIP-002,Tran Khanh Vy,khanh.vy@example.com,+84903330002,Fashion Sponsor,VIP,VIP-E1,Brand guest
+EXSH-VIP-003,Le Minh Tue,minh.tue@example.com,+84903330003,Beauty Partner,VIP,VIP-E2,KOL guest
+EXSH-VIP-004,Pham Gia Han,gia.han@example.com,+84903330004,Beauty Partner,SVIP,VIP-E1,Host guest

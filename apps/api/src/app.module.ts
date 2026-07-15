@@ -1,13 +1,17 @@
+import './config/load-env';
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
 import { BullModule, Processor } from '@nestjs/bull';
 import { CacheModule } from '@nestjs/cache-manager';
-import { ThrottlerModule } from '@nestjs/throttler';
-import * as redisStore from 'cache-manager-ioredis';
+import { Keyv } from 'keyv';
+import { KeyvAdapter } from 'cache-manager';
+import { redisStore } from 'cache-manager-redis-yet';
 import { LoggerModule } from 'nestjs-pino';
 import configuration from './config/configuration';
 import { DatabaseModule } from './database/database.module';
 import { QueueModule } from './modules/queue/queue.module';
+import { RedisModule } from './modules/redis/redis.module';
 // Domain Modules
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -25,7 +29,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ReportingModule } from './modules/reporting/reporting.module';
 import { HealthModule } from './modules/health/health.module';
 import { StorageModule } from './modules/storage/storage.module';
-
+import { DemoBootstrapModule } from './modules/demo-bootstrap/demo-bootstrap.module';
+import { MailModule } from './mail/mail.module';
 // Middlewares
 import { RequestIdMiddleware } from './common/middlewares/request-id.middleware';
 import { BootstrapService } from '@database/bootstrap.service';
@@ -39,7 +44,7 @@ import { BootstrapService } from '@database/bootstrap.service';
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
-      envFilePath: ['.env', '../../.env'],
+      ignoreEnvFile: true,
     }),
 
     LoggerModule.forRoot({
@@ -67,22 +72,33 @@ import { BootstrapService } from '@database/bootstrap.service';
     }),
 
     QueueModule,
-    
+
     CacheModule.registerAsync({
       isGlobal: true,
-      useFactory: () => ({
-        store: redisStore,
-        host: process.env.REDIS_HOST ?? 'localhost',
-        port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
-        ttl: 60,
-      }),
+      useFactory: async () => {
+        const store = await redisStore({
+          socket: {
+            host: process.env.REDIS_HOST ?? 'localhost',
+            port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+          },
+          password: process.env.REDIS_PASSWORD || undefined,
+          ttl: 60 * 1000,
+        });
+        store.client.on('error', (err) => {
+          console.error('Redis Cache Client Socket Error:', err);
+        });
+        return {
+          stores: [
+            new Keyv({
+              store: new KeyvAdapter(store),
+            }),
+          ],
+        };
+      },
     }),
 
-    ThrottlerModule.forRoot([
-      { name: 'public', ttl: 60_000, limit: 100 },
-      { name: 'order', ttl: 60_000, limit: 5 },
-      { name: 'checkin', ttl: 60_000, limit: 60 },
-    ]),
+    RedisModule,
+    ScheduleModule.forRoot(),
 
     // ── Domain Modules ─────────────────────────────────────────────────────
     HealthModule,
@@ -101,6 +117,8 @@ import { BootstrapService } from '@database/bootstrap.service';
     AiBioModule,
     NotificationsModule,
     ReportingModule,
+    MailModule,
+    DemoBootstrapModule,
   ],
 
   providers: [BootstrapService],
@@ -111,5 +129,3 @@ export class AppModule implements NestModule {
     consumer.apply(RequestIdMiddleware).forRoutes('*');
   }
 }
-
-

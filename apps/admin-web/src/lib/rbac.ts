@@ -1,0 +1,120 @@
+import { Permission } from './permissions';
+
+export type RbacRole = 'AUDIENCE' | 'ORGANIZER' | 'CHECKIN_STAFF' | 'SYSTEM_ADMIN';
+
+export interface RoleOption {
+  code: RbacRole;
+  label: string;
+  description: string;
+  permissions: string[];
+}
+
+export const roleOptions: RoleOption[] = [
+  {
+    code: 'AUDIENCE',
+    label: 'Audience',
+    description: 'View concerts, create orders, and see personal tickets.',
+    permissions: [
+      Permission.CONCERT_READ_PUBLIC,
+      Permission.ORDER_CREATE,
+      Permission.USER_READ_OWN,
+      Permission.USER_UPDATE_OWN,
+      Permission.ORDER_READ_OWN,
+      Permission.TICKET_VIEW_OWN,
+    ],
+  },
+  {
+    code: 'ORGANIZER',
+    label: 'Organizer',
+    description: 'Manage concerts, ticket types, reports, and VIP imports.',
+    permissions: [
+      Permission.CONCERT_READ_PUBLIC,
+      Permission.CONCERT_READ_OWN,
+      Permission.CONCERT_CREATE,
+      Permission.CONCERT_UPDATE_OWN,
+      Permission.CONCERT_PUBLISH_OWN,
+      Permission.CONCERT_CANCEL_OWN,
+      Permission.ARTIST_READ,
+      Permission.ARTIST_CREATE,
+      Permission.ARTIST_UPDATE,
+      Permission.VENUE_READ,
+      Permission.VENUE_CREATE,
+      Permission.VENUE_UPDATE,
+      Permission.TICKET_TYPE_READ,
+      Permission.TICKET_TYPE_CREATE,
+      Permission.TICKET_TYPE_UPDATE,
+      Permission.SEATMAP_READ,
+      Permission.SEATMAP_UPDATE,
+      Permission.SEATMAP_UPLOAD,
+      Permission.ORDER_READ_ALL,
+      Permission.ORDER_REFUND,
+      Permission.VIP_IMPORT,
+      Permission.AI_GENERATE_BIO,
+      Permission.REPORT_VIEW,
+      Permission.REPORT_EXPORT,
+      Permission.USER_READ_OWN,
+      Permission.USER_UPDATE_OWN,
+    ],
+  },
+  {
+    code: 'CHECKIN_STAFF',
+    label: 'Check-in Staff',
+    description: 'Scan QR codes and sync check-ins.',
+    permissions: [
+      Permission.CONCERT_READ_PUBLIC,
+      Permission.USER_READ_OWN,
+      Permission.USER_UPDATE_OWN,
+      Permission.TICKET_VALIDATE,
+    ],
+  },
+  {
+    code: 'SYSTEM_ADMIN',
+    label: 'System Admin',
+    description: 'Manage users, roles, permissions, and full system access.',
+    permissions: [
+      Permission.CONCERT_READ_PUBLIC,
+      Permission.CONCERT_READ_OWN,
+      Permission.CONCERT_READ_ALL,
+      Permission.CONCERT_CREATE,
+      Permission.CONCERT_UPDATE_OWN,
+      Permission.CONCERT_UPDATE_ALL,
+      Permission.CONCERT_PUBLISH_OWN,
+      Permission.CONCERT_PUBLISH_ALL,
+      Permission.CONCERT_CANCEL_OWN,
+      Permission.CONCERT_CANCEL_ALL,
+      Permission.ARTIST_READ,
+      Permission.ARTIST_CREATE,
+      Permission.ARTIST_UPDATE,
+      Permission.ARTIST_DELETE,
+      Permission.VENUE_READ,
+      Permission.VENUE_CREATE,
+      Permission.VENUE_UPDATE,
+      Permission.VENUE_DELETE,
+      Permission.TICKET_TYPE_READ,
+      Permission.TICKET_TYPE_CREATE,
+      Permission.TICKET_TYPE_UPDATE,
+      Permission.TICKET_TYPE_DELETE,
+      Permission.SEATMAP_READ,
+      Permission.SEATMAP_UPDATE,
+      Permission.SEATMAP_UPLOAD,
+      Permission.ORDER_CREATE,
+      Permission.ORDER_READ_OWN,
+      Permission.ORDER_READ_ALL,
+      Permission.ORDER_REFUND,
+      Permission.TICKET_VIEW_OWN,
+      Permission.TICKET_VALIDATE,
+      Permission.VIP_IMPORT,
+      Permission.AI_GENERATE_BIO,
+      Permission.REPORT_VIEW,
+      Permission.REPORT_EXPORT,
+      Permission.ROLE_UPDATE_PERMISSIONS,
+      Permission.PERMISSION_READ,
+      Permission.PERMISSION_CREATE,
+      Permission.RBAC_MANAGE,
+      Permission.USER_READ_OWN,
+      Permission.USER_UPDATE_OWN,
+    ],
+  },
+];
+
+export const roleOrder: RbacRole[] = roleOptions.map((option) => option.code);

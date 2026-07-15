@@ -1,22 +1,28 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CheckinLog } from './entities/checkin-log.entity';
+import { CheckinDevice } from './entities/checkin-device.entity';
+import { VipGuest } from '../csv-import/entities/vip-guest.entity';
 import { CheckinController } from './checkin.controller';
 import { CheckinService } from './checkin.service';
-//import { CheckinRepository } from './checkin.repository';
 import { TicketsModule } from '../tickets/tickets.module';
+import { DatabaseModule } from '../../database/database.module';
 
-/**
- * CheckinModule — online + offline check-in and sync.
- *
- * Dependency rules:
- *   - Imports TicketsModule → TicketsService.verifyAndMarkUsed()
- *   - Conflict resolution (multi-device) handled in CheckinService via timestamp comparison
- *   - client_event_id UNIQUE constraint handles offline sync idempotency at DB level
- *   - Does NOT import OrdersModule or PaymentsModule
- */
 @Module({
-  imports: [TypeOrmModule.forFeature([CheckinLog]), TicketsModule],
+  imports: [
+    TypeOrmModule.forFeature([CheckinLog, CheckinDevice, VipGuest]),
+    TicketsModule,DatabaseModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('app.jwt.accessSecret'),
+        signOptions: { expiresIn: '7d' }, // Offline token valid for 7 days
+      }),
+    }),
+  ],
   controllers: [CheckinController],
   providers: [CheckinService],
 })

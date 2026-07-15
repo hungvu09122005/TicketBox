@@ -16,11 +16,15 @@
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "infra:up": "docker compose -f infra/docker-compose.yml up -d",
+    "infra:services": "docker compose -f infra/docker-compose.yml up -d postgres redis",
     "infra:down": "docker compose -f infra/docker-compose.yml down",
     "migration:run": "pnpm --filter @ticketbox/api migration:run",
-    "migration:revert": "pnpm --filter @ticketbox/api migration:revert"
+    "migration:revert": "pnpm --filter @ticketbox/api migration:revert",
+    "seed:run": "pnpm --filter @ticketbox/api seed:run"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@types/nodemailer": "^8.0.1",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.4.5"
   },
@@ -32,6 +36,11 @@
     ]
   },
   "dependencies": {
+    "@babel/runtime": "7.29.7",
+    "@nestjs-modules/mailer": "^2.3.7",
+    "@nestjs/bull": "^11.0.4",
+    "@sendgrid/mail": "^8.1.6",
+    "nodemailer": "^9.0.1",
     "typeorm": "^1.0.0"
   }
 }

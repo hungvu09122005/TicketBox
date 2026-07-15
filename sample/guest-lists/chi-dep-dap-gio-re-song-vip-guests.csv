@@ -1,0 +1,5 @@
+guest_external_id,full_name,email,phone,sponsor,ticket_type,gate,note
+CDDG-VIP-001,Vo Anh Thu,anh.thu@example.com,+84904440001,Airline Sponsor,SVIP,VIP-C1,Executive guest
+CDDG-VIP-002,Nguyen Bao Tram,bao.tram@example.com,+84904440002,Airline Sponsor,VIP,VIP-C1,Partner guest
+CDDG-VIP-003,Tran Ngoc Mai,ngoc.mai@example.com,+84904440003,Lifestyle Partner,VIP,VIP-C2,Press guest
+CDDG-VIP-004,Le Thanh Van,thanh.van@example.com,+84904440004,Lifestyle Partner,SVIP,VIP-C1,Sponsor guest

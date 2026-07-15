@@ -23,11 +23,11 @@ This document establishes the boundaries for the NestJS Modular Monolith accordi
   - Imports: `TicketsModule`
 - **CsvImportModule**
   - Imports: `TicketsModule`, `NotificationsModule`
-  - Uses: `ObjectStoragePort` (`MinioAdapter`), BullMQ `csv-import`
+  - Uses: `ObjectStoragePort` (`MinioAdapter`), bullMQ `csv-import`
 - **AiBioModule**
-  - Uses: `ObjectStoragePort`, `AITextGenerationPort`, BullMQ `ai-bio`
+  - Uses: `ObjectStoragePort`, `AITextGenerationPort`, bullMQ `ai-bio`
 - **NotificationsModule**
-  - Uses: `NotificationPort` (`SendgridAdapter`), BullMQ `notifications`
+  - Uses: `NotificationPort` (`SendgridAdapter`), bullMQ `notifications`
 
 ## Enforcement
 The above rules are enforced by the NestJS DI framework. Any attempt to inject an unauthorized provider will result in a runtime startup crash.

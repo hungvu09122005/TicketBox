@@ -4,6 +4,7 @@ import { TicketType } from './entities/ticket-type.entity';
 import { TicketTypesController } from './ticket-types.controller';
 import { TicketTypesService } from './ticket-types.service';
 import { TicketTypesRepository } from './ticket-types.repository';
+import { ConcertsModule } from '../concerts/concerts.module';
 
 /**
  * TicketTypesModule — owns TicketType entity and inventory management.
@@ -14,7 +15,10 @@ import { TicketTypesRepository } from './ticket-types.repository';
  *   - Redis availability cache is managed by TicketTypesService.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([TicketType])],
+  imports: [
+    TypeOrmModule.forFeature([TicketType]),
+    ConcertsModule,
+  ],
   controllers: [TicketTypesController],
   providers: [TicketTypesService, TicketTypesRepository],
   exports: [TicketTypesService],

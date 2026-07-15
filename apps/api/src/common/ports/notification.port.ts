@@ -33,6 +33,7 @@ export interface TicketConfirmationParams {
   concertName: string;
   concertDate: Date;
   venue: string;
+  ticketId: string;
   ticketTypeName: string;
   qrToken: string;   // Used to render QR on client; never embed sensitive data
   orderId: string;

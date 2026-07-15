@@ -9,12 +9,13 @@ import { ConcertsRepository } from './concerts.repository';
 import { SeatZoneRepository } from './seat-zone.repository'; // Import repository mới
 import { ArtistsModule } from '../artists/artists.module';
 import { CommonModule } from '../../common/common.module'; // Import CommonModule
-
+import { DatabaseModule } from '../../database/database.module';
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Concert, SeatZone, TicketType]), // Đăng ký các entities
+    TypeOrmModule.forFeature([Concert]), // Đăng ký các entities
     ArtistsModule,
-    CommonModule, // Quan trọng: để dùng được OBJECT_STORAGE_PORT
+    CommonModule,
+    DatabaseModule, // Quan trọng: để dùng được OBJECT_STORAGE_PORT
   ],
   controllers: [ConcertsController],
   providers: [

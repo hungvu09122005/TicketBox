@@ -1,42 +1,88 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { Logger } from 'nestjs-pino';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { DataSource, Repository } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository, EntityManager } from 'typeorm';
+import { InjectDataSource,InjectRepository } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
 import { ConcertsService } from '../concerts/concerts.service';
 import { TicketTypesService } from '../ticket-types/ticket-types.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { OrderQueryDto } from './dto/order-query.dto';
 import { OrderStatus } from './enums/order-status.enum';
+import { MailService } from '../../mail/mail.service';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class OrdersService {
   constructor(
+    @InjectDataSource()
     private readonly dataSource: DataSource,
+
     @InjectRepository(Order) 
     private readonly orderRepo: Repository<Order>,
+
     private readonly concertsService: ConcertsService,
     private readonly ticketTypesService: TicketTypesService,
+
     @InjectQueue('orders-expiry') 
     private readonly ordersQueue: Queue,
+
+    @Inject(CACHE_MANAGER) 
+    private readonly cache: Cache,
+    
+    private readonly logger: Logger,
+    private readonly mailService: MailService,
   ) {}
 
-  /**
-   * Tạo đơn hàng với Pessimistic Locking để chống oversell
-   */
-  async createOrder(dto: CreateOrderDto, userId: string) {
-    return await this.dataSource.transaction(async (manager) => {
+  async createOrder(dto: CreateOrderDto, userId: string): Promise<Order> {
+
+    console.log('===== SERVICE CREATE ORDER START =====');
+    console.log('DTO:', dto);
+    console.log('USER ID:', userId);
+
+    let savedOrder: Order | null = null;
+    let savedOrderId: string | null = null;
+    let userEmail: string | null = null;
+
+    await this.dataSource.transaction(async (manager) => {
       // 1. Kiểm tra trạng thái concert
+      console.log('TX STEP 1: before assertPublishedAndSaleOpen');
       await this.concertsService.assertPublishedAndSaleOpen(dto.concertId);
+      console.log('TX STEP 2: after assertPublishedAndSaleOpen');
 
-      // 2. Lock kho vé (Pessimistic Write)
-      const ticketType = await this.ticketTypesService.holdInventory(
-        dto.ticketTypeId, 
-        dto.quantity, 
-        manager
-      );
+      // 2. Lock kho vé
 
-      // 3. Khởi tạo và lưu đơn hàng trong transaction
+      console.log('TX STEP 3: before holdInventory');
+      const ticketType = await this.ticketTypesService.holdInventory(dto.ticketTypeId, dto.quantity, manager);
+      console.log('TX STEP 4: after holdInventory', ticketType);
+
+      // 3. Kiểm tra limit người dùng
+      console.log('TX STEP 5: before existingOrders query');
+      const existingOrders = await manager.createQueryBuilder(Order, 'order')
+        .select('SUM(order.quantity)', 'total')
+        .where('order.userId = :userId', { userId })
+        .andWhere('order.ticketTypeId = :ticketTypeId', { ticketTypeId: dto.ticketTypeId })
+        .andWhere(
+          '(order.status = :paidStatus OR (order.status = :pendingStatus AND order.expiresAt > :now))',
+          {
+            paidStatus: OrderStatus.PAID,
+            pendingStatus: OrderStatus.PENDING_PAYMENT,
+            now: new Date(),
+          }
+        )
+        .getRawOne();
+      console.log('TX STEP 6: after existingOrders query', existingOrders);
+
+      
+      const boughtQuantity = parseInt(existingOrders?.total || '0', 10);
+      if (boughtQuantity + dto.quantity > ticketType.maxPerUser) {
+        throw new ConflictException(`Bạn chỉ được mua tối đa ${ticketType.maxPerUser} vé.`);
+      }
+
+      // 4. KHỞI TẠO ĐƠN HÀNG TRƯỚC KHI LƯU
       const order = new Order();
       order.userId = userId;
       order.concertId = dto.concertId;
@@ -44,67 +90,171 @@ export class OrdersService {
       order.quantity = dto.quantity;
       order.totalAmount = Number(ticketType.price) * dto.quantity;
       order.status = OrderStatus.PENDING_PAYMENT;
+      order.expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-      const savedOrder = await manager.save(order);
+      // LƯU ĐƠN HÀNG
+      console.log('TX STEP 7: before save order');
+      savedOrder = await manager.save(order);
+      console.log('TX STEP 8: after save order', savedOrder);
+      savedOrderId = savedOrder.id;
 
-      // 4. Enqueue job hủy đơn tự động sau 15 phút
-      await this.ordersQueue.add('expire-order', 
-        { orderId: savedOrder.id }, 
-        { delay: 15 * 60 * 1000 }
-      );
+      // Lấy email user trong transaction
+      const user = await manager.findOneBy(User, { id: userId });
+      userEmail = user?.email ?? null;
 
-      return savedOrder;
+      // 5. Enqueue job
+      console.log('TX STEP 9: before ordersQueue.add');
+      await this.ordersQueue.add('expire-order', { orderId: savedOrder.id }, { delay: 10 * 60 * 1000 });
+      console.log('TX STEP 10: after ordersQueue.add');
+      await this.cache.del(`concert:${dto.concertId}:availability`);
     });
+
+    // GỬI MAIL SAU TRANSACTION
+    if (userEmail && savedOrderId) {
+      this.mailService.sendEmail({
+      to: userEmail,
+      subject: '[TicketBox] Order created',
+      html: `
+        <h2>TicketBox Order Created</h2>
+        <p>Đơn hàng của bạn đã được tạo.</p>
+        <p>Order ID: ${savedOrderId}</p>
+      `,
+  text: `TicketBox Order Created\nOrder ID: ${savedOrderId}`,
+}).catch((err: Error) =>
+  this.logger.error(`Gửi mail thất bại: ${err.message}`),
+);
+    }
+
+    return savedOrder!;
   }
 
-  async findById(id: string) {
-    const order = await this.orderRepo.findOneBy({ id });
-    if (!order) throw new NotFoundException('Order not found');
-    return order;
+  async findOne(id: string): Promise<Order> {
+  const order = await this.orderRepo
+    .createQueryBuilder('o')
+    .where('o.id::text = :id', { id })
+    .getOne();
+
+  if (!order) {
+    throw new NotFoundException('Order not found');
   }
 
-  async findByUser(userId: string) {
+  const user = await this.dataSource
+    .getRepository(User)
+    .createQueryBuilder('u')
+    .where('u.id::text = :userId', { userId: order.userId })
+    .getOne();
+
+  if (user) {
+    (order as any).user = user;
+  }
+
+  return order;
+}
+  async findByUser(userId: string): Promise<Order[]> {
     return await this.orderRepo.findBy({ userId });
   }
 
-  /**
-   * Được gọi khi Payment Gateway báo thanh toán thành công
-   */
-  async markPaid(orderId: string, paymentId: string) {
-    return await this.dataSource.transaction(async (manager) => {
-      const order = await manager.findOneBy(Order, { id: orderId });
+  async findByUserWithFilters(userId: string, query: OrderQueryDto) {
+    const { page = 1, limit = 10, status, concertId } = query;
+    const qb = this.orderRepo.createQueryBuilder('order')
+      .where('order.userId = :userId', { userId })
+      .orderBy('order.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (status) qb.andWhere('order.status = :status', { status });
+    if (concertId) qb.andWhere('order.concertId = :concertId', { concertId });
+
+    const [data, total] = await qb.getManyAndCount();
+    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async findAllWithFilters(query: OrderQueryDto) {
+    const { page = 1, limit = 10, status, concertId } = query;
+    const qb = this.orderRepo.createQueryBuilder('order')
+      .orderBy('order.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (status) qb.andWhere('order.status = :status', { status });
+    if (concertId) qb.andWhere('order.concertId = :concertId', { concertId });
+
+    const [data, total] = await qb.getManyAndCount();
+    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async markPaid(orderId: string, paymentId: string, manager?: EntityManager): Promise<Order> {
+    const run = async (m: EntityManager) => {
+      const order = await m
+        .createQueryBuilder(Order, 'o')
+        .leftJoinAndSelect('o.user', 'u')
+        .where('o.id::text = :id', { id: orderId })
+        .getOne();
+      
       if (!order) throw new NotFoundException('Order not found');
+
       if (order.status !== OrderStatus.PENDING_PAYMENT) {
         throw new ConflictException('Order already processed');
       }
 
       order.status = OrderStatus.PAID;
-      await manager.save(order);
-
-      // Xác nhận chuyển trạng thái vé từ "giữ" sang "bán thành công"
-      await this.ticketTypesService.confirmInventory(order.ticketTypeId, order.quantity, manager);
-      
+      await m.save(order);
+      await this.ticketTypesService.confirmInventory(order.ticketTypeId, order.quantity, m);
+      await this.cache.del(`concert:${order.concertId}:availability`);
       return order;
-    });
+    };
+
+    if (manager) {
+      return await run(manager);
+    } else {
+      return await this.dataSource.transaction(async (m) => {
+        return await run(m);
+      });
+    }
   }
 
   /**
    * Xử lý khi đơn hàng quá hạn thanh toán
    */
-  async expireOrder(orderId: string) {
+  async expireOrder(orderId: string): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
-      const order = await manager.findOneBy(Order, { id: orderId });
+      const order = await manager
+        .createQueryBuilder(Order, 'o')
+        .where('o.id::text = :id', { id: orderId })
+        .getOne();
       if (order && order.status === OrderStatus.PENDING_PAYMENT) {
         order.status = OrderStatus.EXPIRED;
         await manager.save(order);
-        
-        // Hoàn lại vé vào kho
         await this.ticketTypesService.releaseInventory(order.ticketTypeId, order.quantity, manager);
+        await this.cache.del(`concert:${order.concertId}:availability`);
+        this.logger.log({ msg: 'Audit: Order expired', orderId: order.id });
       }
     });
   }
+  /**
+   * Xử lý khi payment thất bại
+   */
+  async markPaymentFailed(orderId: string, manager?: EntityManager): Promise<void> {
+    const run = async (m: EntityManager) => {
+      const order = await m
+        .createQueryBuilder(Order, 'o')
+        .where('o.id::text = :id', { id: orderId })
+        .getOne();
+      if (order && order.status === OrderStatus.PENDING_PAYMENT) {
+        order.status = OrderStatus.PAYMENT_FAILED;
+        await m.save(order);
+        await this.ticketTypesService.releaseInventory(order.ticketTypeId, order.quantity, m);
+        await this.cache.del(`concert:${order.concertId}:availability`);
+        this.logger.log({ msg: 'Audit: Payment failed', orderId: order.id });
+      }
+    };
 
-  async findOne(id: string): Promise<Order | null> {
-    return await this.orderRepo.findOne({ where: { id } });
+    if (manager) {
+      await run(manager);
+    } else {
+      await this.dataSource.transaction(async (m) => {
+        await run(m);
+      });
+    }
   }
 }

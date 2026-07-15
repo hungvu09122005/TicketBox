@@ -7,7 +7,7 @@ import { Ticket } from './entities/ticket.entity';
 export class TicketsRepository {
   constructor(
     @InjectRepository(Ticket) 
-    private readonly repo: Repository<Ticket>
+    public readonly repo: Repository<Ticket>
   ) {}
 
   // "Lộ" các phương thức cần thiết ra ngoài
@@ -19,7 +19,15 @@ export class TicketsRepository {
     return this.repo.findOne(options);
   }
 
+  findAndCount(options: FindManyOptions<Ticket>) {
+    return this.repo.findAndCount(options);
+  }
+
   update(id: string, updateData: Partial<Ticket>) {
     return this.repo.update(id, updateData);
+  }
+
+  saveTickets(tickets: Ticket[]) {
+    return this.repo.save(tickets);
   }
 }

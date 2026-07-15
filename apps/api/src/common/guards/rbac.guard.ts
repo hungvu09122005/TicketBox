@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  UnauthorizedException,
   Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -12,14 +13,15 @@ import { DataSource } from 'typeorm';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { Permission } from '../constants/permissions.enum';
 import { AuthenticatedUser } from '../decorators/current-user.decorator';
-
+import { User } from '../../modules/users/entities/user.entity';
+import { InjectDataSource } from '@nestjs/typeorm';
 /**
  * RBAC Guard — Blueprint §06-rbac-design §4.2
  *
  * Authorization flow per request:
  *   1. Read required permissions from route metadata (@RequirePermissions).
  *   2. Resolve user's permissions via Redis cache keyed by userId + permissionVersion.
- *   3. On cache miss: query PostgreSQL user_roles → role_permissions → permissions.
+ *   3. On cache miss: query PostgreSQL users -> roles -> map to permissions.
  *   4. Compare required vs. actual permissions.
  *   5. Return 403 Forbidden if insufficient.
  *
@@ -29,7 +31,11 @@ import { AuthenticatedUser } from '../decorators/current-user.decorator';
 export class RbacGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+
+    @Inject(CACHE_MANAGER) 
+    private readonly cache: Cache,
+
+    @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
 
@@ -53,8 +59,14 @@ export class RbacGuard implements CanActivate {
     let userPermissions: string[] | undefined = await this.cache.get<string[]>(cacheKey);
 
     if (!userPermissions) {
-      // Cache miss — load from PostgreSQL
-      userPermissions = await this.loadPermissionsFromDb(user.sub);
+      // Cache miss — load from PostgreSQL and map to permissions
+      const { permissions, permissionVersion } = await this.loadUserAndPermissionsFromDb(user.sub);
+      
+      if (permissionVersion > user.permissionVersion) {
+        throw new UnauthorizedException('Token permissions expired. Please login again.');
+      }
+
+      userPermissions = permissions;
       // Cache for ~5 minutes; immediate invalidation happens on RBAC change via cache.del()
       await this.cache.set(cacheKey, userPermissions, 300_000);
     }
@@ -69,16 +81,28 @@ export class RbacGuard implements CanActivate {
     return true;
   }
 
-  private async loadPermissionsFromDb(userId: string): Promise<string[]> {
-    const rows = await this.dataSource.query<{ code: string }[]>(
-      `SELECT DISTINCT p.code
-       FROM users u
-       JOIN user_roles ur ON ur.user_id = u.id
-       JOIN role_permissions rp ON rp.role_id = ur.role_id
-       JOIN permissions p ON p.id = rp.permission_id
-       WHERE u.id = $1`,
-      [userId],
-    );
-    return rows.map((r) => r.code);
+  private async loadUserAndPermissionsFromDb(userId: string): Promise<{ permissions: string[], permissionVersion: number }> {
+    const userRepo = this.dataSource.getRepository(User);
+    const user = await userRepo.findOne({
+      where: { id: userId },
+      relations: { roles: { permissions: true } },
+    });
+
+    if (!user) {
+      return { permissions: [], permissionVersion: 0 };
+    }
+
+    const permissions = new Set<string>();
+
+    for (const role of user.roles ?? []) {
+      for (const permission of role.permissions ?? []) {
+        permissions.add(permission.name as Permission);
+      }
+    }
+
+    return {
+      permissions: Array.from(permissions),
+      permissionVersion: user.permissionVersion,
+    };
   }
 }

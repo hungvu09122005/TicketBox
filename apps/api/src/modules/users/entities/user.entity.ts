@@ -8,8 +8,10 @@ import {
   Index,
   ManyToMany,
   JoinTable,
+  OneToMany
 } from 'typeorm';
 import { Role } from './role.entity';
+import { Order } from '../../orders/entities/order.entity';
 
 /**
  * User entity — Blueprint §04-database-design
@@ -59,4 +61,7 @@ export class User {
     inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' }
   })
   roles!: Role[];
+
+  @OneToMany(() => Order, (order) => order.user)
+  orders!: Order[];
 }

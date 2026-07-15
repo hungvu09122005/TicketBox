@@ -6,5 +6,17 @@ import { SeatZone } from './entities/seat-zone.entity';
 @Injectable()
 export class SeatMapRepository {
   constructor(@InjectRepository(SeatZone) private readonly repo: Repository<SeatZone>) {}
-  // TODO Phase 2: findByConcertId, upsertZone
+
+  async findByConcertId(concertId: string): Promise<SeatZone[]> {
+    return this.repo.find({ where: { concertId } });
+  }
+
+  async deleteByConcertId(concertId: string): Promise<void> {
+    await this.repo.delete({ concertId });
+  }
+
+  async createZones(zones: Partial<SeatZone>[]): Promise<SeatZone[]> {
+    const newZones = this.repo.create(zones);
+    return this.repo.save(newZones);
+  }
 }

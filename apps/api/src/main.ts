@@ -1,3 +1,4 @@
+import './config/load-env';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -31,13 +32,9 @@ async function bootstrap() {
 
   // ── CORS ─────────────────────────────────────────────────────────────────
   app.enableCors({
-    origin: [
-      process.env.FRONTEND_AUDIENCE_URL ?? 'http://localhost:3000',
-      process.env.FRONTEND_ADMIN_URL ?? 'http://localhost:3002',
-    ],
+    origin: true,
     credentials: true,
   });
-
   // ── OpenAPI / Swagger ────────────────────────────────────────────────────
   if (process.env.NODE_ENV !== 'production') {
     const config = new DocumentBuilder()
@@ -52,8 +49,18 @@ async function bootstrap() {
   }
 
   const port = process.env.API_PORT ?? 3001;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
   logger.log(`API listening on port ${port}`);
+
+  const server = app.getHttpServer();
+  const router = server._events.request._router;
+  const availableRoutes = router.stack
+    .filter((r: any) => r.route)
+    .map((r: any) => ({
+      method: Object.keys(r.route.methods)[0].toUpperCase(),
+      path: r.route.path,
+    }));
+  console.table(availableRoutes);
 }
 
 bootstrap();

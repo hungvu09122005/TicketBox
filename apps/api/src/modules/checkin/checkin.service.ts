@@ -1,42 +1,95 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
+import { JwtService } from '@nestjs/jwt';
 import { TicketsService } from '../tickets/tickets.service';
 import { Ticket, TicketStatus } from '@modules/tickets/entities/ticket.entity';
 import { CheckinLog, CheckinMode, CheckinStatus } from './entities/checkin-log.entity';
-import { CheckinDto } from './dto/checkin.dto';
+import { CheckinDevice, DeviceStatus } from './entities/checkin-device.entity';
+import {
+  CheckinDto,
+  ConfirmVipGuestDto,
+  RegisterDeviceDto,
+  SyncDatasetQueryDto,
+  VipGuestLookupQueryDto,
+} from './dto/checkin.dto';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { VipGuest } from '../csv-import/entities/vip-guest.entity';
+import { User } from '../users/entities/user.entity';
+import { Role as RoleEntity } from '../users/entities/role.entity';
+import { Role } from '../../common/constants/roles.enum';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class CheckinService {
   constructor(
     @InjectRepository(CheckinLog)
     private readonly checkinRepository: Repository<CheckinLog>,
+    @InjectRepository(CheckinDevice)
+    private readonly deviceRepository: Repository<CheckinDevice>,
     private readonly ticketsService: TicketsService,
+    private readonly jwtService: JwtService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
    * Online: Atomic verify + mark USED + write log
    */
   async validateOnline(dto: CheckinDto, user: any) {
-    console.log('--- ĐANG KẾT NỐI VÀO DB ---');
-    console.log('Host:', process.env.DATABASE_HOST);
-    console.log('DB Name:', process.env.DATABASE_NAME);
-    console.log('---------------------------');
+    if (!dto.ticket_id && !dto.qr_token) {
+      throw new ConflictException('Phải cung cấp ticket_id hoặc qr_token');
+    }
+
+    let resolvedTicketId = dto.ticket_id;
+
+    if (dto.qr_token) {
+      const ticket = await this.ticketsService.verifyQrToken(dto.qr_token);
+      resolvedTicketId = ticket.id;
+    }
+    
+    if (!resolvedTicketId) {
+      throw new ConflictException('Không thể phân giải ticket_id');
+    }
+
+    // Xác minh thiết bị để lấy concert/zone scope
+    const device = await this.deviceRepository.findOne({ where: { id: dto.device_id } });
+    if (!device || device.status !== DeviceStatus.ACTIVE) {
+      throw new UnauthorizedException('Thiết bị kiểm soát không hợp lệ hoặc đã bị thu hồi');
+    }
+
     return await this.checkinRepository.manager.transaction(async (manager) => {
-      // Dùng camelCase 'id' vì Entity Ticket định nghĩa là id
-      
       const ticket = await manager.findOne(Ticket, {
-        where: { id: dto.ticket_id },
+        where: { id: resolvedTicketId },
         lock: { mode: 'pessimistic_write' }
       });
 
       if (!ticket) throw new NotFoundException('Vé không tồn tại');
       if (ticket.status === TicketStatus.USED) throw new ConflictException('Vé đã được sử dụng.');
+      if (ticket.status !== TicketStatus.ACTIVE) throw new ConflictException('Vé không ở trạng thái hợp lệ.');
 
-      await manager.update(Ticket, dto.ticket_id, { status: TicketStatus.USED });
+      // Kiểm tra scope concert
+      if (ticket.concertId !== device.concertId) {
+        throw new ConflictException('Vé không thuộc sự kiện này.');
+      }
+
+      // Kiểm tra scope zone nếu thiết bị bị giới hạn
+      if (device.zoneId) {
+        const zone = await manager.query(
+          `SELECT ticket_type_id FROM seat_zones WHERE id = $1 LIMIT 1`,
+          [device.zoneId]
+        );
+        if (zone && zone.length > 0 && zone[0].ticket_type_id !== ticket.ticketTypeId) {
+          throw new ConflictException('Vé không hợp lệ cho khu vực / cổng này.');
+        }
+      }
+
+      await manager.update(Ticket, ticket.id, { status: TicketStatus.USED });
 
       const log = manager.create(CheckinLog, {
-        ticketId: dto.ticket_id,
+        ticketId: ticket.id,
+        staffId: user.sub,
         clientEventId: dto.client_event_id,
         deviceId: dto.device_id,
         status: CheckinStatus.ACCEPTED,
@@ -50,49 +103,374 @@ export class CheckinService {
   /**
    * Offline sync: Idempotent processing of offline logs
    */
-  async processSyncBatch(logs: CheckinDto[]) {
+  async processSyncBatch(logs: CheckinDto[], staffId?: string) {
     const results = [];
     
     for (const log of logs) {
-      // Dùng camelCase 'clientEventId'
-      const existing = await this.checkinRepository.findOne({ 
-        where: { clientEventId: log.client_event_id } 
+      const result = await this.checkinRepository.manager.transaction(async (manager) => {
+        // Kiểm tra Idempotent clientEventId
+        const existing = await manager.findOne(CheckinLog, { 
+          where: { clientEventId: log.client_event_id } 
+        });
+
+        if (existing) {
+          return { client_event_id: log.client_event_id, status: 'SKIPPED' };
+        }
+
+        let resolvedTicketId = log.ticket_id;
+        if (log.qr_token) {
+          try {
+            const parsed = await this.ticketsService.verifyQrToken(log.qr_token);
+            resolvedTicketId = parsed.id;
+          } catch (e) {
+            resolvedTicketId = undefined;
+          }
+        }
+
+        if (!resolvedTicketId) {
+           const newLog = manager.create(CheckinLog, {
+             ticketId: '00000000-0000-0000-0000-000000000000', // Cannot save without ticketId, but ticketId is a UUID
+             clientEventId: log.client_event_id,
+             deviceId: log.device_id,
+             staffId: staffId,
+             mode: CheckinMode.OFFLINE,
+             status: CheckinStatus.REJECTED,
+             conflictReason: 'Invalid QR Token or Ticket ID',
+             scannedAt: log.scanned_at ? new Date(log.scanned_at) : new Date(),
+             syncAt: new Date()
+           });
+           // Depending on DB constraints, dummy ticketId might fail. Better just not save log or return rejected
+           // Let's just return rejected without saving log since we can't tie it to a ticket
+           return { client_event_id: log.client_event_id, status: CheckinStatus.REJECTED, reason: 'Invalid ticket' };
+        }
+
+        // Khóa dòng vé để ngăn ngừa race condition
+        const ticket = await manager.findOne(Ticket, {
+          where: { id: resolvedTicketId },
+          lock: { mode: 'pessimistic_write' }
+        });
+
+        if (!ticket) {
+           return { client_event_id: log.client_event_id, status: CheckinStatus.REJECTED, reason: 'Vé không tồn tại' };
+        }
+
+        let status = CheckinStatus.ACCEPTED;
+        let reason = undefined;
+
+        if (ticket.status === TicketStatus.USED) {
+          status = CheckinStatus.CONFLICT;
+          reason = 'Duplicate scan';
+        } else if (ticket.status !== TicketStatus.ACTIVE) {
+          status = CheckinStatus.REJECTED;
+          reason = 'Vé không hợp lệ';
+        }
+
+        // Cập nhật trạng thái vé nếu hợp lệ
+        if (status === CheckinStatus.ACCEPTED) {
+          await manager.update(Ticket, ticket.id, { status: TicketStatus.USED });
+        }
+
+        // Tạo log
+        const newLog = manager.create(CheckinLog, {
+          ticketId: ticket.id,
+          clientEventId: log.client_event_id,
+          deviceId: log.device_id,
+          staffId: staffId,
+          mode: CheckinMode.OFFLINE,
+          status: status,
+          conflictReason: reason,
+          scannedAt: log.scanned_at ? new Date(log.scanned_at) : new Date(),
+          syncAt: new Date()
+        });
+        await manager.save(CheckinLog, newLog);
+        
+        return { client_event_id: log.client_event_id, status };
       });
-
-      if (existing) {
-        results.push({ client_event_id: log.client_event_id, status: 'SKIPPED' });
-        continue;
-      }
-
-      // Conflict logic: Kiểm tra vé đã được check-in trước đó chưa
-      const previousCheckin = await this.checkinRepository.findOne({
-        where: { ticketId: log.ticket_id },
-        order: { scannedAt: 'ASC' }
-      });
-
-      const status = previousCheckin ? CheckinStatus.CONFLICT : CheckinStatus.ACCEPTED;
       
-      // Sửa đoạn tạo newLog thành:
-      const newLog = this.checkinRepository.create({
-        ticketId: log.ticket_id,
-        clientEventId: log.client_event_id,
-        deviceId: log.device_id,
-        mode: CheckinMode.OFFLINE,
-        tatus: status,
-  // Dùng undefined thay vì null cho các trường optional trong TypeORM
-        conflictReason: status === CheckinStatus.CONFLICT ? 'Duplicate scan' : undefined,
-        syncAt: new Date()
-      } as any); // Thêm "as any" để bypass lỗi check property nghiêm ngặt tạm thời
-      
-      results.push(await this.checkinRepository.save(newLog));
+      results.push(result);
     }
     return results;
   }
 
-  /**
-   * Get sync dataset for offline devices
+
+    /**
+   * List concerts available for check-in staff.
+   * This is an internal check-in list, so it can include draft/local test concerts.
    */
-  async getSyncDataset() {
-    return await this.ticketsService.findValidTickets();
+  async findCheckinConcerts() {
+    return await this.dataSource.query(`
+      SELECT
+        id,
+        name,
+        venue,
+        status,
+        starts_at AS "startsAt",
+        ends_at AS "endsAt",
+        sale_starts_at AS "saleStartsAt",
+        sale_ends_at AS "saleEndsAt"
+      FROM concerts
+      ORDER BY
+        CASE
+          WHEN status = 'PUBLISHED' THEN 0
+          WHEN status = 'DRAFT' THEN 1
+          ELSE 2
+        END,
+        starts_at ASC NULLS LAST,
+        name ASC
+    `);
+  }
+
+  /**
+   * Register a device for offline checkin
+   */
+  async registerDevice(dto: RegisterDeviceDto, staffId: string) {
+    // Save device to DB
+    const device = this.deviceRepository.create({
+      name: dto.deviceName,
+      staffId,
+      concertId: dto.concertId,
+      zoneId: dto.zoneId,
+      gate: dto.gate,
+      status: DeviceStatus.ACTIVE,
+    });
+    await this.deviceRepository.save(device);
+
+    // Generate offline JWT token
+    const payload = {
+      sub: device.id,
+      concertId: device.concertId,
+      zoneId: device.zoneId,
+      gate: device.gate,
+    };
+    const token = this.jwtService.sign(payload);
+
+    return {
+      deviceId: device.id,
+      token,
+    };
+  }
+
+  /**
+   * Get sync dataset for offline devices using device token
+   */
+  async getSyncDataset(query: SyncDatasetQueryDto) {
+    let payload;
+    try {
+      payload = this.jwtService.verify(query.deviceToken);
+    } catch (e) {
+      throw new UnauthorizedException('Invalid or expired device token');
+    }
+
+    const { sub: deviceId, concertId, zoneId } = payload;
+
+    // Verify device is still ACTIVE in DB
+    const device = await this.deviceRepository.findOne({ where: { id: deviceId } });
+    if (!device || device.status !== DeviceStatus.ACTIVE) {
+      throw new UnauthorizedException('Device is revoked or not found');
+    }
+
+    let ticketTypeId: string | undefined;
+
+    // If zoneId is provided, restrict dataset to that zone's ticketTypeId
+    if (zoneId) {
+      const zone = await this.dataSource.manager.query(
+        `SELECT ticket_type_id FROM seat_zones WHERE id = $1 LIMIT 1`,
+        [zoneId]
+      );
+      if (zone && zone.length > 0) {
+        ticketTypeId = zone[0].ticket_type_id;
+      }
+    }
+
+    const tickets = await this.ticketsService.findValidTicketsForSync(concertId, ticketTypeId);
+    const vipGuests = await this.dataSource.query(
+      `
+        SELECT
+          vg.id,
+          vg.concert_id AS "concertId",
+          vg.ticket_type_id AS "ticketTypeId",
+          vg.ticket_id AS "ticketId",
+          vg.email,
+          vg.phone,
+          vg.name,
+          t.status AS "ticketStatus",
+          t.manual_code AS "manualCode"
+        FROM vip_guests vg
+        LEFT JOIN tickets t ON t.id::text = vg.ticket_id
+        WHERE vg.concert_id = $1
+          AND ($2::text IS NULL OR vg.ticket_type_id = $2::text)
+        ORDER BY vg.name ASC
+      `,
+      [concertId, ticketTypeId ?? null],
+    );
+
+    return {
+      version: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      tickets,
+      vipGuests,
+    };
+  }
+
+  async searchVipGuests(query: VipGuestLookupQueryDto) {
+    if (query.deviceId) {
+      await this.assertActiveDevice(query.deviceId, query.concertId);
+    }
+
+    const keyword = query.q?.trim();
+    const likeKeyword = keyword ? `%${keyword}%` : null;
+
+    const items = await this.dataSource.query(
+      `
+        SELECT
+          vg.id,
+          vg.concert_id AS "concertId",
+          vg.ticket_type_id AS "ticketTypeId",
+          vg.ticket_id AS "ticketId",
+          vg.email,
+          vg.phone,
+          vg.name,
+          t.status AS "ticketStatus",
+          t.manual_code AS "manualCode"
+        FROM vip_guests vg
+        LEFT JOIN tickets t ON t.id::text = vg.ticket_id
+        WHERE vg.concert_id = $1
+          AND (
+            $2::text IS NULL
+            OR vg.name ILIKE $2
+            OR vg.email ILIKE $2
+            OR COALESCE(vg.phone, '') ILIKE $2
+          )
+        ORDER BY vg.name ASC
+        LIMIT 20
+      `,
+      [query.concertId, likeKeyword],
+    );
+
+    return {
+      count: items.length,
+      items,
+    };
+  }
+
+  async confirmVipGuest(dto: ConfirmVipGuestDto, user: any) {
+    const device = await this.assertActiveDevice(dto.device_id);
+
+    return await this.checkinRepository.manager.transaction(async (manager) => {
+      const guest = await manager.findOne(VipGuest, {
+        where: { id: dto.guestId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!guest) {
+        throw new NotFoundException('Khach VIP khong ton tai');
+      }
+
+      if (guest.concertId !== device.concertId) {
+        throw new ConflictException('Khach VIP khong thuoc su kien cua thiet bi nay.');
+      }
+
+      let ticket = guest.ticketId
+        ? await manager.findOne(Ticket, {
+            where: { id: guest.ticketId },
+            lock: { mode: 'pessimistic_write' },
+          })
+        : null;
+
+      if (!ticket) {
+        const audienceUser = await this.ensureAudienceUserForGuest(manager, guest);
+        ticket = await this.ticketsService.issueVipTicket(
+          {
+            userId: audienceUser.id,
+            concertId: guest.concertId,
+            ticketTypeId: guest.ticketTypeId,
+          },
+          manager,
+        );
+
+        guest.ticketId = ticket.id;
+        await manager.save(VipGuest, guest);
+      }
+
+      if (ticket.status === TicketStatus.USED) {
+        throw new ConflictException('Khach VIP nay da duoc xac nhan vao cong.');
+      }
+
+      if (ticket.status !== TicketStatus.ACTIVE) {
+        throw new ConflictException('Ve VIP hien khong o trang thai hop le.');
+      }
+
+      if (device.zoneId) {
+        const zone = await manager.query(
+          `SELECT ticket_type_id FROM seat_zones WHERE id = $1 LIMIT 1`,
+          [device.zoneId],
+        );
+        if (zone && zone.length > 0 && zone[0].ticket_type_id !== ticket.ticketTypeId) {
+          throw new ConflictException('Khach VIP khong hop le cho khu vuc / cong nay.');
+        }
+      }
+
+      await manager.update(Ticket, ticket.id, { status: TicketStatus.USED });
+
+      const log = manager.create(CheckinLog, {
+        ticketId: ticket.id,
+        staffId: user.sub,
+        clientEventId: dto.client_event_id,
+        deviceId: dto.device_id,
+        status: CheckinStatus.ACCEPTED,
+        mode: CheckinMode.ONLINE,
+        scannedAt: dto.scanned_at ? new Date(dto.scanned_at) : new Date(),
+      });
+      await manager.save(CheckinLog, log);
+
+      return {
+        guestId: guest.id,
+        ticketId: ticket.id,
+        status: CheckinStatus.ACCEPTED,
+      };
+    });
+  }
+
+  private async assertActiveDevice(deviceId: string, concertId?: string) {
+    const device = await this.deviceRepository.findOne({ where: { id: deviceId } });
+    if (!device || device.status !== DeviceStatus.ACTIVE) {
+      throw new UnauthorizedException('Thiet bi kiem soat khong hop le hoac da bi thu hoi');
+    }
+
+    if (concertId && device.concertId !== concertId) {
+      throw new ConflictException('Thiet bi khong thuoc su kien duoc yeu cau.');
+    }
+
+    return device;
+  }
+
+  private async ensureAudienceUserForGuest(manager: any, guest: VipGuest): Promise<User> {
+    let audienceUser = await manager.findOne(User, { where: { email: guest.email } });
+    if (audienceUser) {
+      return audienceUser;
+    }
+
+    const audienceRole = await manager.findOne(RoleEntity, {
+      where: { name: Role.AUDIENCE },
+    });
+
+    if (!audienceRole) {
+      throw new NotFoundException('AUDIENCE role not found in database');
+    }
+
+    const passwordHash = await bcrypt.hash(
+      crypto.randomBytes(16).toString('hex'),
+      12,
+    );
+
+    audienceUser = manager.create(User, {
+      email: guest.email,
+      name: guest.name,
+      passwordHash,
+      isActive: true,
+      roles: [audienceRole],
+    });
+
+    return await manager.save(User, audienceUser);
   }
 }

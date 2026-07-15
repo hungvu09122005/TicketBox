@@ -6,12 +6,12 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "moduleDetection": "force",
-    
-    // THÊM ĐOẠN NÀY ĐỂ KẾT NỐI CÁC APP
+    "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
       "@api/*": ["apps/api/src/*"],
-      "@mobile/*": ["mobile-checkin/src/*"]
+      "@mobile/*": ["mobile-checkin/src/*"],
+      "@nestjs/*": ["node_modules/@nestjs/*"]
     }
   }
 }

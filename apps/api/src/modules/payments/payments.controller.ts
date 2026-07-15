@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Param, Query, UseGuards, Headers, Req, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/guards/rbac.guard';
@@ -6,25 +6,75 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Permission } from '../../common/constants/permissions.enum';
 import { PaymentsService } from './payments.service';
+import { RateLimitPolicy } from '../../common/decorators/rate-limit.decorator';
+import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
+import type { Request } from 'express';
 
 @ApiTags('payments')
-@Controller('api/v1/payments')
+@ApiBearerAuth()
+@Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   /** Authenticated — Audience initiates payment for a held order. */
   @Post(':orderId/initiate')
-  @UseGuards(JwtAuthGuard, RbacGuard)
+  @UseGuards(JwtAuthGuard, RbacGuard, RateLimitGuard)
   @RequirePermissions(Permission.ORDER_CREATE)
-  initiatePayment(@Param('orderId') orderId: string, @CurrentUser() user: AuthenticatedUser) {
-    // TODO Phase 3 — returns { paymentUrl }
-    return { message: 'Not implemented — Phase 3' };
+  @RateLimitPolicy('payment')
+  @HttpCode(200)
+  initiatePayment(
+    @Param('orderId') orderId: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: Request,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.paymentsService.initiatePayment(
+      orderId,
+      user.sub,
+      idempotencyKey ?? `${user.sub}:${orderId}`,
+      request.ip ?? '127.0.0.1',
+    );
   }
 
   /** Public — IPN callback from VNPAY. Signature verified inside service, NOT in controller. */
   @Get('callback/vnpay')
   handleVnpayCallback(@Query() query: Record<string, string>) {
-    // TODO Phase 3 — no auth guard; service verifies VNPAY HMAC signature
-    return { message: 'Not implemented — Phase 3' };
+    return this.paymentsService.handleVnpayCallback(query);
+  }
+
+  /** GET /payments/orders/:orderId/status — Check payment status */
+  @Get('orders/:orderId/status')
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @RequirePermissions(Permission.ORDER_READ_OWN) // Assuming user can check their own order
+  getPaymentStatus(
+    @Param('orderId') orderId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    return this.paymentsService.getPaymentStatus(orderId, user.sub, isAdmin);
+  }
+
+  /** GET /payments/orders/:orderId/history — Check payment history */
+  @Get('orders/:orderId/history')
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @RequirePermissions(Permission.REPORT_VIEW)
+  getPaymentHistory(
+    @Param('orderId') orderId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    return this.paymentsService.getPaymentHistory(orderId, user.sub, isAdmin);
+  }
+
+  /** GET /payments/orders/:orderId/audit — Inspect callback payloads and reconciliation data */
+  @Get('orders/:orderId/audit')
+  @UseGuards(JwtAuthGuard, RbacGuard)
+  @RequirePermissions(Permission.REPORT_VIEW)
+  getPaymentAudit(
+    @Param('orderId') orderId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const isAdmin = user.roles.includes('SYSTEM_ADMIN');
+    return this.paymentsService.getPaymentAudit(orderId, user.sub, isAdmin);
   }
 }

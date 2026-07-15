@@ -11,6 +11,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # - ./db/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ticketbox"]
       interval: 10s
@@ -32,41 +33,74 @@ services:
       timeout: 5s
       retries: 5
 
-  minio:
-    image: minio/minio:latest
-    container_name: ticketbox-minio
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile # Đường dẫn tới Dockerfile của API
+    container_name: ticketbox-api
     restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ticketbox_minio
-      MINIO_ROOT_PASSWORD: ticketbox_minio_dev
     ports:
-      - "9000:9000"   # S3 API
-      - "9001:9001"   # Web Console
-    volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - "3001:3001"
+    env_file:
+      - ../.env
+    environment:
+      NODE_ENV: production
+      API_PORT: 3001
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: ticketbox
+      DATABASE_PASSWORD: ticketbox_dev
+      DATABASE_NAME: ticketbox
+      DATABASE_URL: postgresql://ticketbox:ticketbox_dev@postgres:5432/ticketbox
 
-  # MinIO bucket initializer — runs once and exits
-  minio-init:
-    image: minio/mc:latest
-    container_name: ticketbox-minio-init
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
+
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: ticketbox_minio
+      MINIO_SECRET_KEY: ticketbox_minio_dev
+      MINIO_BUCKET_NAME: ticketbox
+      FRONTEND_AUDIENCE_URL: http://localhost:3000
+      FRONTEND_ADMIN_URL: http://localhost:3002
     depends_on:
-      minio:
+      postgres:
         condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-        mc alias set local http://minio:9000 ticketbox_minio ticketbox_minio_dev;
-        mc mb --ignore-existing local/ticketbox;
-        mc policy set private local/ticketbox;
-        echo 'Bucket ready.';
-      "
+      redis:
+        condition: service_healthy
 
+  audience-web:
+    build:
+      context: ..
+      dockerfile: apps/audience-web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+    container_name: ticketbox-audience-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+    depends_on:
+      - api
+
+  admin-web:
+    build:
+      context: ..
+      dockerfile: apps/admin-web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+    container_name: ticketbox-admin-web
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+    depends_on:
+      - api
+  
 volumes:
   postgres_data:
   redis_data:
-  minio_data:

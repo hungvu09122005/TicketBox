@@ -1,0 +1,119 @@
+import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Client } from 'minio';
+import {
+  ObjectStoragePort,
+  StoredObjectInfo,
+  UploadParams,
+} from '../../../common/ports/object-storage.port';
+import { Readable } from 'stream';
+
+type S3Config = {
+  endpoint: string;
+  port: number;
+  useSsl: boolean;
+  accessKey: string;
+  secretKey: string;
+  bucketName: string;
+};
+
+@Injectable()
+export class S3ObjectStorageAdapter implements ObjectStoragePort {
+  private readonly client: Client;
+  private readonly bucketName: string;
+  private bucketReady = false;
+
+  constructor(configService: ConfigService) {
+    const s3 = configService.get<S3Config>('app.s3');
+    if (!s3) {
+      throw new Error('Missing S3 configuration.');
+    }
+
+    this.bucketName = s3.bucketName;
+    this.client = new Client({
+      endPoint: s3.endpoint,
+      port: s3.port,
+      useSSL: s3.useSsl,
+      accessKey: s3.accessKey,
+      secretKey: s3.secretKey,
+      region: s3.region,
+    });
+  }
+
+  async upload(params: UploadParams): Promise<string> {
+    await this.ensureBucket();
+    await this.client.putObject(
+      this.bucketName,
+      params.objectKey,
+      params.buffer,
+      params.size,
+      { 'Content-Type': params.contentType },
+    );
+    return params.objectKey;
+  }
+
+  async getPresignedUrl(objectKey: string, expiresInSeconds = 3600): Promise<string> {
+    await this.ensureBucket();
+    return this.client.presignedGetObject(this.bucketName, objectKey, expiresInSeconds);
+  }
+
+  async download(objectKey: string): Promise<Buffer> {
+    await this.ensureBucket();
+    const stream = await this.client.getObject(this.bucketName, objectKey);
+    return this.streamToBuffer(stream);
+  }
+
+  async downloadStream(objectKey: string): Promise<Readable> {
+    await this.ensureBucket();
+    const stream = await this.client.getObject(this.bucketName, objectKey);
+    return stream as Readable;
+  }
+
+  async delete(objectKey: string): Promise<void> {
+    await this.ensureBucket();
+    await this.client.removeObject(this.bucketName, objectKey);
+  }
+
+  async listObjects(prefix: string): Promise<StoredObjectInfo[]> {
+    await this.ensureBucket();
+
+    return await new Promise((resolve, reject) => {
+      const objects: StoredObjectInfo[] = [];
+      const stream = this.client.listObjectsV2(this.bucketName, prefix, true);
+
+      stream.on('data', (item) => {
+        if (!item?.name) {
+          return;
+        }
+
+        objects.push({
+          objectKey: item.name,
+          lastModified: item.lastModified,
+          size: item.size,
+        });
+      });
+      stream.on('error', reject);
+      stream.on('end', () => resolve(objects));
+    });
+  }
+
+  private async ensureBucket(): Promise<void> {
+    if (this.bucketReady) return;
+
+    const exists = await this.client.bucketExists(this.bucketName);
+    if (!exists) {
+      await this.client.makeBucket(this.bucketName);
+    }
+
+    this.bucketReady = true;
+  }
+
+  private streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      stream.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
+      stream.on('error', reject);
+    });
+  }
+}
