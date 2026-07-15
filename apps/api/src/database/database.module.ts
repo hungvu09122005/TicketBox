@@ -44,7 +44,7 @@ import { BootstrapService } from './bootstrap.service';
         join(process.cwd(), 'src', 'migrations', '1782470000000-AddTargetTypeToAiBioRequests.{ts,js}'),
         join(process.cwd(), 'src', 'migrations', '1782480000000-DropLegacyArtistIdFromAiBioRequests.{ts,js}'),
       ],
-      logging: config.get<string>('app.nodeEnv') === 'development',
+      logging: process.env.DATABASE_LOGGING === 'true' ? true : ['error'],
       autoLoadEntities: true,
       // Keep the runtime migration history aligned with src/database/seed.ts,
       // which uses TypeORM's default `migrations` table.

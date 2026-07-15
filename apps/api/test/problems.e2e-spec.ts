@@ -1,3 +1,4 @@
+process.env.RATE_LIMIT_ORDER_LIMIT = '5';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';

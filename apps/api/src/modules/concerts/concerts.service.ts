@@ -100,10 +100,10 @@ export class ConcertsService {
       throw new NotFoundException('Concert not available for purchase.');
     }
     const now = new Date();
-    if (concert.startsAt && now < concert.startsAt) {
+    if (concert.saleStartsAt && now < concert.saleStartsAt) {
       throw new ForbiddenException('Sale has not started yet.');
     }
-    if (concert.endsAt && now > concert.endsAt) {
+    if (concert.saleEndsAt && now > concert.saleEndsAt) {
       throw new ForbiddenException('Sale has ended.');
     }
     return concert;
@@ -242,6 +242,13 @@ export class ConcertsService {
   }
 
   async create(organizerId: string, dto: CreateConcertDto): Promise<Concert> {
+    if (dto.startsAt && dto.endsAt && new Date(dto.endsAt).getTime() <= new Date(dto.startsAt).getTime()) {
+      throw new BadRequestException('Thời gian kết thúc concert phải sau thời gian bắt đầu.');
+    }
+    if (dto.saleStartsAt && dto.saleEndsAt && new Date(dto.saleEndsAt).getTime() <= new Date(dto.saleStartsAt).getTime()) {
+      throw new BadRequestException('Thời gian kết thúc bán vé phải sau thời gian bắt đầu bán vé.');
+    }
+
     const { artistIds, ...concertData } = dto;
     const artists = artistIds.map((id) => ({ id }) as any);
     const concert = await this.concertsRepository.create({
@@ -257,6 +264,19 @@ export class ConcertsService {
     console.log('DEBUG UPDATE CONCERT RECEIVED DTO:', JSON.stringify(dto));
     const concert = await this.checkOwnership(id, organizerId, isAdmin);
     const { artistIds, ...updateData } = dto;
+
+    const currentStartsAt = updateData.startsAt !== undefined ? updateData.startsAt : concert.startsAt;
+    const currentEndsAt = updateData.endsAt !== undefined ? updateData.endsAt : concert.endsAt;
+    if (currentStartsAt && currentEndsAt && new Date(currentEndsAt).getTime() <= new Date(currentStartsAt).getTime()) {
+      throw new BadRequestException('Thời gian kết thúc concert phải sau thời gian bắt đầu.');
+    }
+
+    const currentSaleStartsAt = updateData.saleStartsAt !== undefined ? updateData.saleStartsAt : concert.saleStartsAt;
+    const currentSaleEndsAt = updateData.saleEndsAt !== undefined ? updateData.saleEndsAt : concert.saleEndsAt;
+    if (currentSaleStartsAt && currentSaleEndsAt && new Date(currentSaleEndsAt).getTime() <= new Date(currentSaleStartsAt).getTime()) {
+      throw new BadRequestException('Thời gian kết thúc bán vé phải sau thời gian bắt đầu bán vé.');
+    }
+
     const scalarUpdates = Object.fromEntries(
       Object.entries(updateData).filter(([, value]) => value !== undefined),
     );

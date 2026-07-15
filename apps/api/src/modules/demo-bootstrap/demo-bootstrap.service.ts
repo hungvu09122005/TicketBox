@@ -33,7 +33,7 @@ export class DemoBootstrapService {
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly redisService: RedisService,
-  ) {}
+  ) { }
 
   async startBootstrap(jobId: string, options: any): Promise<void> {
     const redis = this.redisService.getClient();

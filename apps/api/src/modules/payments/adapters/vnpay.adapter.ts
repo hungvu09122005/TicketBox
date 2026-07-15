@@ -97,11 +97,15 @@ export class VnpayAdapter implements PaymentPort {
   async verifyCallback(rawQuery: Record<string, string>): Promise<PaymentCallbackResult | null> {
     const hashSecret = this.configService.get<string>('VNPAY_HASH_SECRET', '').trim();
     
-    let vnp_Params = { ...rawQuery };
-    const secureHash = vnp_Params['vnp_SecureHash'];
+    const secureHash = rawQuery['vnp_SecureHash'];
     
-    delete vnp_Params['vnp_SecureHash'];
-    delete vnp_Params['vnp_SecureHashType'];
+    // Filter only parameters starting with 'vnp_' and exclude the hash keys
+    const vnp_Params: Record<string, string> = {};
+    for (const key of Object.keys(rawQuery)) {
+      if (key.startsWith('vnp_') && key !== 'vnp_SecureHash' && key !== 'vnp_SecureHashType') {
+        vnp_Params[key] = rawQuery[key];
+      }
+    }
 
     const sortedParams = this.sortObject(vnp_Params);
     

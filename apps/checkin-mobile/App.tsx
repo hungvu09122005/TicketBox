@@ -39,8 +39,7 @@ import {
   getOfflineDatasetFreshness,
   verifyOfflineQrToken,
 } from './services/offlineQr';
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.1.17:3001/api/v1';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const CameraView = ExpoCameraView as any;
 const SCAN_COOLDOWN_SECONDS = 10;
 
